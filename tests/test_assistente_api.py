@@ -2,7 +2,8 @@
 """Testes API e UX do assistente (Fase 4 — FR-4.*, UX-2.*)."""
 import pytest
 
-from assistente import HTML, app
+from assistente import app
+from tests.front_assistente import HTML
 
 CAMPOS_API = ("arquivo", "data", "tipo", "tamanho_kb", "preview", "com_sua_voz")
 

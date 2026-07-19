@@ -158,7 +158,7 @@ def test_transcricao_grande_indica_truncada_ou_map_reduce(tmp_path, monkeypatch,
 
 
 def test_html_inclui_token_em_fetch():
-    from assistente import HTML
+    from tests.front_assistente import HTML
 
     assert "X-Transkriptor-Token" in HTML
     assert "token" in HTML.lower()

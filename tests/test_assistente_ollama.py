@@ -13,6 +13,7 @@ def fake_ollama(monkeypatch):
     url = fake.start()
     monkeypatch.setattr("assistente.OLLAMA_URL", url)
     monkeypatch.setattr("config.OLLAMA_URL", url)
+    monkeypatch.setattr("assistente_ollama._cache_ctx", {})
     yield fake
     fake.stop()
 
@@ -39,7 +40,7 @@ def test_orcamento_chars():
 
 def test_api_chat_envia_num_ctx(fake_ollama, tmp_path, monkeypatch):
     monkeypatch.setattr("assistente.PASTA_TRANSCRICOES", str(tmp_path))
-    monkeypatch.setattr("assistente._cache_ctx", {})
+    monkeypatch.setattr("assistente_ollama._cache_ctx", {})
     (tmp_path / "r.txt").write_text("ola reuniao curta", encoding="utf-8")
     client = app.test_client()
     r = client.post(
@@ -76,7 +77,7 @@ def test_dividir_preserva_linhas():
 
 def test_chat_longo_prefixo(fake_ollama, tmp_path, monkeypatch):
     monkeypatch.setattr("assistente.PASTA_TRANSCRICOES", str(tmp_path))
-    monkeypatch.setattr("assistente._cache_ctx", {"m1": 512})
+    monkeypatch.setattr("assistente_ollama._cache_ctx", {"m1": 512})
     # orçamento pequeno
     monkeypatch.setattr("assistente.orcamento_chars", lambda ctx: 50)
     (tmp_path / "longa.txt").write_text("palavra " * 200, encoding="utf-8")

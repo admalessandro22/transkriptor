@@ -2,7 +2,8 @@
 """Badge 'com sua voz' no assistente (Fase 7 — FR-7.11)."""
 import pytest
 
-from assistente import HTML, app, transcricao_contem_voce
+from assistente import app, transcricao_contem_voce
+from tests.front_assistente import HTML
 
 
 def test_transcricao_contem_voce_detecta_rotulo():

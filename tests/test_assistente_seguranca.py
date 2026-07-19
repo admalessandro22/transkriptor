@@ -2,7 +2,8 @@
 """Testes de segurança do assistente (Fase 1 — SEC-1, FR-1.3/1.4)."""
 import pytest
 
-from assistente import HTML, app, caminho_transcricao_seguro
+from assistente import app, caminho_transcricao_seguro
+from tests.front_assistente import HTML
 
 
 def test_rejeita_path_traversal(tmp_path, monkeypatch):

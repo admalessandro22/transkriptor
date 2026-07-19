@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transkriptor · Assistente de Reunião</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='assistente.css') }}">
+
+</head>
+<body>
+  <div class="drawer-overlay" id="drawer-overlay" aria-hidden="true"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zm7 9a7 7 0 0 1-14 0H3a9 9 0 0 0 8 8.94V23h2v-3.06A9 9 0 0 0 21 11h-2z"/></svg>
+      </div>
+      <div class="brand-text">
+        <span class="brand-name">Transkriptor</span>
+        <span class="brand-sub">Assistente de Reunião</span>
+      </div>
+    </div>
+    <div class="sidebar-body">
+      <div class="field">
+        <label class="field-label" for="transcricao" id="lbl-transcricao">Transcrição</label>
+        <div class="select-wrap"><select id="transcricao" aria-labelledby="lbl-transcricao" title="Transcrição"><option value="">Carregando...</option></select></div>
+        <div class="transcricao-meta" id="tamanho-kb" aria-live="polite"></div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="modelo" id="lbl-modelo">Modelo IA</label>
+        <div class="select-wrap"><select id="modelo" aria-labelledby="lbl-modelo" title="Modelo Ollama"></select></div>
+      </div>
+      <div class="field">
+        <div class="field-label actions-title">Ações Rápidas</div>
+        <div class="action-grid" role="group" aria-label="Ações rápidas de análise">
+          <button type="button" class="action-card" data-prompt="Atue como um analista de reuniões sênior. Elabore um resumo executivo estruturado desta reunião contendo: (1) um parágrafo de contexto sobre o propósito do encontro, (2) os temas centrais discutidos organizados por ordem de relevância, com uma breve descrição de cada um, e (3) uma conclusão com o desfecho geral. Use linguagem objetiva e profissional." aria-label="Resumir reunião"><span class="action-icon" aria-hidden="true">📝</span><span class="action-label">Resumir reunião</span></button>
+          <button type="button" class="action-card" data-prompt="Atue como um analista de reuniões sênior. Extraia e liste os pontos principais discutidos nesta reunião. Para cada ponto, apresente: (1) um título curto e descritivo, (2) um resumo do que foi dito sobre o tema e (3) os participantes envolvidos na discussão (se identificáveis). Organize por ordem de importância e impacto. Formate em lista numerada." aria-label="Listar pontos principais"><span class="action-icon" aria-hidden="true">🎯</span><span class="action-label">Pontos principais</span></button>
+          <button type="button" class="action-card" data-prompt="Atue como um project manager. Identifique todas as tarefas, ações e responsabilidades mencionadas nesta reunião. Para cada item, apresente uma tabela ou lista estruturada com: (1) a tarefa/ação a ser realizada, (2) o responsável atribuído (se mencionado), (3) o prazo ou data limite (se definido), (4) o nível de prioridade (Alta/Média/Baixa) inferido pelo contexto e (5) eventuais dependências de outras tarefas. Se uma informação não foi explicitada, marque como 'a definir'. Destaque as tarefas críticas em primeiro lugar." aria-label="Listar tarefas e ações"><span class="action-icon" aria-hidden="true">✅</span><span class="action-label">Tarefas e ações</span></button>
+          <button type="button" class="action-card" data-prompt="Atue como um analista de negócios. Identifique e liste todas as decisões tomadas durante esta reunião. Para cada decisão, apresente: (1) a decisão em si de forma clara, (2) o contexto ou problema que motivou a decisão, (3) quem propôs ou defendeu a decisão (se identificável) e (4) o impacto esperado dessa decisão. Caso existam decisões que foram apenas parcialmente acordadas ou que ainda dependam de validação posterior, destaque-as separadamente como 'decisões pendentes de confirmação'." aria-label="Listar decisões tomadas"><span class="action-icon" aria-hidden="true">⚖️</span><span class="action-label">Decisões</span></button>
+          <button type="button" class="action-card" data-prompt="Atue como um project manager. Extraia e organize os próximos passos definidos nesta reunião em um plano de ação claro e acionável. Para cada item, inclua: (1) a ação concreta a ser executada, (2) o responsável (se mencionado), (3) o prazo (se definido), (4) o critério de conclusão esperado e (5) a prioridade (Alta/Média/Baixa). Agrupe as ações por prazo (curto prazo / médio prazo / longo prazo). Inclua também qualquer reunião de acompanhamento mencionada." aria-label="Listar próximos passos"><span class="action-icon" aria-hidden="true">🔜</span><span class="action-label">Próximos passos</span></button>
+          <button type="button" class="action-card" data-prompt="Atue como um consultor de riscos. Identifique todos os itens que ficaram em aberto, pendentes ou sem resolução nesta reunião. Classifique cada item como: Dúvida (pergunta sem resposta), Risco (potencial problema identificado) ou Pendência (ação que depende de algo externo). Para cada um, apresente: (1) a descrição do item, (2) o tipo de classificação, (3) o nível de criticidade (Alto/Médio/Baixo), (4) quem precisa responder ou resolver (se aplicável) e (5) uma sugestão de mitigação ou próximo passo para encerrar o item." aria-label="Listar pendências e riscos"><span class="action-icon" aria-hidden="true">⚠️</span><span class="action-label">Pendências e riscos</span></button>
+        </div>
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <span class="dot" id="ollama-dot"></span>
+      <span id="status-modelo">Conectando ao Ollama...</span>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="main-header">
+      <button type="button" id="menu-toggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="sidebar">☰</button>
+      <span class="brand-name" style="font-family:Georgia,'Times New Roman',serif;font-size:17px;color:var(--gold-bright)">Transkriptor</span>
+    </div>
+    <div id="chat" role="log" aria-live="polite" aria-label="Histórico da conversa">
+      <div class="empty-state" id="empty" role="status">
+        <div class="empty-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        </div>
+        <div class="empty-title">Como posso ajudar?</div>
+        <div class="empty-desc">Selecione uma transcrição na barra lateral e faça uma pergunta sobre a reunião, ou use uma das ações rápidas.</div>
+      </div>
+    </div>
+    <div class="input-area">
+      <div class="input-wrap">
+        <textarea id="input" placeholder="Pergunte algo sobre a reunião..." rows="1" aria-label="Campo de pergunta"></textarea>
+        <button id="send" title="Enviar" aria-label="Enviar pergunta">
+          <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>
+        </button>
+        <button id="stop" title="Parar" aria-label="Parar geração" style="display:none">
+          <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+        </button>
+      </div>
+      <div class="input-hint"><kbd>Enter</kbd> para enviar · <kbd>Shift</kbd>+<kbd>Enter</kbd> para nova linha · <button id="limpar" aria-label="Limpar conversa">Limpar conversa</button> · <button type="button" id="copiar-resposta" aria-label="Copiar última resposta da IA" disabled>Copiar resposta</button></div>
+      <div class="progress-bar" id="progress-bar" aria-hidden="true"></div>
+      <div class="timer" id="timer" style="display:none"></div>
+    </div>
+  </main>
+
+<script src="{{ url_for('static', filename='assistente.js') }}"></script>
+
+</body>
+</html>
