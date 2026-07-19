@@ -128,7 +128,7 @@ teste RED observado → implementação mínima → GREEN → gate → commit.
 - **AC (RED):** pausar sem confirmar não pausa; pausado + Meet detectado → toast único;
   novo `AppTranskriptor()` sempre inicia com detecção ativa.
 - **Commit:** `feat: exige confirmação e avisa quando a gravação está pausada`
-- **Status:** [ ]
+- **Status:** [x]
 
 **GATE F2:** `python -m pytest tests/test_gravacao_garantida.py tests/test_retencao_audio.py tests/test_retranscritor.py tests/test_transkiptor_estado.py -v`
 verde + verificação manual do plan.md (falha simulada de modelo → áudio salvo → retranscrição OK).

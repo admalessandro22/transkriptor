@@ -32,8 +32,11 @@ from notificador import (
 )
 from transkriptor_acoes import (
     confirmacao_saida_necessaria,
+    deve_confirmar_pausa,
     deve_parar_transcricao_por_meet,
+    deve_toast_meet_em_pausa,
     saida_permitida,
+    texto_deteccao_menu,
     texto_transcricao_manual,
 )
 from estado_icone import DURACAO_ERRO_ICONE, cor_por_estado, resolver_estado_icone
@@ -205,8 +208,10 @@ class AppTranskriptor:
         self.transcritor = None
         self.watchdog = None
         self.detector = DetectorMeet(exigir_janela_visivel=EXIGIR_JANELA_VISIVEL)
-        self.deteccao_ativa = True
+        self.deteccao_ativa = True  # FR-2.7: pausa nunca persiste entre sessões
         self.diarizacao_ativa = True
+        self._toast_pausa_reuniao = None
+        self._confirmar_pausa = self._confirmar_pausa_padrao
         # BUG-10: carrega preferência de startup do Windows
         cfg = _carregar_config_user()
         self.iniciar_com_windows = cfg.get("iniciar_com_windows", _startup_ativo())
@@ -400,24 +405,38 @@ class AppTranskriptor:
             self._status("Meet encerrado. Finalizando transcricao...")
             self._parar_transcricao()
 
+    def _detectar_mudanca_meet(self):
+        if EXIGIR_JANELA_VISIVEL:
+            janelas = []
+            for w in gw.getAllWindows():
+                try:
+                    janelas.append({
+                        "titulo": w.title,
+                        "visivel": not w.isMinimized,
+                    })
+                except Exception:
+                    continue
+            return self.detector.verificar_janelas(janelas)
+        return self.detector.verificar(gw.getAllTitles())
+
     def _monitorar_meet(self):
         while True:
             try:
+                mudanca = self._detectar_mudanca_meet()
                 if self.deteccao_ativa:
-                    if EXIGIR_JANELA_VISIVEL:
-                        janelas = []
-                        for w in gw.getAllWindows():
-                            try:
-                                janelas.append({
-                                    "titulo": w.title,
-                                    "visivel": not w.isMinimized,
-                                })
-                            except Exception:
-                                continue
-                        mudanca = self.detector.verificar_janelas(janelas)
-                    else:
-                        mudanca = self.detector.verificar(gw.getAllTitles())
                     self._processar_mudanca_meet(mudanca)
+                else:
+                    # FR-2.6: toast se Meet sobe durante pausa (1 por reunião)
+                    if deve_toast_meet_em_pausa(
+                        self.deteccao_ativa, mudanca, self._toast_pausa_reuniao is not None
+                    ):
+                        self._toast_pausa_reuniao = mudanca
+                        notificar(
+                            "Transkriptor",
+                            "Meet detectado, mas a gravação está pausada",
+                        )
+                    if mudanca == "encerrou":
+                        self._toast_pausa_reuniao = None
             except Exception:
                 logging.exception("Erro no monitor do Meet")
             time.sleep(INTERVALO_MONITOR_MEET)
@@ -567,13 +586,35 @@ class AppTranskriptor:
             self._assistente_url = None
             self._assistente_token = None
 
+    def _confirmar_pausa_padrao(self) -> bool:
+        try:
+            import ctypes
+
+            return (
+                ctypes.windll.user32.MessageBoxW(
+                    0,
+                    "O Transkriptor NÃO gravará reuniões enquanto pausado. Continuar?",
+                    "Transkriptor",
+                    0x34,  # MB_YESNO | MB_ICONWARNING
+                )
+                == 6
+            )  # IDYES
+        except Exception:
+            return True
+
     def alternar_deteccao(self, _icone=None, _item=None):
+        if deve_confirmar_pausa(self.deteccao_ativa):
+            confirmar = getattr(self, "_confirmar_pausa", None) or self._confirmar_pausa_padrao
+            if not confirmar():
+                return
         self.deteccao_ativa = not self.deteccao_ativa
         if not self.deteccao_ativa:
             self._parar_transcricao()
-            self._status("Deteccao automatica pausada.")
+            self._toast_pausa_reuniao = None
+            self._status("Gravação automática pausada.")
         else:
-            self._status("Deteccao automatica retomada.")
+            self._toast_pausa_reuniao = None
+            self._status("Gravação automática retomada.")
         self._atualizar_tooltip()
 
     def alternar_diarizacao(self, _icone=None, _item=None):
@@ -702,10 +743,10 @@ class AppTranskriptor:
                 return "Transcrevendo reuniao..."
             if self.deteccao_ativa:
                 return "Aguardando Google Meet..."
-            return "Deteccao pausada"
+            return "PAUSADO — não está gravando"
 
     def _texto_deteccao(self, _item=None):
-        return "Pausar deteccao automatica" if self.deteccao_ativa else "Retomar deteccao automatica"
+        return texto_deteccao_menu(self.deteccao_ativa)
 
     def _texto_diarizacao(self, _item=None):
         return ("Desativar separação de vozes" if self.diarizacao_ativa

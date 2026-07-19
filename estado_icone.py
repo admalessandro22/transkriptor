@@ -41,7 +41,7 @@ def resolver_estado_icone(
         return "transcrevendo", "Transcrevendo"
     if deteccao_ativa:
         return "aguardando", "Aguardando Meet"
-    return "pausado", "Pausado"
+    return "pausado", "PAUSADO — não está gravando"
 
 
 def cor_por_estado(estado):
