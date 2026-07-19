@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """T-F3 — atalho global Ctrl+Espaço (FR-3.*)."""
+import subprocess
+import sys
 import threading
 import time
 from unittest.mock import MagicMock
@@ -7,11 +9,13 @@ from unittest.mock import MagicMock
 import pytest
 
 from hotkey_global import (
+    HOTKEY_ID,
     MOD_ALT,
     MOD_CONTROL,
     MOD_SHIFT,
     MOD_WIN,
     VK_SPACE,
+    WM_HOTKEY,
     HotkeyGlobal,
     parse_atalho,
 )
@@ -91,6 +95,63 @@ def test_hotkey_registro_ok_dispara_on_ativar():
     assert user32.UnregisterHotKey.call_count == 1
     assert ativacoes  # at least one from poll
     assert falhas == []
+
+
+def test_import_isolado_expoe_ctypes_wintypes():
+    """Regressão: `import hotkey_global` sozinho deve bastar para o loop real.
+
+    Em interpretador limpo (sem crypto_storage importando ctypes.wintypes por
+    efeito colateral), o loop real usa ctypes.wintypes.MSG — o módulo precisa
+    importar o submódulo explicitamente.
+    """
+    codigo = "import hotkey_global, ctypes; ctypes.wintypes.MSG()"
+    proc = subprocess.run(
+        [sys.executable, "-c", codigo],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert proc.returncode == 0, proc.stderr
+
+
+def test_hotkey_loop_real_processa_wm_hotkey():
+    """Cobre o caminho real do _loop (GetMessageW + ctypes.wintypes.MSG),
+    sem o modo de teste _poll_once."""
+    ativacoes = []
+    falhas = []
+    user32 = MagicMock()
+    user32.RegisterHotKey.return_value = 1
+    user32.UnregisterHotKey.return_value = 1
+    user32.PostThreadMessageW.return_value = 1
+
+    calls = {"n": 0}
+
+    def gm(pmsg, hwnd, _min, _max):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            pmsg._obj.message = WM_HOTKEY
+            pmsg._obj.wParam = HOTKEY_ID
+            return 1
+        return 0  # WM_QUIT
+
+    user32.GetMessageW.side_effect = gm
+
+    hk = HotkeyGlobal(
+        "ctrl+space",
+        on_ativar=lambda: ativacoes.append(1),
+        on_falha=lambda m: falhas.append(m),
+        user32=user32,
+    )
+    hk.start()
+    deadline = time.time() + 2
+    while not ativacoes and time.time() < deadline:
+        time.sleep(0.02)
+    hk.stop()
+
+    assert ativacoes, "WM_HOTKEY do loop real não disparou on_ativar"
+    assert falhas == []
+    assert user32.UnregisterHotKey.call_count == 1
+    assert hk.disponivel is False
 
 
 def test_hotkey_falha_registro_chama_on_falha():

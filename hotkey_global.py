@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ctypes
+import ctypes.wintypes  # necessário: `import ctypes` sozinho não expõe o submódulo
 import logging
 import threading
 from typing import Callable
@@ -116,22 +117,18 @@ class HotkeyGlobal:
         self._thread.start()
 
     def stop(self):
+        # UnregisterHotKey só funciona na thread que registrou; quem desregistra
+        # é o próprio loop ao sair (WM_QUIT). Se o join expirar, o Windows limpa
+        # o registro no encerramento do processo.
         self._stop.set()
-        api = self._api()
         tid = self._tid
         if tid:
             try:
-                api.PostThreadMessageW(tid, WM_QUIT, 0, 0)
+                self._api().PostThreadMessageW(tid, WM_QUIT, 0, 0)
             except Exception:
                 pass
         if self._thread:
             self._thread.join(timeout=2)
-        if self.disponivel:
-            try:
-                api.UnregisterHotKey(None, self._hotkey_id)
-            except Exception:
-                pass
-            self.disponivel = False
 
     def _despachar_hotkey(self):
         def _run():
