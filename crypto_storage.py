@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import base64
-import json
 import logging
 import os
 import secrets
@@ -11,7 +10,8 @@ from pathlib import Path
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-from config import CONFIG_USER_FILE, PASTA_TRANSCRICOES
+from config import PASTA_TRANSCRICOES
+import config_user
 
 logger = logging.getLogger(__name__)
 
@@ -28,16 +28,11 @@ class ErroDescriptografia(Exception):
 
 
 def _carregar_config() -> dict:
-    try:
-        with open(CONFIG_USER_FILE, encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
+    return config_user.carregar()
 
 
 def _salvar_config(cfg: dict) -> None:
-    with open(CONFIG_USER_FILE, "w", encoding="utf-8") as f:
-        json.dump(cfg, f, indent=2)
+    config_user.salvar(cfg)
 
 
 def _dpapi_protect(data: bytes) -> bytes:

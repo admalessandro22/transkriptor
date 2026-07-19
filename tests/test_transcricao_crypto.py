@@ -8,7 +8,7 @@ from transcricao_core import Transcritor
 
 
 def test_transcritor_grava_tkpt_sem_plaintext_em_disco(chave_teste, tmp_path, monkeypatch):
-    monkeypatch.setattr("crypto_storage.CONFIG_USER_FILE", chave_teste)
+    monkeypatch.setattr("config_user.CONFIG_USER_FILE", str(chave_teste))
     t = Transcritor(pasta_saida=str(tmp_path), diarizar_ao_final=False, criptografar=True)
     t._abrir_arquivo()
     t._arq.write("linha sensivel da reuniao\n")

@@ -18,7 +18,7 @@ def headers_token():
 def chave_teste(monkeypatch, tmp_path):
     cfg = tmp_path / "config_user.json"
     cfg.write_text("{}", encoding="utf-8")
-    monkeypatch.setattr("crypto_storage.CONFIG_USER_FILE", str(cfg))
+    monkeypatch.setattr("config_user.CONFIG_USER_FILE", str(cfg))
     monkeypatch.setattr("crypto_storage._dpapi_protect", lambda b: b"DPAPI:" + b)
     monkeypatch.setattr("crypto_storage._dpapi_unprotect", lambda b: b[6:])
     from crypto_storage import garantir_chave_mestra

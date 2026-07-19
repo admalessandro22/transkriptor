@@ -92,7 +92,6 @@ logging.root.setLevel(logging.INFO)
 logging.root.addHandler(_log_handler)
 
 # Caminhos para startup do Windows (BUG-10)
-CONFIG_USER = os.path.join(BASE_DIR, "config_user.json")
 STARTUP_DIR = os.path.join(
     os.environ.get("APPDATA", ""),
     "Microsoft", "Windows", "Start Menu", "Programs", "Startup",
@@ -101,19 +100,18 @@ ATALHO_STARTUP = os.path.join(STARTUP_DIR, "transkriptor.lnk")
 
 
 def _carregar_config_user():
-    """Lê config_user.json. Retorna dict vazio se não existir."""
-    try:
-        with open(CONFIG_USER, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
+    """Lê config_user.json via módulo centralizado (FR-6.5)."""
+    import config_user
+
+    return config_user.carregar()
 
 
 def _salvar_config_user(cfg):
-    """Salva config_user.json."""
+    """Salva config_user.json via módulo centralizado (FR-6.5)."""
+    import config_user
+
     try:
-        with open(CONFIG_USER, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, indent=2)
+        config_user.salvar(cfg)
     except Exception as e:
         logging.error(f"Erro ao salvar config_user: {e}")
 

@@ -97,12 +97,13 @@ def test_migrar_txt_colisao_tkpt_corrupto_usa_sufixo(chave_teste, tmp_path):
 
 
 def test_dpapi_falha_nao_rotaciona_chave(tmp_path, monkeypatch):
+    import config_user
     import crypto_storage
 
     cfg = tmp_path / "config_user.json"
     blob_original = "Y2hhdmUtdGVzdGU="
     cfg.write_text(json.dumps({"chave_dpapi": blob_original}), encoding="utf-8")
-    monkeypatch.setattr(crypto_storage, "CONFIG_USER_FILE", str(cfg))
+    monkeypatch.setattr(config_user, "CONFIG_USER_FILE", str(cfg))
     monkeypatch.setattr(crypto_storage, "_chave_mestra", None)
 
     def falha_unprotect(_data):
