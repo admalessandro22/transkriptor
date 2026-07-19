@@ -1,6 +1,20 @@
 # -*- coding: utf-8 -*-
 """Helpers testáveis para ações do menu da bandeja."""
 
+IDYES = 6
+IDNO = 7
+MB_TIMEDOUT = 32000  # retorno de MessageBoxTimeoutW quando o tempo expira
+
+
+def resposta_continuar_gravacao(retorno) -> bool:
+    """FR-2.9: só recusa a gravação com 'Não' explícito; timeout ou erro continuam."""
+    return retorno != IDNO
+
+
+def deve_iniciar_gravacao_auto(recusa_reuniao_ativa: bool) -> bool:
+    """FR-2.10: recusa vale até o fim da reunião atual."""
+    return not recusa_reuniao_ativa
+
 
 def confirmacao_saida_necessaria(gravando: bool) -> bool:
     return gravando

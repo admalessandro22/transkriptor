@@ -92,7 +92,11 @@ tecla de atalho associada (Ctrl+Alt legado foi removido).
 
 1. Deixe o Transkriptor na bandeja com detecção **ativa**.
 2. Entre em uma reunião no Google Meet (Chrome, Edge, etc.).
-3. Quando o título da janela confirmar o Meet, a transcrição **inicia sozinha**.
+3. Quando o título da janela confirmar o Meet, a transcrição **inicia sozinha** e um
+   aviso pergunta se você quer **continuar gravando**:
+   - **Sim** ou sem resposta em 30s → continua gravando normalmente;
+   - **Não** → para e **descarta** tudo desta reunião (texto e áudio), e não volta a
+     gravar até essa reunião acabar. A próxima reunião pergunta de novo.
 4. Ao encerrar a reunião (janela fechada ou título sem Meet por alguns ciclos), a gravação **para e salva**.
 
 ### Arquivos gerados

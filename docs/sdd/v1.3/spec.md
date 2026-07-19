@@ -50,6 +50,15 @@ pausa com aviso, criptografia padrão mantida, modelo Whisper auto por hardware.
   transcrição, toast de aviso (a gravação prossegue).
 - **UX-2.1** O item de menu da pausa deixa claro o efeito: "Pausar gravação automática
   (NÃO grava reuniões)".
+- **FR-2.9** *(adicionado 2026-07-19)* Ao iniciar gravação automática (Meet detectado), a
+  gravação começa imediatamente e um diálogo Sim/Não com timeout de
+  `TIMEOUT_AVISO_GRAVACAO_SEG` (30s) oferece recusar. Só o "Não" explícito recusa —
+  timeout ou erro do diálogo continuam gravando. Recusar para a gravação e **apaga** os
+  arquivos desta reunião (`Transcritor.descartar()`), sem preservar áudio. Início manual
+  não pergunta.
+- **FR-2.10** *(adicionado 2026-07-19)* A recusa vale até o fim da reunião atual: nenhum
+  novo início automático até o detector confirmar "encerrou". A próxima reunião pergunta
+  de novo.
 - **SEC-2.1** Os áudios retidos respeitam a mesma criptografia das transcrições; nenhuma
   rota do assistente serve arquivos de `transcricoes/audio/`.
 

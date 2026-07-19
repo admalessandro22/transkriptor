@@ -62,7 +62,11 @@ from startup_windows import (
     startup_ativo as _startup_ativo,
 )
 from status_seguro import sanitizar_para_log
-from transkriptor_acoes import deve_parar_transcricao_por_meet, deve_toast_meet_em_pausa
+from transkriptor_acoes import (
+    deve_iniciar_gravacao_auto,
+    deve_parar_transcricao_por_meet,
+    deve_toast_meet_em_pausa,
+)
 from transkriptor_lock import adquirir_lock, liberar_lock
 from watchdog import Watchdog
 
@@ -109,6 +113,7 @@ class AppTranskriptor(MenuBandejaMixin):
         self.diarizacao_ativa = True
         self._toast_pausa_reuniao = None
         self._confirmar_pausa = self._confirmar_pausa_padrao
+        self._recusa_reuniao_ativa = False
         cfg = _carregar_config_user()
         self.modelo_whisper = cfg.get("modelo_whisper", MODELO_WHISPER)
         if self.modelo_whisper not in MODELOS_WHISPER_MENU:
@@ -244,6 +249,11 @@ class AppTranskriptor(MenuBandejaMixin):
             self.watchdog.start()
             self._status("Transcricao em andamento.")
             notificar("Transkriptor", "Transcrição iniciada (reunião detectada)")
+            if not manual:
+                # FR-2.9: aviso com opção de recusar; a gravação já está rodando
+                threading.Thread(
+                    target=self._avisar_gravacao_iniciada, daemon=True
+                ).start()
             self._atualizar_tooltip()
         except Exception as e:
             self._status(f"Erro ao iniciar: {e}")
@@ -289,9 +299,14 @@ class AppTranskriptor(MenuBandejaMixin):
 
     def _processar_mudanca_meet(self, mudanca):
         if mudanca == "iniciou":
-            if not self._modo_manual:
+            if not self._modo_manual and deve_iniciar_gravacao_auto(
+                self._recusa_reuniao_ativa
+            ):
                 self._iniciar_transcricao()
             return
+        if mudanca == "encerrou":
+            # FR-2.10: recusa vale só para a reunião que acabou
+            self._recusa_reuniao_ativa = False
         if deve_parar_transcricao_por_meet(mudanca, self._modo_manual):
             self._status("Meet encerrado. Finalizando transcricao...")
             self._parar_transcricao()

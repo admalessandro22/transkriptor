@@ -401,6 +401,20 @@ class Transcritor:
         except Exception:
             pass
 
+    def descartar(self):
+        """FR-2.9: para e apaga os arquivos desta gravação (recusa do usuário)."""
+        self._descartar = True
+        self.diarizar_ao_final = False
+        return self.stop()
+
+    def _apagar_descartados(self, *caminhos):
+        for c in caminhos:
+            if c and os.path.isfile(c):
+                try:
+                    os.remove(c)
+                except OSError:
+                    logger.warning("Falha ao apagar arquivo descartado %s", c)
+
     def stop(self):
         if not self.rodando:
             return None
@@ -417,7 +431,11 @@ class Transcritor:
         self.rodando = False
         caminho, caminho_wav = self._caminho_saida, self._caminho_wav
         self._caminho_wav_mic_salvo = self._caminho_wav_mic
-        if self.diarizar_ao_final and self._segmentos and caminho:
+        descartado = getattr(self, "_descartar", False)
+        if descartado:
+            self._apagar_descartados(caminho, caminho_wav, self._caminho_wav_mic_salvo)
+            caminho = None
+        elif self.diarizar_ao_final and self._segmentos and caminho:
             self._thread_diar = threading.Thread(
                 target=self._rodar_diarizacao, args=(caminho, caminho_wav), daemon=True
             )
@@ -426,7 +444,7 @@ class Transcritor:
             self._preservar_audios(caminho_wav, self._caminho_wav_mic_salvo)
         self._caminho_saida = None
         self.finalizando = False
-        self.on_status("Transcrição encerrada.")
+        self.on_status("Gravação descartada." if descartado else "Transcrição encerrada.")
         return caminho
 
     def _reiniciar_captura(self):

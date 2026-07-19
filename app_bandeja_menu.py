@@ -16,6 +16,7 @@ from config import (
     ARQUIVO_VOZES_CONHECIDAS,
     ARQUIVO_VOZES_CONHECIDAS_ENC,
     BASE_DIR,
+    TIMEOUT_AVISO_GRAVACAO_SEG,
     LOG_FILE,
     MODELO_WHISPER,
     MODELOS_WHISPER_MENU,
@@ -36,8 +37,10 @@ from startup_windows import (
     remover_atalho_startup as _remover_atalho_startup,
 )
 from transkriptor_acoes import (
+    IDYES,
     confirmacao_saida_necessaria,
     deve_confirmar_pausa,
+    resposta_continuar_gravacao,
     saida_permitida,
     texto_deteccao_menu,
     texto_transcricao_manual,
@@ -97,6 +100,56 @@ class MenuBandejaMixin:
 
     def abrir_assistente(self, _icone=None, _item=None):
         threading.Thread(target=iniciar_assistente_ui, args=(self,), daemon=True).start()
+
+    def _perguntar_continuar_gravacao_padrao(self) -> int:
+        """FR-2.9: Sim/Não com timeout — sem resposta, a gravação continua."""
+        try:
+            import ctypes
+
+            # YESNO | ICONQUESTION | SETFOREGROUND | TOPMOST
+            return int(
+                ctypes.windll.user32.MessageBoxTimeoutW(
+                    0,
+                    "O Transkriptor está gravando esta reunião.\n"
+                    "Deseja continuar gravando?\n\n"
+                    f"(Sem resposta em {TIMEOUT_AVISO_GRAVACAO_SEG}s, continua gravando.)",
+                    "Transkriptor — reunião detectada",
+                    0x4 | 0x20 | 0x10000 | 0x40000,
+                    0,
+                    TIMEOUT_AVISO_GRAVACAO_SEG * 1000,
+                )
+            )
+        except Exception:
+            logging.exception("Diálogo de gravação indisponível")
+            return IDYES
+
+    def _avisar_gravacao_iniciada(self):
+        """FR-2.9: aviso pós-início com opção de recusar; a gravação já roda."""
+        perguntar = (
+            getattr(self, "_perguntar_continuar_gravacao", None)
+            or self._perguntar_continuar_gravacao_padrao
+        )
+        if resposta_continuar_gravacao(perguntar()):
+            return
+        self._recusa_reuniao_ativa = True
+        self._cancelar_gravacao_reuniao()
+
+    def _cancelar_gravacao_reuniao(self):
+        """Para e descarta a gravação atual (recusa do usuário)."""
+        with self._lock:
+            t, w = self.transcritor, self.watchdog
+        if w:
+            w.stop()
+            self.watchdog = None
+        if t and t.rodando:
+            t.descartar()
+        self._modo_manual = False
+        self._status("Gravação desta reunião cancelada e descartada.")
+        notificar(
+            "Transkriptor",
+            "Ok — esta reunião NÃO será gravada. A próxima pergunta de novo.",
+        )
+        self._atualizar_tooltip()
 
     def _confirmar_pausa_padrao(self) -> bool:
         try:

@@ -8,6 +8,7 @@ from detector_meet import DetectorMeet
 def _app_controlado(modulo, manual=False):
     app = modulo.AppTranskriptor.__new__(modulo.AppTranskriptor)
     app._modo_manual = manual
+    app._recusa_reuniao_ativa = False
     app._iniciar_transcricao = Mock()
     app._parar_transcricao = Mock()
     app._status = Mock()

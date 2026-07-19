@@ -22,6 +22,7 @@ ARQUIVO_PERFIL_VOZ_ENC = os.path.join(DIR_MODELO_VOZ, "perfil_usuario.enc")
 CONFIG_USER_FILE = os.path.join(BASE_DIR, "config_user.json")
 MIN_DISCO_LIVRE_GB = 2
 RETENCAO_AUDIO_DIAS = 7
+TIMEOUT_AVISO_GRAVACAO_SEG = 30  # diálogo "continuar gravando?" (FR-2.9)
 
 # ---- Áudio / Whisper ----
 SAMPLE_RATE = 16000
