@@ -5,9 +5,15 @@ cd /d "%~dp0"
 echo Iniciando Transkriptor na bandeja do sistema...
 echo.
 
-for /f "delims=" %%P in ('python scripts/resolver_pythonw.py 2^>nul') do set "PYTHONW=%%P"
+set "VENV_PY=%~dp0.venv\Scripts\python.exe"
+if exist "%VENV_PY%" (
+  for /f "delims=" %%P in ('"%VENV_PY%" scripts/resolver_pythonw.py 2^>nul') do set "PYTHONW=%%P"
+) else (
+  for /f "delims=" %%P in ('python scripts/resolver_pythonw.py 2^>nul') do set "PYTHONW=%%P"
+)
+
 if not defined PYTHONW (
-    echo [ERRO] Python nao encontrado. Instale Python 3.12+ e rode instalar.bat
+    echo [ERRO] Python nao encontrado. Rode instalar.bat
     pause
     exit /b 1
 )

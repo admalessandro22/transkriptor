@@ -366,7 +366,7 @@ verde + manual: Ctrl+Espaço fora do app inicia (toast) e para (toast) a transcr
 - **AC:** todos os ramos com runners falsos (GPU presente/ausente; Ollama ausente/sem
   modelos/ok; Python 3.11 reprovado citando "3.12").
 - **Commit:** `feat: adiciona helper testável de pré-checagens do instalador`
-- **Status:** [ ]
+- **Status:** [x]
 
 ### T-F7-02 — instalar.bat com venv, GPU, warm-up e Ollama
 
@@ -380,7 +380,7 @@ verde + manual: Ctrl+Espaço fora do app inicia (toast) e para (toast) a transcr
 - **AC:** instalação manual em prompt limpo sobe a bandeja pelo atalho; `iniciar_bandeja.bat`
   usa o venv; sem GPU não baixa wheels CUDA.
 - **Commit:** `feat: instalador com venv, detecção de GPU e warm-up de modelos`
-- **Status:** [ ]
+- **Status:** [x]
 
 ### T-F7-03 — Desinstalador
 
@@ -391,7 +391,7 @@ verde + manual: Ctrl+Espaço fora do app inicia (toast) e para (toast) a transcr
   (default: preservar); echo das ações antes de executar.
 - **AC:** roteiro manual documentado; dry-run visual conferido.
 - **Commit:** `feat: adiciona desinstalador com preservação de dados do usuário`
-- **Status:** [ ]
+- **Status:** [x]
 
 **GATE F7:** `python -m pytest tests/test_instalador_helper.py tests/test_atalho_desktop.py -v`
 verde + instalação manual completa OK; então remover `instalar_legacy.bat`.

@@ -21,9 +21,11 @@ Tudo roda no seu computador — transcrições e perfis de voz ficam em disco lo
 
 1. Extraia ou clone o projeto em uma pasta, por exemplo `C:\projetos\trancricaoreunioes`.
 2. Instale o PyTorch conforme sua GPU (veja `requirements.txt`).
-3. Execute `instalar.bat` — instala dependências e cria atalhos no desktop.
-4. Inicie pelo atalho **Iniciar Transkriptor** ou `iniciar_bandeja.bat`.
+3. Execute `instalar.bat` — cria `.venv`, instala PyTorch (GPU se houver), dependências,
+   atalho na Área de Trabalho e (opcional) faz warm-up dos modelos.
+4. Inicie pelo atalho **Transkriptor** ou `iniciar_bandeja.bat` (usa o `.venv`).
 5. O ícone aparece na bandeja (seta ^ se estiver oculto).
+6. Para remover: `desinstalar.bat` (preserva `transcricoes/` e config por padrão).
 
 ### Primeira execução
 
