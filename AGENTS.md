@@ -7,18 +7,19 @@ Guia universal para agentes de IA (Cursor, Grok, Claude Code, Codex) neste repos
 **Transkriptor** — app de bandeja Windows que detecta Google Meet, transcreve offline (Whisper),
 diariza falantes e oferece assistente local via Ollama.
 
+Versão do produto: `config.VERSAO` (fonte única; não hardcodar em outros arquivos).
+
 ## Método de trabalho
 
 Este projeto usa **Spec-Driven Development (SDD)** + **Superpowers**.
 
 ### Ordem obrigatória
 
-1. Ler `docs/sdd/v1.2/PLANO-FINAL.md` → **plano fechado**, ordem F0–F9, menu de opções.
-2. Ler `docs/sdd/v1.2/concept.md` → visão e escopo.
-3. Ler `docs/sdd/v1.2/spec.md` → requisitos `FR-*`, `SEC-*`, `UX-*`.
-4. Ler `docs/sdd/v1.2/tasks.md` → tarefa atual.
-4. Executar **uma tarefa por vez** de `docs/sdd/v1.2/tasks.md`.
-5. Para implementação detalhada com TDD: `docs/superpowers/plans/2026-07-08-Transkriptor-v1.2-audit-remediation.md`.
+1. Ler `docs/sdd/v1.3/plan.md` → plano fechado, ordem F1–F8, gates.
+2. Ler `docs/sdd/v1.3/concept.md` → visão e escopo.
+3. Ler `docs/sdd/v1.3/spec.md` → requisitos `FR-*`, `SEC-*`, `UX-*`.
+4. Ler `docs/sdd/v1.3/tasks.md` → tarefa atual.
+5. Executar **uma tarefa por vez** de `docs/sdd/v1.3/tasks.md`.
 6. **Antes de codar:** invocar skill `superpowers:test-driven-development`.
 7. **Antes de declarar fase concluída:** invocar skill `superpowers:verification-before-completion`.
 8. **Se testes falharem:** invocar skill `superpowers:systematic-debugging` → corrigir → re-rodar gate.
@@ -54,17 +55,19 @@ python -m pytest tests/ -v
 python -m pytest tests/ -v --tb=short -x   # parar no primeiro erro
 ```
 
-Gate de fase: ver `docs/sdd/v1.2/plan.md` § "Gates de verificação".
+Gate de fase: ver `docs/sdd/v1.3/plan.md` § "Gates de verificação".
 
-### Fase 7 — Identificação de voz (`VOCÊ`)
+### Identificação de voz (`VOCÊ`)
 
-Loopback sozinho **não** captura sua voz na maioria dos Meets. Fase 7 usa:
+Loopback sozinho **não** captura sua voz na maioria dos Meets. O produto usa:
 cadastro de perfil (mic 20s) + gravação paralela do mic + matching ECAPA na diarização.
-Ver `docs/sdd/v1.2/concept.md` § "Identificação da sua voz".
+Ver `docs/sdd/v1.3/concept.md`.
 
 ### Versões SDD
 
 | Versão | Pasta | Status |
 |--------|-------|--------|
 | 1.1 | `docs/sdd/` (raiz legado) | Implementado |
-| 1.2 | `docs/sdd/v1.2/` | Em execução (auditoria sênior) |
+| 1.2 | `docs/sdd/v1.2/` | Legado (auditoria) |
+| 1.2.1 | `docs/sdd/v1.2.1/` | Legado (estabilidade bandeja) |
+| 1.3 | `docs/sdd/v1.3/` | **Em execução (fonte de verdade)** |

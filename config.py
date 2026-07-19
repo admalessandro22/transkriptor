@@ -7,6 +7,9 @@ Isso evita magic numbers espalhados e facilita ajustes.
 
 import os
 
+# ---- Versão do produto (fonte única) ----
+VERSAO = "1.3.0"
+
 # ---- Caminhos ----
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PASTA_TRANSCRICOES = os.path.join(BASE_DIR, "transcricoes")

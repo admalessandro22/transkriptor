@@ -33,7 +33,7 @@ teste RED observado → implementação mínima → GREEN → gate → commit.
 - **AC (RED primeiro):** `tests/test_versao.py` — `config.VERSAO` bate com `pyproject.toml`;
   nenhum literal de versão hardcoded em `transkriptor.pyw`.
 - **Commit:** `refactor: centraliza versão do produto em config.VERSAO`
-- **Status:** [ ]
+- **Status:** [x]
 
 **GATE F1:** `python -m pytest tests/ -q` verde + `git log --oneline` com ≥ 2 commits.
 

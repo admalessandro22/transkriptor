@@ -1,7 +1,8 @@
 @echo off
 chcp 65001 >nul
+for /f "delims=" %%V in ('python -c "from config import VERSAO; print(VERSAO)"') do set "VERSAO=%%V"
 echo ============================================
-echo   Instalando Transkriptor 1.2.1
+echo   Instalando Transkriptor %VERSAO%
 echo ============================================
 echo.
 

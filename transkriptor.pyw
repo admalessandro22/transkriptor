@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Transkriptor 1.1 - app de bandeja que detecta Google Meets e transcreve em segundo plano.
+Transkriptor - app de bandeja que detecta Google Meets e transcreve em segundo plano.
 
 - Fica na bandeja do sistema ao ser aberto.
 - Detecta automaticamente o inicio de um Google Meet (titulo da janela do navegador).
@@ -57,6 +57,7 @@ from config import (
     PORTA_MEET_BRIDGE,
     USAR_NOMES_MEET,
     MODO_LEGENDAS_MEET,
+    VERSAO,
 )
 from meet_bridge import MeetBridge, iniciar_bridge_em_thread, sincronizar_token_extensao
 from status_seguro import sanitizar_para_log
@@ -283,7 +284,7 @@ class AppTranskriptor:
         if self._em_erro and estado_icone != "erro":
             self._em_erro = False
             self._instante_erro = None
-        self.icone.title = f"Transkriptor 1.1 - {estado}"
+        self.icone.title = f"Transkriptor {VERSAO} - {estado}"
         # UX-01: troca o ícone conforme o estado
         try:
             self.icone.icon = imagem_por_estado(estado_icone)
@@ -851,7 +852,7 @@ class AppTranskriptor:
         self.icone = pystray.Icon(
             "Transkriptor",
             icon=criar_imagem(),
-            title="Transkriptor 1.1 - Aguardando Meet",
+            title=f"Transkriptor {VERSAO} - Aguardando Meet",
             menu=self._menu(),
         )
         try:
