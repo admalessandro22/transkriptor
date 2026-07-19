@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
-"""Testes do watchdog de threads (NFR-1)."""
+"""Testes do watchdog de threads (NFR-1, FR-6.1, FR-6.2)."""
 import threading
 import time
+from pathlib import Path
 from unittest.mock import MagicMock
 
+import numpy as np
+
 from watchdog import Watchdog
+from transcricao_core import Transcritor
 
 
 class _TranscritorFake:
@@ -45,7 +49,21 @@ def test_watchdog_erro_critico_apos_limite_reinicios(monkeypatch):
     w._verificar()
     w._verificar()
     assert len(erros) == 1
-    assert "Captura" in erros[0]
+    # FR-6.2: mensagem específica de falha de captura
+    assert "Sem áudio do sistema" in erros[0]
+    assert "dispositivo de saída" in erros[0]
+
+
+def test_watchdog_toast_apos_3_falhas_captura():
+    """FR-6.2: três falhas consecutivas de captura → toast específico."""
+    t = _TranscritorFake(cap_viva=False, proc_viva=True)
+    erros = []
+    w = Watchdog(t, on_erro_critico=erros.append, intervalo=0.05)
+    # LIMITE_REINICIOS=3 → 3 reinícios + 1 crítico
+    for _ in range(4):
+        w._verificar()
+    assert len(erros) == 1
+    assert erros[0] == "Sem áudio do sistema — verifique o dispositivo de saída"
 
 
 def test_watchdog_loop_para_quando_stop():
@@ -55,3 +73,59 @@ def test_watchdog_loop_para_quando_stop():
     time.sleep(0.15)
     w.stop()
     assert not w._thread.is_alive()
+
+
+def test_reiniciar_processar_preserva_arquivo_e_continua_escrevendo(tmp_path):
+    """FR-6.1: matar processar, reiniciar e provar que o texto continua no arquivo."""
+    t = Transcritor(
+        pasta_saida=str(tmp_path),
+        diarizar_ao_final=False,
+        capturar_mic=False,
+        criptografar=False,
+        chunk=0.05,
+    )
+    t._abrir_arquivo()
+    caminho = t._caminho_saida
+    t.rodando = True
+    t._stop.clear()
+    t._modelo = MagicMock()
+
+    chamadas = {"n": 0}
+
+    def _transcrever_flaky(audio, final=False):
+        chamadas["n"] += 1
+        if chamadas["n"] == 1:
+            if t._arq:
+                t._arq.write("[00:00:01] primeiro\n")
+                t._arq.flush()
+            raise RuntimeError("excecao injetada para matar processar")
+        if t._arq:
+            t._arq.write("[00:00:02] segundo\n")
+            t._arq.flush()
+
+    t._transcrever_bloco = _transcrever_flaky
+    audio = np.zeros(int(16000 * 0.05), dtype=np.float32)
+
+    t._thread_proc = threading.Thread(target=t._processar, daemon=True)
+    t._thread_proc.start()
+    t._q.put(audio)
+    t._thread_proc.join(timeout=3)
+    assert not t._thread_proc.is_alive()
+
+    # Arquivos devem permanecer abertos após morte sem stop()
+    assert t._arq is not None
+    assert t._wav is not None
+
+    t._reiniciar_processar()
+    assert t._thread_proc is not None
+    t._q.put(audio)
+    # aguarda o segundo bloco
+    deadline = time.time() + 3
+    while chamadas["n"] < 2 and time.time() < deadline:
+        time.sleep(0.05)
+    assert chamadas["n"] >= 2
+
+    t.stop()
+    conteudo = Path(caminho).read_text(encoding="utf-8")
+    assert "primeiro" in conteudo
+    assert "segundo" in conteudo

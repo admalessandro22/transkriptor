@@ -57,7 +57,10 @@ class Watchdog:
                 self.on_status(f"Watchdog: reiniciando captura ({self._reinicios['captura']}/{LIMITE_REINICIOS})")
                 t._reiniciar_captura()
             else:
-                self.on_erro_critico("Captura falhou múltiplas vezes. Transcrição comprometida.")
+                # FR-6.2: toast específico após 3 falhas consecutivas de captura
+                self.on_erro_critico(
+                    "Sem áudio do sistema — verifique o dispositivo de saída"
+                )
                 self._reinicios["captura"] = 0
         else:
             self._reinicios["captura"] = 0

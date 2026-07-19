@@ -220,6 +220,25 @@ class Transcritor:
         if self._wav is not None and audio is not None and getattr(audio, "size", 0) > 0:
             self._wav.writeframes((audio * 32767).astype(np.int16).tobytes())
 
+    def _fechar_arquivos_no_processar(self):
+        """FR-6.1: só fecha no finally de _processar se stop() foi pedido.
+
+        Reinício pelo watchdog (thread morreu sem stop) deve manter _arq/_wav
+        abertos para a nova thread continuar gravando no mesmo arquivo.
+        """
+        if not self._stop.is_set():
+            return
+        try:
+            self._finalizar_arquivo_texto()
+        except Exception:
+            pass
+        try:
+            if self._wav:
+                self._wav.close()
+                self._wav = None
+        except Exception:
+            pass
+
     def _processar_somente_audio(self):
         """FR-2.4: grava WAV sem Whisper quando o modelo falha."""
         try:
@@ -237,19 +256,10 @@ class Transcritor:
                     break
                 self._gravar_audio_bloco(pedaco)
         finally:
-            try:
-                self._finalizar_arquivo_texto()
-            except Exception:
-                pass
-            try:
-                if self._wav:
-                    self._wav.close()
-                    self._wav = None
-            except Exception:
-                pass
+            self._fechar_arquivos_no_processar()
 
     def _processar(self):
-        # BUG-08: try/finally garante fechamento dos arquivos mesmo com exceção
+        # FR-6.1 / BUG-08: try/finally; fecha só se stop() (não no restart do watchdog)
         try:
             alvo = int(SAMPLE_RATE * self.chunk)
             buffer = []
@@ -269,16 +279,7 @@ class Transcritor:
             if buffer:
                 self._transcrever_bloco(np.concatenate(buffer), final=True)
         finally:
-            try:
-                self._finalizar_arquivo_texto()
-            except Exception:
-                pass
-            try:
-                if self._wav:
-                    self._wav.close()
-                    self._wav = None
-            except Exception:
-                pass
+            self._fechar_arquivos_no_processar()
 
     def _fechar_wav_mic(self):
         try:
