@@ -214,6 +214,39 @@ class Transcritor:
         except Exception as e:
             self.on_status(f"Erro na captura do microfone: {e}")
 
+    def _gravar_audio_bloco(self, audio):
+        """Escreve frames no WAV (modo somente áudio ou com Whisper)."""
+        if self._wav is not None and audio is not None and getattr(audio, "size", 0) > 0:
+            self._wav.writeframes((audio * 32767).astype(np.int16).tobytes())
+
+    def _processar_somente_audio(self):
+        """FR-2.4: grava WAV sem Whisper quando o modelo falha."""
+        try:
+            while not self._stop.is_set():
+                try:
+                    pedaco = self._q.get(timeout=0.5)
+                except queue.Empty:
+                    continue
+                self._gravar_audio_bloco(pedaco)
+            # drena fila restante
+            while True:
+                try:
+                    pedaco = self._q.get_nowait()
+                except queue.Empty:
+                    break
+                self._gravar_audio_bloco(pedaco)
+        finally:
+            try:
+                self._finalizar_arquivo_texto()
+            except Exception:
+                pass
+            try:
+                if self._wav:
+                    self._wav.close()
+                    self._wav = None
+            except Exception:
+                pass
+
     def _processar(self):
         # BUG-08: try/finally garante fechamento dos arquivos mesmo com exceção
         try:
@@ -433,21 +466,35 @@ class Transcritor:
     def start(self):
         if self.rodando:
             return
-        self._carregar_modelo()
+        # FR-2.4: abre arquivos e captura ANTES do modelo — falha Whisper não perde áudio
         self._checar_disco_livre()
         self._abrir_arquivo()
         self._stop.clear()
         self._segmentos = []
         self._offset_seg = 0.0
         self.diarizando = False
+        self._somente_audio = False
         self.rodando = True
         self._thread_cap = threading.Thread(target=self._capturar, daemon=True)
-        self._thread_proc = threading.Thread(target=self._processar, daemon=True)
         self._thread_cap.start()
-        self._thread_proc.start()
         if self.capturar_mic:
             self._thread_mic = threading.Thread(target=self._capturar_mic, daemon=True)
             self._thread_mic.start()
+        try:
+            self._carregar_modelo()
+        except Exception as e:
+            self._somente_audio = True
+            self._modelo = None
+            self.on_status(
+                "Transcrição indisponível — gravando somente áudio para retranscrição"
+            )
+            logger.warning("Whisper indisponível; modo somente áudio: %s", e)
+            # processador em modo só-gravação (sem transcrever)
+            self._thread_proc = threading.Thread(target=self._processar_somente_audio, daemon=True)
+            self._thread_proc.start()
+            return
+        self._thread_proc = threading.Thread(target=self._processar, daemon=True)
+        self._thread_proc.start()
 
     def _aguardar_thread(self, thread, timeout=TIMEOUT_JOIN_STOP_SEG):
         if thread and thread.is_alive():

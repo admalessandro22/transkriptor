@@ -238,3 +238,48 @@ def caminho_nao_serve_audio(client, headers, nome):
     from assistente import caminho_transcricao_seguro
 
     return caminho_transcricao_seguro(nome) is None
+
+
+def test_whisper_falha_ainda_grava_somente_audio(tmp_path, monkeypatch):
+    """FR-2.4: WhisperModel lança → start grava WAV; status contém 'somente áudio'."""
+    pasta_audio = tmp_path / "audio"
+    monkeypatch.setattr("transcricao_core.PASTA_AUDIO", str(pasta_audio))
+    monkeypatch.setattr("crypto_storage.criptografia_ativa", lambda: False)
+
+    statuses = []
+    t = Transcritor(
+        pasta_saida=str(tmp_path),
+        diarizar_ao_final=False,
+        capturar_mic=False,
+        criptografar=False,
+        on_status=statuses.append,
+    )
+
+    rec = MagicMock()
+    rec.__enter__ = MagicMock(return_value=rec)
+    rec.__exit__ = MagicMock(return_value=False)
+    rec.record = lambda n: np.full((n, 1), 0.2, dtype=np.float32)
+    mic = MagicMock()
+    mic.recorder.return_value = rec
+
+    def _falha_modelo(*a, **k):
+        raise RuntimeError("modelo indisponivel")
+
+    with patch("transcricao_core.WhisperModel", side_effect=_falha_modelo), patch.object(
+        t, "_abrir_loopback", return_value=mic
+    ):
+        t.start()
+        assert t.rodando, "captura deve seguir mesmo sem Whisper"
+        # injeta áudio direto no processador/WAV (evita depender do timing do loopback)
+        time.sleep(0.1)
+        if t._wav is not None:
+            frames = (np.full(1600, 0.2) * 32767).astype(np.int16).tobytes()
+            t._wav.writeframes(frames)
+        time.sleep(0.2)
+        t.stop()
+
+    assert any("somente áudio" in s.lower() or "somente audio" in s.lower() for s in statuses), statuses
+    wavs = list(pasta_audio.glob("*_audio.wav"))
+    assert len(wavs) == 1
+    with wave.open(str(wavs[0]), "rb") as w:
+        assert w.getnframes() > 0

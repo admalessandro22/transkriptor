@@ -97,7 +97,7 @@ teste RED observado → implementação mínima → GREEN → gate → commit.
 - **AC (RED):** com `WhisperModel` mockado para lançar exceção, após `start()` + 2s +
   `stop()` existe WAV com frames em `PASTA_AUDIO` e o status contém "somente áudio".
 - **Commit:** `feat: grava somente áudio quando o Whisper falha`
-- **Status:** [ ]
+- **Status:** [x]
 
 ### T-F2-05 — Menu "Retranscrever áudio…"
 
