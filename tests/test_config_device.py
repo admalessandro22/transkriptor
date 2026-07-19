@@ -30,7 +30,7 @@ def test_transcritor_carrega_modelo_com_device_resolvido(monkeypatch):
     monkeypatch.setattr("transcricao_core.resolver_device_whisper", lambda _: "cpu")
     from transcricao_core import Transcritor
 
-    t = Transcritor(diarizar_ao_final=False)
+    t = Transcritor(modelo="base", diarizar_ao_final=False)
     mock_model = MagicMock()
     with patch("transcricao_core.WhisperModel", return_value=mock_model) as wm:
         t._carregar_modelo()

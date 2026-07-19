@@ -27,7 +27,9 @@ ATALHO_GLOBAL_PADRAO = "ctrl+space"
 # ---- Áudio / Whisper ----
 SAMPLE_RATE = 16000
 CHUNK_SEGUNDOS = 25.0
-MODELO_WHISPER = "base"
+MODELO_WHISPER = "auto"  # FR-6.3: resolve pelo hardware em runtime
+MODELOS_WHISPER_MENU = ("auto", "tiny", "base", "small", "medium", "large-v3")
+VRAM_MIN_MEDIUM_GB = 4.0
 IDIOMA = "pt"
 COMPUTE_TYPE = "int8"
 DEVICE_WHISPER = "auto"
@@ -38,6 +40,43 @@ def resolver_device_whisper(valor: str) -> str:
         return valor
     import torch
     return "cuda" if torch.cuda.is_available() else "cpu"
+
+
+def resolver_modelo_whisper(tem_cuda: bool, vram_gb: float) -> tuple[str, str, str]:
+    """FR-6.3: escolhe (modelo, device, compute_type) pelo hardware.
+
+    CUDA com VRAM ≥ 4 GB → medium/cuda/int8_float16 (ex.: GTX 1650 4 GB).
+    Caso contrário → small/cpu/int8.
+    """
+    if tem_cuda and float(vram_gb) >= VRAM_MIN_MEDIUM_GB:
+        return ("medium", "cuda", "int8_float16")
+    return ("small", "cpu", "int8")
+
+
+def detectar_vram_gb() -> float:
+    """VRAM do dispositivo CUDA 0 em GB; 0.0 se indisponível."""
+    try:
+        import torch
+
+        if not torch.cuda.is_available():
+            return 0.0
+        props = torch.cuda.get_device_properties(0)
+        return float(props.total_memory) / float(1024**3)
+    except Exception:
+        return 0.0
+
+
+def detectar_cuda_e_vram() -> tuple[bool, float]:
+    """Retorna (tem_cuda, vram_gb) para resolver_modelo_whisper."""
+    try:
+        import torch
+
+        tem = bool(torch.cuda.is_available())
+    except Exception:
+        return (False, 0.0)
+    if not tem:
+        return (False, 0.0)
+    return (True, detectar_vram_gb())
 
 # ---- Diarização ----
 MODELO_VOZ_FONTE = "speechbrain/spkrec-ecapa-voxceleb"

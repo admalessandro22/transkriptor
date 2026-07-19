@@ -29,6 +29,8 @@ from config import (
     COMPUTE_TYPE,
     DEVICE_WHISPER,
     resolver_device_whisper,
+    resolver_modelo_whisper,
+    detectar_cuda_e_vram,
     CAPTURAR_MIC,
     ARQUIVO_PERFIL_VOZ,
     ARQUIVO_VOZES_CONHECIDAS,
@@ -106,11 +108,39 @@ class Transcritor:
         os.makedirs(self.pasta_saida, exist_ok=True)
 
     def _carregar_modelo(self):
-        if self._modelo is None:
-            self.on_status(f"Carregando modelo {self.modelo_nome}...")
-            device = resolver_device_whisper(DEVICE_WHISPER)
-            self._modelo = WhisperModel(self.modelo_nome, device=device, compute_type=COMPUTE_TYPE)
+        if self._modelo is not None:
+            return
+        nome = self.modelo_nome or MODELO_WHISPER
+        if nome == "auto":
+            tem_cuda, vram_gb = detectar_cuda_e_vram()
+            modelo, device, compute_type = resolver_modelo_whisper(tem_cuda, vram_gb)
+            self.on_status(
+                f"Carregando modelo {modelo} ({device}, auto)..."
+            )
+            try:
+                self._modelo = WhisperModel(
+                    modelo, device=device, compute_type=compute_type
+                )
+            except Exception as e:
+                # FR-6.3: fallback CUDA → CPU/small
+                logger.warning(
+                    "Falha ao carregar Whisper %s/%s: %s; tentando small/cpu",
+                    modelo,
+                    device,
+                    e,
+                )
+                self.on_status(
+                    "Falha no modelo GPU — carregando small em CPU..."
+                )
+                self._modelo = WhisperModel(
+                    "small", device="cpu", compute_type="int8"
+                )
             self.on_status("Modelo pronto.")
+            return
+        self.on_status(f"Carregando modelo {nome}...")
+        device = resolver_device_whisper(DEVICE_WHISPER)
+        self._modelo = WhisperModel(nome, device=device, compute_type=COMPUTE_TYPE)
+        self.on_status("Modelo pronto.")
 
     def _abrir_arquivo(self):
         from crypto_storage import caminho_transcricao_novo

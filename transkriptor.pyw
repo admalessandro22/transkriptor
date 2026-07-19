@@ -48,6 +48,7 @@ from config import (
     LOG_FILE,
     ICONE_FILE,
     MODELO_WHISPER,
+    MODELOS_WHISPER_MENU,
     IDIOMA,
     INTERVALO_MONITOR_MEET,
     EXIGIR_JANELA_VISIVEL,
@@ -216,6 +217,9 @@ class AppTranskriptor:
         # BUG-10: carrega preferência de startup do Windows
         cfg = _carregar_config_user()
         self.atalho_global = cfg.get("atalho_global", ATALHO_GLOBAL_PADRAO)
+        self.modelo_whisper = cfg.get("modelo_whisper", MODELO_WHISPER)
+        if self.modelo_whisper not in MODELOS_WHISPER_MENU:
+            self.modelo_whisper = MODELO_WHISPER
         self.iniciar_com_windows = cfg.get("iniciar_com_windows", _startup_ativo())
         self.criptografar_transcricoes = cfg.get("criptografar_transcricoes", True)
         if self.criptografar_transcricoes and chave_disponivel():
@@ -332,7 +336,7 @@ class AppTranskriptor:
         else:
             self._status("Meet confirmado. Iniciando transcricao...")
         self.transcritor = Transcritor(
-            modelo=MODELO_WHISPER,
+            modelo=getattr(self, "modelo_whisper", MODELO_WHISPER),
             idioma=IDIOMA,
             pasta_saida=PASTA_TRANSCRICOES,
             diarizar_ao_final=self.diarizacao_ativa,
@@ -705,6 +709,37 @@ class AppTranskriptor:
         self._status("Perfil de voz removido.")
         self._atualizar_tooltip()
 
+    def definir_modelo_whisper(self, _icone=None, modelo=None):
+        """FR-6.4: persiste escolha; vale a partir da próxima transcrição."""
+        if modelo is None or modelo not in MODELOS_WHISPER_MENU:
+            return
+        self.modelo_whisper = modelo
+        import config_user
+
+        config_user.atualizar(modelo_whisper=modelo)
+        msg = (
+            f"Modelo Whisper: {modelo} — vale a partir da próxima transcrição"
+        )
+        self._status(msg)
+        notificar("Transkriptor", msg)
+        self._atualizar_tooltip()
+
+    def _submenu_modelo_whisper(self):
+        """Submenu FR-6.4: auto/tiny/base/small/medium/large-v3."""
+        itens = []
+        for nome in MODELOS_WHISPER_MENU:
+            rotulo = nome
+
+            def _fazer_acao(n=nome):
+                return lambda icone=None, item=None: self.definir_modelo_whisper(icone, n)
+
+            def _texto(item=None, n=nome):
+                marca = "✓ " if getattr(self, "modelo_whisper", MODELO_WHISPER) == n else ""
+                return f"{marca}{n}"
+
+            itens.append(pystray.MenuItem(_texto, _fazer_acao(), radio=True))
+        return pystray.Menu(*itens)
+
     def alternar_criptografia(self, _icone=None, _item=None):
         self.criptografar_transcricoes = not self.criptografar_transcricoes
         cfg = _carregar_config_user()
@@ -930,6 +965,7 @@ class AppTranskriptor:
             pystray.MenuItem("Abrir pasta vozes conhecidas", self.abrir_vozes_conhecidas),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem(self._texto_criptografia, self.alternar_criptografia),
+            pystray.MenuItem("Modelo Whisper", self._submenu_modelo_whisper()),
             pystray.MenuItem(self._texto_startup, self.alternar_startup),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Sair", self.sair),
