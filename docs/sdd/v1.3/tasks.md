@@ -260,7 +260,7 @@ verde + manual: Ctrl+Espaço fora do app inicia (toast) e para (toast) a transcr
   `audio_utils.ler_trecho_wav`; todos importam dela; apagar duplicatas.
 - **AC:** teste com WAV sintético (recortes, limites, inexistente); suíte inteira verde.
 - **Commit:** `refactor: unifica leitura de trechos WAV em audio_utils`
-- **Status:** [ ]
+- **Status:** [x]
 
 ### T-F5-02 — Extensão: capturar legendas com nome
 
@@ -275,7 +275,7 @@ verde + manual: Ctrl+Espaço fora do app inicia (toast) e para (toast) a transcr
 - **AC:** `normalizar_evento({nome, texto,...})` preserva texto sanitizado; sem nome →
   descartado; texto > 500 → truncado; fixture produz o par (nome, texto) esperado.
 - **Commit:** `feat: captura legendas com nome do Meet na extensão`
-- **Status:** [ ]
+- **Status:** [x]
 
 ### T-F5-03 — Correlação por conteúdo de legenda
 
@@ -289,7 +289,7 @@ verde + manual: Ctrl+Espaço fora do app inicia (toast) e para (toast) a transcr
   texto; sem legendas → comportamento atual (testes existentes intactos); prioridade
   FR-5.3 testada explicitamente.
 - **Commit:** `feat: correlaciona falantes pelo texto das legendas do Meet`
-- **Status:** [ ]
+- **Status:** [x]
 
 ### T-F5-04 — Guarda anti-eco e rótulo efetivo
 
@@ -302,7 +302,7 @@ verde + manual: Ctrl+Espaço fora do app inicia (toast) e para (toast) a transcr
 - **AC:** eco (mic fraco, loopback forte) mantém rótulo; fala real vira VOCÊ; badge
   "com sua voz" funciona com `rotulo_usuario` customizado.
 - **Commit:** `fix: evita rotular eco do alto-falante como VOCÊ`
-- **Status:** [ ]
+- **Status:** [x]
 
 **GATE F5:** `python -m pytest tests/test_correlacionador.py tests/test_meet_bridge.py tests/test_meet_bridge_seguranca.py tests/test_extensao_parsing.py tests/test_diarizacao_voce.py tests/test_audio_utils.py -v` verde.
 
@@ -320,7 +320,7 @@ verde + manual: Ctrl+Espaço fora do app inicia (toast) e para (toast) a transcr
   Toast específico após 3 falhas consecutivas de captura.
 - **AC:** teste de restart passa; `stop()` continua fechando tudo (testes existentes verdes).
 - **Commit:** `fix: preserva arquivos abertos ao reiniciar threads pelo watchdog`
-- **Status:** [ ]
+- **Status:** [x]
 
 ### T-F6-02 — Módulo config_user com lock e escrita atômica
 
@@ -331,7 +331,7 @@ verde + manual: Ctrl+Espaço fora do app inicia (toast) e para (toast) a transcr
 - **AC:** 2 threads × 50 atualizações → JSON válido com todas as chaves; varredura garante
   que só `config_user.py` abre `config_user.json`.
 - **Commit:** `refactor: centraliza config_user.json com lock e escrita atômica`
-- **Status:** [ ]
+- **Status:** [x]
 
 ### T-F6-03 — Modelo Whisper auto por hardware + menu
 
@@ -348,7 +348,7 @@ verde + manual: Ctrl+Espaço fora do app inicia (toast) e para (toast) a transcr
   fallback CUDA→CPU coberto com mock que lança; menu persiste e o `Transcritor` recebe o
   modelo escolhido.
 - **Commit:** `feat: resolve modelo Whisper automaticamente pelo hardware`
-- **Status:** [ ]
+- **Status:** [x]
 
 **GATE F6:** `python -m pytest tests/test_watchdog.py tests/test_transcricao_stop.py tests/test_config_user_modulo.py tests/test_modelo_whisper_auto.py -v` verde.
 
