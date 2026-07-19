@@ -1,14 +1,25 @@
 /**
- * Transkriptor Meet Bridge — lê falante ativo e legendas (FR-8.1 / FR-8.7).
+ * Transkriptor Meet Bridge — falante ativo e legendas com nome+texto (FR-5.1).
  * Envia eventos para ws://127.0.0.1:5051
+ *
+ * Camadas de extração de legendas (extrairLegendas):
+ *   1. região ARIA + data-caption-block / data-speaker-name / data-caption-text
+ *   2. atributos data-* (data-self-name, data-speaker-name)
+ *   3. classes ofuscadas do Meet (.NWpY1d, .zs7s8d, .ygicle) — último recurso
+ *
+ * Espelho Python dos fixtures: tests/test_extensao_parsing.py → extrair_legendas_html
+ * (sem runner JS no projeto).
  */
 (function () {
   const WS_URL =
-    "ws://127.0.0.1:5051?token=" + encodeURIComponent(typeof MEET_WS_TOKEN !== "undefined" ? MEET_WS_TOKEN : "");
+    "ws://127.0.0.1:5051?token=" +
+    encodeURIComponent(typeof MEET_WS_TOKEN !== "undefined" ? MEET_WS_TOKEN : "");
   const DEBOUNCE_MS = 400;
+  const MAX_TEXTO = 500;
 
   let ws = null;
   let ultimoNome = "";
+  let ultimoTexto = "";
   let ultimoEnvio = 0;
   let timerReconectar = null;
 
@@ -28,59 +39,150 @@
     }
   }
 
-  function enviar(nome, tipo) {
-    if (!nome || !ws || ws.readyState !== WebSocket.OPEN) return;
-    const agora = Date.now();
-    if (nome === ultimoNome && agora - ultimoEnvio < DEBOUNCE_MS) return;
-    ultimoNome = nome;
-    ultimoEnvio = agora;
-    ws.send(
-      JSON.stringify({
-        nome: nome.trim(),
-        ts_ms: agora,
-        tipo: tipo || "ativo",
-      })
-    );
-  }
-
   function textoLimpo(el) {
     return (el && el.textContent ? el.textContent : "").replace(/\s+/g, " ").trim();
   }
 
-  function nomeDaLegenda() {
-    const seletores = [
-      "[data-self-name]",
-      ".NWpY1d",
-      ".zs7s8d",
-      "[jsname='V67aGc']",
-      ".KV1GEc",
-    ];
-    for (const sel of seletores) {
-      const nodes = document.querySelectorAll(sel);
-      for (const node of nodes) {
-        const nome =
-          node.getAttribute("data-self-name") || textoLimpo(node);
-        if (nome && nome.length > 1 && nome.length < 80) {
-          return nome;
-        }
-      }
+  function enviar(nome, tipo, texto) {
+    if (!nome || !ws || ws.readyState !== WebSocket.OPEN) return;
+    const agora = Date.now();
+    const txt = (texto || "").trim().slice(0, MAX_TEXTO);
+    if (
+      nome === ultimoNome &&
+      txt === ultimoTexto &&
+      agora - ultimoEnvio < DEBOUNCE_MS
+    ) {
+      return;
     }
-    return "";
+    ultimoNome = nome;
+    ultimoTexto = txt;
+    ultimoEnvio = agora;
+    const payload = {
+      nome: nome.trim(),
+      ts_ms: agora,
+      tipo: tipo || "ativo",
+    };
+    if (txt) {
+      payload.texto = txt;
+    }
+    ws.send(JSON.stringify(payload));
+  }
+
+  /**
+   * Extrai pares (nome, texto) das legendas do Meet em camadas (FR-5.1).
+   * @returns {{nome: string, texto: string}[]}
+   */
+  function extrairLegendas() {
+    const pares = [];
+
+    // Camada 1: região de legendas + data-caption-block
+    const blocos = document.querySelectorAll(
+      '[role="region"] [data-caption-block], [data-caption-block]'
+    );
+    if (blocos.length) {
+      blocos.forEach(function (bloco) {
+        const nomeEl =
+          bloco.querySelector("[data-speaker-name]") ||
+          bloco.querySelector("[data-self-name]");
+        const textoEl = bloco.querySelector("[data-caption-text]");
+        const nome = nomeEl
+          ? nomeEl.getAttribute("data-speaker-name") ||
+            nomeEl.getAttribute("data-self-name") ||
+            textoLimpo(nomeEl)
+          : "";
+        const texto = textoEl ? textoLimpo(textoEl) : "";
+        if (nome && texto && nome.length < 80) {
+          pares.push({ nome: nome.trim(), texto: texto.slice(0, MAX_TEXTO) });
+        }
+      });
+      if (pares.length) return pares;
+    }
+
+    // Camada 2: data-* em contêiner de legendas (região ARIA)
+    const regioes = document.querySelectorAll(
+      '[role="region"][aria-label*="egenda" i], [role="region"][aria-label*="caption" i]'
+    );
+    regioes.forEach(function (regiao) {
+      const nomes = regiao.querySelectorAll(
+        "[data-speaker-name], [data-self-name]"
+      );
+      nomes.forEach(function (node) {
+        const nome =
+          node.getAttribute("data-speaker-name") ||
+          node.getAttribute("data-self-name") ||
+          textoLimpo(node);
+        let texto = "";
+        let sib = node.nextElementSibling;
+        if (sib) texto = textoLimpo(sib);
+        if (!texto && node.parentElement) {
+          const filhos = node.parentElement.children;
+          for (let i = 0; i < filhos.length; i++) {
+            if (filhos[i] === node) continue;
+            const t = textoLimpo(filhos[i]);
+            if (t && t !== nome) {
+              texto = t;
+              break;
+            }
+          }
+        }
+        if (nome && texto && nome.length > 1 && nome.length < 80) {
+          pares.push({ nome: nome.trim(), texto: texto.slice(0, MAX_TEXTO) });
+        }
+      });
+    });
+    if (pares.length) return pares;
+
+    // Camada 3: classes ofuscadas atuais do Meet (último recurso)
+    const containers = document.querySelectorAll(".nMcdL, .a4cQT .nMcdL, .iOzk7 .nMcdL");
+    const alvos = containers.length
+      ? containers
+      : document.querySelectorAll(".NWpY1d, .zs7s8d");
+    if (containers.length) {
+      containers.forEach(function (c) {
+        const nomeEl = c.querySelector(".NWpY1d, .zs7s8d, [jsname='V67aGc']");
+        const textoEl = c.querySelector(".ygicle, .VbkSUe, .iTTPOb");
+        const nome = nomeEl ? textoLimpo(nomeEl) : "";
+        const texto = textoEl ? textoLimpo(textoEl) : "";
+        if (nome && texto && nome.length > 1 && nome.length < 80) {
+          pares.push({ nome: nome.trim(), texto: texto.slice(0, MAX_TEXTO) });
+        }
+      });
+    } else {
+      // fallback: pares sequenciais nome/texto no DOM
+      const nomes = document.querySelectorAll(".NWpY1d, .zs7s8d, [jsname='V67aGc']");
+      nomes.forEach(function (nomeEl) {
+        const nome = textoLimpo(nomeEl);
+        let texto = "";
+        const parent = nomeEl.parentElement;
+        if (parent) {
+          const textoEl = parent.querySelector(".ygicle, .VbkSUe, .iTTPOb");
+          if (textoEl) texto = textoLimpo(textoEl);
+        }
+        if (nome && texto && nome.length > 1 && nome.length < 80) {
+          pares.push({ nome: nome.trim(), texto: texto.slice(0, MAX_TEXTO) });
+        }
+      });
+    }
+    return pares;
   }
 
   function nomeDoTileAtivo() {
     const ativos = document.querySelectorAll(
-      '[data-self-name][data-is-muted], [data-requested-participant-id][data-self-name]'
+      "[data-self-name][data-is-muted], [data-requested-participant-id][data-self-name]"
     );
     for (const tile of ativos) {
       const nome = tile.getAttribute("data-self-name");
       if (!nome) continue;
-      const estilo = window.getComputedStyle(tile.closest("[data-participant-id]") || tile);
+      const estilo = window.getComputedStyle(
+        tile.closest("[data-participant-id]") || tile
+      );
       if (estilo && parseFloat(estilo.opacity || "1") > 0.5) {
         return nome;
       }
     }
-    const falando = document.querySelector("[data-self-name].kssMZb, [data-self-name].gjg47c");
+    const falando = document.querySelector(
+      "[data-self-name].kssMZb, [data-self-name].gjg47c"
+    );
     if (falando) {
       return falando.getAttribute("data-self-name") || textoLimpo(falando);
     }
@@ -88,9 +190,11 @@
   }
 
   function detectar() {
-    const legenda = nomeDaLegenda();
-    if (legenda) {
-      enviar(legenda, "lista");
+    const legendas = extrairLegendas();
+    if (legendas.length) {
+      // envia a legenda mais recente (última do DOM)
+      const ult = legendas[legendas.length - 1];
+      enviar(ult.nome, "legenda", ult.texto);
       return;
     }
     const ativo = nomeDoTileAtivo();

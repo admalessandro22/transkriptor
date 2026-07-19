@@ -12,7 +12,12 @@ import threading
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from config import MAX_FILA_MEET_WS, MAX_MENSAGEM_MEET_WS, MAX_NOME_PARTICIPANTE
+from config import (
+    MAX_FILA_MEET_WS,
+    MAX_MENSAGEM_MEET_WS,
+    MAX_NOME_PARTICIPANTE,
+    MAX_TEXTO_LEGENDA,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +35,15 @@ def sanitizar_nome_participante(nome: str) -> str:
     return limpo[:MAX_NOME_PARTICIPANTE]
 
 
+def sanitizar_texto_legenda(texto: str) -> str:
+    """Sanitiza texto de legenda como o nome e trunca em MAX_TEXTO_LEGENDA (FR-5.4)."""
+    limpo = "".join(c for c in str(texto) if c.isprintable() or c.isspace())
+    limpo = " ".join(limpo.split())
+    return limpo[:MAX_TEXTO_LEGENDA]
+
+
 def normalizar_evento(dados: Any) -> dict | None:
-    """Normaliza payload `{nome, ts_ms, tipo}` para a fila interna."""
+    """Normaliza payload `{nome, ts_ms, tipo, texto?}` para a fila interna (FR-5.4)."""
     if not isinstance(dados, dict):
         return None
     nome = sanitizar_nome_participante(dados.get("nome", ""))
@@ -42,12 +54,17 @@ def normalizar_evento(dados: Any) -> dict | None:
     except (TypeError, ValueError):
         ts_ms = 0
     tipo = str(dados.get("tipo", "ativo"))
-    return {
+    evento = {
         "nome": nome,
         "ts_ms": ts_ms,
         "ts_sec": ts_ms / 1000.0,
         "tipo": tipo,
     }
+    if "texto" in dados and dados.get("texto") is not None:
+        texto = sanitizar_texto_legenda(dados.get("texto", ""))
+        if texto:
+            evento["texto"] = texto
+    return evento
 
 
 def origem_permitida(origin: str | None) -> bool:
