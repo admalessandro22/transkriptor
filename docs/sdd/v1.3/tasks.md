@@ -408,7 +408,7 @@ verde + instalação manual completa OK; então remover `instalar_legacy.bat`.
   nenhum comportamento novo; ajustar testes que inspecionam o HTML para ler o template.
 - **AC:** suíte do assistente verde; `assistente.py` < 300 linhas.
 - **Commit:** `refactor: extrai front do assistente para templates e estáticos`
-- **Status:** [ ]
+- **Status:** [x]
 
 ### T-F8-02 — Dividir transkriptor.pyw
 
@@ -420,7 +420,7 @@ verde + instalação manual completa OK; então remover `instalar_legacy.bat`.
   Nenhum arquivo de produção > 500 linhas.
 - **AC:** suíte completa verde; verificação de limite de linhas passa.
 - **Commit:** `refactor: divide transkriptor.pyw em módulos coesos`
-- **Status:** [ ]
+- **Status:** [x]
 
 **GATE F8 (final):** `python -m pytest tests/ -q` 100% verde + limite de 500 linhas +
 roteiro manual de release do `plan.md` executado e registrado em `docs/VERIFICACAO.md`.

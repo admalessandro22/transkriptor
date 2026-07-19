@@ -20,7 +20,6 @@ import numpy as np
 import soundcard as sc
 from faster_whisper import WhisperModel
 
-from audio_utils import ler_trecho_wav
 from config import (
     SAMPLE_RATE,
     CHUNK_SEGUNDOS,
@@ -32,14 +31,10 @@ from config import (
     resolver_modelo_whisper,
     detectar_cuda_e_vram,
     CAPTURAR_MIC,
-    ARQUIVO_PERFIL_VOZ,
-    ARQUIVO_VOZES_CONHECIDAS,
-    LIMIAR_IDENTIFICACAO_VOZ,
     ROTULO_USUARIO,
-    LIMIAR_RMS_MIC,
     TIMEOUT_JOIN_STOP_SEG,
-    PASTA_AUDIO,
     MIN_DISCO_LIVRE_GB,
+    PASTA_AUDIO,  # reexport para monkeypatch em testes
 )
 
 logger = logging.getLogger(__name__)
@@ -364,106 +359,16 @@ class Transcritor:
 
     def _rodar_diarizacao(self, caminho_saida, caminho_wav):
         """Pós-processamento: separa falantes e escreve versão diarizada do .txt."""
-        self.diarizando = True
-        try:
-            if not self._segmentos:
-                self.on_status("Sem segmentos para diarizar.")
-                return
+        from diarizacao_final import rodar_diarizacao
 
-            self.on_status("Iniciando separação de vozes (pós-processamento)...")
-            try:
-                from diarizador import diarizar
-
-                # extrai áudio por trecho do WAV (não carrega tudo em RAM)
-                trechos_audio = []
-                if caminho_wav and os.path.isfile(caminho_wav):
-                    for start, end, _t in self._segmentos:
-                        trechos_audio.append(ler_trecho_wav(caminho_wav, start, end))
-                else:
-                    trechos_audio = [np.array([], dtype=np.float32)] * len(self._segmentos)
-
-                perfil = None
-                if self.identificar_voz:
-                    from identificador_voz import carregar_perfil
-
-                    perfil = carregar_perfil(ARQUIVO_PERFIL_VOZ)
-
-                caminho_mic = getattr(self, "_caminho_wav_mic_salvo", None)
-                vozes_conhecidas = {}
-                if self.usar_vozes_conhecidas:
-                    from identificador_voz import carregar_vozes_conhecidas
-
-                    vozes_conhecidas = carregar_vozes_conhecidas(ARQUIVO_VOZES_CONHECIDAS)
-                resultado, centroides = diarizar(
-                    trechos_audio,
-                    self._segmentos,
-                    num_falantes=self.num_falantes,
-                    on_status=self.on_status,
-                    perfil_usuario=perfil,
-                    limiar_identificacao=LIMIAR_IDENTIFICACAO_VOZ,
-                    rotulo_usuario=self.rotulo_usuario,
-                    identificar_ativo=self.identificar_voz,
-                    caminho_mic_wav=caminho_mic,
-                    limiar_rms_mic=LIMIAR_RMS_MIC,
-                    eventos_meet=self.eventos_meet,
-                    vozes_conhecidas=vozes_conhecidas,
-                    retornar_centroides=True,
-                )
-                self._centroides_por_rotulo_ultima = centroides
-            except Exception as e:
-                self.on_status(f"Erro na diarização: {e}")
-                logger.exception("Erro na diarização")
-                return
-
-            # escreve arquivo diarizado
-            base = os.path.splitext(caminho_saida)[0]
-            base, ext = os.path.splitext(caminho_saida)
-            caminho_diar = f"{base}_diarizado{ext}"
-            linhas = [
-                f"=== Transcricao diarizada em {datetime.datetime.now():%Y-%m-%d %H:%M:%S} ===\n\n"
-            ]
-            for rotulo, start, end, texto in resultado:
-                mm_ss_start = f"{int(start // 60):02d}:{int(start % 60):02d}"
-                mm_ss_end = f"{int(end // 60):02d}:{int(end % 60):02d}"
-                linhas.append(f"[{rotulo} {mm_ss_start}-{mm_ss_end}] {texto}\n")
-            linhas.append("\n=== Fim ===\n")
-            texto_diar = "".join(linhas)
-            if self.criptografar:
-                from crypto_storage import salvar_transcricao
-
-                salvar_transcricao(caminho_diar, texto_diar)
-            else:
-                with open(caminho_diar, "w", encoding="utf-8") as f:
-                    f.write(texto_diar)
-
-            self.on_status(f"Diarização concluída: {os.path.basename(caminho_diar)}")
-        finally:
-            self.diarizando = False
-            # FR-2.1: preserva áudio em PASTA_AUDIO (não apaga)
-            self._preservar_audios(
-                caminho_wav, getattr(self, "_caminho_wav_mic_salvo", None)
-            )
+        rodar_diarizacao(self, caminho_saida, caminho_wav)
 
     def _preservar_audios(self, *caminhos):
         """Move WAVs finalizados para PASTA_AUDIO e criptografa se ativo (FR-2.1/2.2)."""
-        destinos = []
-        os.makedirs(PASTA_AUDIO, exist_ok=True)
-        from crypto_storage import criptografar_wav
+        from diarizacao_final import preservar_audios
 
-        for caminho in caminhos:
-            if not caminho or not os.path.isfile(caminho):
-                continue
-            try:
-                destino = os.path.join(PASTA_AUDIO, os.path.basename(caminho))
-                if os.path.abspath(caminho) != os.path.abspath(destino):
-                    if os.path.isfile(destino):
-                        os.remove(destino)
-                    shutil.move(caminho, destino)
-                destino = criptografar_wav(destino)
-                destinos.append(destino)
-            except Exception:
-                logger.exception("Falha ao preservar áudio %s", caminho)
-        return destinos
+        # PASTA_AUDIO no namespace do módulo — monkeypatch em testes
+        return preservar_audios(self.criptografar, *caminhos, pasta_audio=PASTA_AUDIO)
 
     def _checar_disco_livre(self):
         """FR-2.8: avisa se espaço livre < MIN_DISCO_LIVRE_GB (gravação segue)."""

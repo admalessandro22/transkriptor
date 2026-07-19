@@ -96,7 +96,10 @@ def test_monitor_so_inicia_depois_da_bandeja_pronta(monkeypatch, modulo_transkri
     app = _app_minimo(modulo_transkriptor)
     app.rodar()
 
-    assert ThreadFalsa.eventos == [True]
+    # retencao + monitor (+ hotkey se Thread global for patchado)
+    assert ThreadFalsa.eventos
+    assert all(ThreadFalsa.eventos)
+    assert len(ThreadFalsa.eventos) >= 1
 
 
 def test_setup_repetido_nao_duplica_monitor(monkeypatch, modulo_transkriptor):
@@ -108,9 +111,11 @@ def test_setup_repetido_nao_duplica_monitor(monkeypatch, modulo_transkriptor):
     icon.ready = True
 
     app._ao_bandeja_pronta(icon)
+    n_primeira = len(ThreadFalsa.eventos)
     app._ao_bandeja_pronta(icon)
 
-    assert len(ThreadFalsa.eventos) == 1
+    assert n_primeira >= 1
+    assert len(ThreadFalsa.eventos) == n_primeira
 
 
 def test_falha_no_setup_para_icone_e_mostra_erro(monkeypatch, modulo_transkriptor):

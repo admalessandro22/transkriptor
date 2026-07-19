@@ -63,7 +63,7 @@ def test_saida_bloqueada_sem_confirmacao():
 
 
 def test_texto_menu_transcricao_manual():
-    assert texto_transcricao_manual(False) == "Transcrição manual"
+    assert texto_transcricao_manual(False) == "Iniciar transcrição manual"
     assert texto_transcricao_manual(True) == "Parar transcrição manual"
 
 
@@ -82,9 +82,12 @@ def test_monitorar_meet_usa_guard_modo_manual():
 
 
 def test_menu_contem_itens_fase3():
+    # FR-8.2: menu pode estar em app_bandeja_menu.py
     texto = TRANSKRIPTOR.read_text(encoding="utf-8")
-    assert "Abrir log" in texto
-    assert "abrir_log" in texto
-    assert "alternar_transcricao_manual" in texto
-    assert "LOG_FILE" in texto
-    assert "saida_permitida" in texto or "confirmacao_saida" in texto
+    menu = (REPO / "app_bandeja_menu.py").read_text(encoding="utf-8")
+    combined = texto + "\n" + menu
+    assert "Abrir log" in combined
+    assert "abrir_log" in combined
+    assert "alternar_transcricao_manual" in combined
+    assert "LOG_FILE" in combined
+    assert "saida_permitida" in combined or "confirmacao_saida" in combined

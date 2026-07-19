@@ -118,3 +118,13 @@ python scripts/verificar_fase.py --fase all            -> 148 passed
 2026-07-18 10:03:37,840 [INFO] Segunda instancia bloqueada pelo mutex.
 2026-07-18 10:34:17,510 [INFO] Meet encerrado após 3 ausências.
 ```
+
+## v1.3 — Fase 8 (refatoração final)
+
+- Data: 2026-07-19
+- T-F8-01: front do assistente em `templates/assistente.html`, `static/assistente.css`, `static/assistente.js`; Flask `render_template`; `assistente.py` < 300 linhas; cliente Ollama em `assistente_ollama.py`.
+- T-F8-02: `transkriptor.pyw` reduzido a bootstrap + núcleo; `startup_windows.py` (PS1 parametrizado), `perfil_voz_flow.py`, `app_bandeja_menu.py`, `bandeja_icone.py`, `transkriptor_menu_flows.py`, `diarizacao_final.py`; fallback `win10toast` removido de `notificador.py`.
+- Gate automatizado: `python -m pytest tests/ -q` → **256 passed** (1 warning de thread injetada no watchdog, esperado).
+- Limite de linhas: todos os `*.py` / `*.pyw` de produção ≤ 500 (ver `lines-check.log`).
+- Roteiro manual de release (plan.md): pendente de execução em reunião real de 10 min — registrar quando concluído.
+

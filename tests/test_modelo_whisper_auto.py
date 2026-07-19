@@ -126,7 +126,13 @@ def test_menu_persiste_modelo_whisper(tmp_path, monkeypatch, modulo_transkriptor
     app._lock = __import__("threading").Lock()
 
     toasts = []
-    monkeypatch.setattr(modulo_transkriptor, "notificar", lambda t, m: toasts.append(m))
+
+    def _toast(titulo, msg, *a, **k):
+        toasts.append(msg)
+
+    monkeypatch.setattr(modulo_transkriptor, "notificar", _toast)
+    monkeypatch.setattr("app_bandeja_menu.notificar", _toast)
+    monkeypatch.setattr("notificador.notificar", _toast)
 
     app.definir_modelo_whisper(None, "medium")
     assert app.modelo_whisper == "medium"

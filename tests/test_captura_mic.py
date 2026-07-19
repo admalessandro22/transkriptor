@@ -43,8 +43,17 @@ def test_abrir_arquivo_sem_mic_nao_cria_wav_mic(tmp_path):
     assert t._wav_mic is None
 
 
-def test_stop_fecha_mic_apos_thread_mic(tmp_path):
-    t = Transcritor(pasta_saida=str(tmp_path), diarizar_ao_final=False, capturar_mic=True)
+def test_stop_fecha_mic_apos_thread_mic(tmp_path, monkeypatch):
+    pasta_audio = tmp_path / "audio"
+    monkeypatch.setattr("transcricao_core.PASTA_AUDIO", str(pasta_audio))
+    monkeypatch.setattr("config.PASTA_AUDIO", str(pasta_audio))
+    monkeypatch.setattr("crypto_storage.criptografia_ativa", lambda: False)
+    t = Transcritor(
+        pasta_saida=str(tmp_path),
+        diarizar_ao_final=False,
+        capturar_mic=True,
+        criptografar=False,
+    )
     t._stop = threading.Event()
     t._abrir_arquivo()
     mic_mock = MagicMock()
@@ -56,7 +65,12 @@ def test_stop_fecha_mic_apos_thread_mic(tmp_path):
         time.sleep(0.1)
         t.stop()
     assert t._wav_mic is None
-    assert os.path.isfile(t._caminho_wav_mic)
+    # FR-2.1: mic WAV é movido para PASTA_AUDIO no stop
+    base = os.path.basename(t._caminho_wav_mic or "")
+    assert base
+    assert os.path.isfile(t._caminho_wav_mic) or os.path.isfile(
+        os.path.join(str(pasta_audio), base)
+    )
 
 
 def test_stop_encerra_thread_mic(tmp_path):
