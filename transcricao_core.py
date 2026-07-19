@@ -108,28 +108,14 @@ class Transcritor:
         nome = self.modelo_nome or MODELO_WHISPER
         if nome == "auto":
             tem_cuda, vram_gb = detectar_cuda_e_vram()
-            modelo, device, compute_type = resolver_modelo_whisper(tem_cuda, vram_gb)
-            self.on_status(
-                f"Carregando modelo {modelo} ({device}, auto)..."
-            )
+            modelo, device, ctype = resolver_modelo_whisper(tem_cuda, vram_gb)
+            self.on_status(f"Carregando modelo {modelo} ({device}, auto)...")
             try:
-                self._modelo = WhisperModel(
-                    modelo, device=device, compute_type=compute_type
-                )
+                self._modelo = WhisperModel(modelo, device=device, compute_type=ctype)
             except Exception as e:
-                # FR-6.3: fallback CUDA → CPU/small
-                logger.warning(
-                    "Falha ao carregar Whisper %s/%s: %s; tentando small/cpu",
-                    modelo,
-                    device,
-                    e,
-                )
-                self.on_status(
-                    "Falha no modelo GPU — carregando small em CPU..."
-                )
-                self._modelo = WhisperModel(
-                    "small", device="cpu", compute_type="int8"
-                )
+                logger.warning("Falha Whisper %s/%s: %s; small/cpu", modelo, device, e)
+                self.on_status("Falha no modelo GPU — carregando small em CPU...")
+                self._modelo = WhisperModel("small", device="cpu", compute_type="int8")
             self.on_status("Modelo pronto.")
             return
         self.on_status(f"Carregando modelo {nome}...")
@@ -137,45 +123,39 @@ class Transcritor:
         self._modelo = WhisperModel(nome, device=device, compute_type=COMPUTE_TYPE)
         self.on_status("Modelo pronto.")
 
+    def _abrir_wav(self, caminho):
+        w = wave.open(caminho, "wb")
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(SAMPLE_RATE)
+        return w
+
     def _abrir_arquivo(self):
         from crypto_storage import caminho_transcricao_novo
 
         self._caminho_saida = caminho_transcricao_novo(
             self.pasta_saida, criptografar=self.criptografar
         )
-        cabecalho = (
-            f"=== Transcricao iniciada em {datetime.datetime.now():%Y-%m-%d %H:%M:%S} ===\n\n"
-        )
+        cab = f"=== Transcricao iniciada em {datetime.datetime.now():%Y-%m-%d %H:%M:%S} ===\n\n"
         if self.criptografar:
             self._arq = io.StringIO()
-            self._arq.write(cabecalho)
+            self._arq.write(cab)
         else:
             self._arq = open(self._caminho_saida, "w", encoding="utf-8")
-            self._arq.write(cabecalho)
+            self._arq.write(cab)
             self._arq.flush()
-
-        # WAV sempre gravado (FR-2.1); ao final é movido para PASTA_AUDIO
         base = os.path.splitext(self._caminho_saida)[0]
         self._caminho_wav = base + "_audio.wav"
-        self._wav = wave.open(self._caminho_wav, "wb")
-        self._wav.setnchannels(1)
-        self._wav.setsampwidth(2)  # int16
-        self._wav.setframerate(SAMPLE_RATE)
-
+        self._wav = self._abrir_wav(self._caminho_wav)
         if self.capturar_mic:
-            base = os.path.splitext(self._caminho_saida)[0]
             self._caminho_wav_mic = base + "_mic.wav"
-            self._wav_mic = wave.open(self._caminho_wav_mic, "wb")
-            self._wav_mic.setnchannels(1)
-            self._wav_mic.setsampwidth(2)
-            self._wav_mic.setframerate(SAMPLE_RATE)
+            self._wav_mic = self._abrir_wav(self._caminho_wav_mic)
 
     def _abrir_loopback(self):
         if self.dispositivo:
             speaker = next(
                 (
-                    s
-                    for s in sc.all_speakers()
+                    s for s in sc.all_speakers()
                     if getattr(s, "name", "") == self.dispositivo
                     or getattr(s, "id", "") == self.dispositivo
                 ),
@@ -241,16 +221,11 @@ class Transcritor:
             self.on_status(f"Erro na captura do microfone: {e}")
 
     def _gravar_audio_bloco(self, audio):
-        """Escreve frames no WAV (modo somente áudio ou com Whisper)."""
         if self._wav is not None and audio is not None and getattr(audio, "size", 0) > 0:
             self._wav.writeframes((audio * 32767).astype(np.int16).tobytes())
 
     def _fechar_arquivos_no_processar(self):
-        """FR-6.1: só fecha no finally de _processar se stop() foi pedido.
-
-        Reinício pelo watchdog (thread morreu sem stop) deve manter _arq/_wav
-        abertos para a nova thread continuar gravando no mesmo arquivo.
-        """
+        """FR-6.1: fecha só se stop(); restart do watchdog mantém arquivos abertos."""
         if not self._stop.is_set():
             return
         try:
@@ -269,26 +244,21 @@ class Transcritor:
         try:
             while not self._stop.is_set():
                 try:
-                    pedaco = self._q.get(timeout=0.5)
+                    self._gravar_audio_bloco(self._q.get(timeout=0.5))
                 except queue.Empty:
                     continue
-                self._gravar_audio_bloco(pedaco)
-            # drena fila restante
             while True:
                 try:
-                    pedaco = self._q.get_nowait()
+                    self._gravar_audio_bloco(self._q.get_nowait())
                 except queue.Empty:
                     break
-                self._gravar_audio_bloco(pedaco)
         finally:
             self._fechar_arquivos_no_processar()
 
     def _processar(self):
-        # FR-6.1 / BUG-08: try/finally; fecha só se stop() (não no restart do watchdog)
         try:
             alvo = int(SAMPLE_RATE * self.chunk)
-            buffer = []
-            buf_n = 0
+            buffer, buf_n = [], 0
             while not self._stop.is_set():
                 try:
                     pedaco = self._q.get(timeout=0.5)
@@ -297,10 +267,8 @@ class Transcritor:
                 buffer.append(pedaco)
                 buf_n += pedaco.size
                 if buf_n >= alvo:
-                    audio = np.concatenate(buffer)
-                    buffer.clear()
-                    buf_n = 0
-                    self._transcrever_bloco(audio)
+                    self._transcrever_bloco(np.concatenate(buffer))
+                    buffer, buf_n = [], 0
             if buffer:
                 self._transcrever_bloco(np.concatenate(buffer), final=True)
         finally:
@@ -318,19 +286,13 @@ class Transcritor:
         if audio.size == 0:
             return
         duracao = audio.size / SAMPLE_RATE
-        # FR-2.4 / FR-6.1: grava WAV sempre — antes e independentemente do Whisper
-        self._gravar_audio_bloco(audio)
-
-        segmentos_lista = []
+        self._gravar_audio_bloco(audio)  # FR-2.4: WAV sempre, independente do Whisper
         if self._modelo is None:
             self._offset_seg += duracao
             return
         try:
             segments, _info = self._modelo.transcribe(
-                audio,
-                language=self.idioma,
-                vad_filter=True,
-                beam_size=1,
+                audio, language=self.idioma, vad_filter=True, beam_size=1,
                 vad_parameters={"min_silence_duration_ms": 600},
             )
             segmentos_lista = list(segments)
@@ -338,21 +300,18 @@ class Transcritor:
             self.on_status(f"Erro na transcrição: {e}")
             self._offset_seg += duracao
             return
-
         texto_completo = []
         for seg in segmentos_lista:
             texto = seg.text.strip()
             if not texto:
                 continue
-            start_abs = self._offset_seg + seg.start
-            end_abs = self._offset_seg + seg.end
             if self.diarizar_ao_final:
-                self._segmentos.append((start_abs, end_abs, texto))
+                self._segmentos.append(
+                    (self._offset_seg + seg.start, self._offset_seg + seg.end, texto)
+                )
             texto_completo.append(texto)
-
         self._offset_seg += duracao
         texto = " ".join(texto_completo).strip()
-
         ts = datetime.datetime.now().strftime("%H:%M:%S")
         if self._arq:
             self._arq.write(f"[{ts}] {texto if texto else '(silencio)'}\n")
@@ -361,24 +320,17 @@ class Transcritor:
             self.on_status(texto)
 
     def _rodar_diarizacao(self, caminho_saida, caminho_wav):
-        """Pós-processamento: separa falantes e escreve versão diarizada do .txt."""
         from diarizacao_final import rodar_diarizacao
-
         rodar_diarizacao(self, caminho_saida, caminho_wav)
 
     def _preservar_audios(self, *caminhos):
-        """Move WAVs finalizados para PASTA_AUDIO e criptografa se ativo (FR-2.1/2.2)."""
         from diarizacao_final import preservar_audios
-
-        # PASTA_AUDIO no namespace do módulo — monkeypatch em testes
         return preservar_audios(self.criptografar, *caminhos, pasta_audio=PASTA_AUDIO)
 
     def _checar_disco_livre(self):
-        """FR-2.8: avisa se espaço livre < MIN_DISCO_LIVRE_GB (gravação segue)."""
         try:
             livre = shutil.disk_usage(self.pasta_saida).free
-            limite = MIN_DISCO_LIVRE_GB * (1024**3)
-            if livre < limite:
+            if livre < MIN_DISCO_LIVRE_GB * (1024**3):
                 self.on_status(
                     f"Aviso: pouco espaço em disco "
                     f"(menos de {MIN_DISCO_LIVRE_GB} GB livres). A gravação continua."
@@ -389,7 +341,6 @@ class Transcritor:
     def start(self):
         if self.rodando:
             return
-        # FR-2.4: abre arquivos e captura ANTES do modelo — falha Whisper não perde áudio
         self._checar_disco_livre()
         self._abrir_arquivo()
         self._stop.clear()
@@ -412,8 +363,9 @@ class Transcritor:
                 "Transcrição indisponível — gravando somente áudio para retranscrição"
             )
             logger.warning("Whisper indisponível; modo somente áudio: %s", e)
-            # processador em modo só-gravação (sem transcrever)
-            self._thread_proc = threading.Thread(target=self._processar_somente_audio, daemon=True)
+            self._thread_proc = threading.Thread(
+                target=self._processar_somente_audio, daemon=True
+            )
             self._thread_proc.start()
             return
         self._thread_proc = threading.Thread(target=self._processar, daemon=True)
@@ -431,7 +383,6 @@ class Transcritor:
         )
         if self.criptografar and isinstance(self._arq, io.StringIO):
             from crypto_storage import salvar_transcricao
-
             salvar_transcricao(self._caminho_saida, self._arq.getvalue())
             self._arq = None
             return
@@ -464,40 +415,28 @@ class Transcritor:
             self._aguardar_thread(self._thread_proc, timeout=5)
         self._fechar_arquivos_abertos()
         self.rodando = False
-        caminho = self._caminho_saida
-        caminho_wav = self._caminho_wav
+        caminho, caminho_wav = self._caminho_saida, self._caminho_wav
         self._caminho_wav_mic_salvo = self._caminho_wav_mic
-
         if self.diarizar_ao_final and self._segmentos and caminho:
             self._thread_diar = threading.Thread(
-                target=self._rodar_diarizacao,
-                args=(caminho, caminho_wav),
-                daemon=True,
+                target=self._rodar_diarizacao, args=(caminho, caminho_wav), daemon=True
             )
             self._thread_diar.start()
         else:
-            # FR-2.1: sem diarização (ou sem segmentos), move WAV imediatamente
             self._preservar_audios(caminho_wav, self._caminho_wav_mic_salvo)
-
         self._caminho_saida = None
         self.finalizando = False
         self.on_status("Transcrição encerrada.")
         return caminho
 
-    # ---- métodos para o watchdog (T2.6) ----
     def _reiniciar_captura(self):
-        """Reinicia a thread de captura se ela morrer."""
         if self.rodando and (self._thread_cap is None or not self._thread_cap.is_alive()):
             self.on_status("Reiniciando captura (watchdog)...")
             self._thread_cap = threading.Thread(target=self._capturar, daemon=True)
             self._thread_cap.start()
 
     def _reiniciar_processar(self):
-        """Reinicia a thread de processamento se ela morrer.
-
-        FR-2.4×FR-6.1: no modo somente áudio reinicia `_processar_somente_audio`
-        (não `_processar`, que dependeria de Whisper e perderia frames).
-        """
+        """FR-2.4×FR-6.1: em só-áudio reinicia `_processar_somente_audio`."""
         if self.rodando and (self._thread_proc is None or not self._thread_proc.is_alive()):
             self.on_status("Reiniciando processamento (watchdog)...")
             alvo = (
