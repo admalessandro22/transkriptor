@@ -397,9 +397,11 @@ class Transcritor:
             )
 
     def _preservar_audios(self, *caminhos):
-        """Move WAVs finalizados para PASTA_AUDIO; retorna caminhos de destino."""
+        """Move WAVs finalizados para PASTA_AUDIO e criptografa se ativo (FR-2.1/2.2)."""
         destinos = []
         os.makedirs(PASTA_AUDIO, exist_ok=True)
+        from crypto_storage import criptografar_wav
+
         for caminho in caminhos:
             if not caminho or not os.path.isfile(caminho):
                 continue
@@ -409,6 +411,7 @@ class Transcritor:
                     if os.path.isfile(destino):
                         os.remove(destino)
                     shutil.move(caminho, destino)
+                destino = criptografar_wav(destino)
                 destinos.append(destino)
             except Exception:
                 logger.exception("Falha ao preservar áudio %s", caminho)

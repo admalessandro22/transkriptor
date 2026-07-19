@@ -41,6 +41,7 @@ from transkriptor_lock import adquirir_lock, liberar_lock
 from config import (
     BASE_DIR,
     PASTA_TRANSCRICOES,
+    PASTA_AUDIO,
     LOG_FILE,
     ICONE_FILE,
     MODELO_WHISPER,
@@ -66,6 +67,7 @@ from crypto_storage import (
     migrar_txt_legacy,
     migrar_vozes_legacy,
     perfil_existe,
+    recuperar_orfaos_wav,
 )
 
 os.makedirs(PASTA_TRANSCRICOES, exist_ok=True)
@@ -219,6 +221,9 @@ class AppTranskriptor:
             )
             if vozes:
                 logging.info("Migrados %d arquivos de voz legados para .enc", vozes)
+            orfaos = recuperar_orfaos_wav(PASTA_AUDIO)
+            if orfaos:
+                logging.info("Criptografados %d audios orfaos em PASTA_AUDIO", orfaos)
         if "criptografar_transcricoes" not in cfg:
             cfg["criptografar_transcricoes"] = self.criptografar_transcricoes
             _salvar_config_user(cfg)

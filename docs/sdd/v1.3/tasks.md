@@ -69,7 +69,7 @@ teste RED observado → implementação mínima → GREEN → gate → commit.
   `ler_bytes_arquivo`; órfão plaintext é convertido no start; `/api/transcricoes` não
   lista nada de `audio/`.
 - **Commit:** `feat: criptografa áudio retido e recupera órfãos no start`
-- **Status:** [ ]
+- **Status:** [x]
 
 ### T-F2-03 — Retenção de 7 dias
 

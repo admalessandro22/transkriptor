@@ -308,3 +308,45 @@ def migrar_vozes_legacy(
 
 def perfil_existe(caminho_npz: str, caminho_enc: str) -> bool:
     return os.path.isfile(caminho_enc) or os.path.isfile(caminho_npz)
+
+
+def criptografar_wav(caminho: str) -> str:
+    """Criptografa WAV finalizado → `.wav.enc` e remove plaintext (FR-2.2).
+
+    No-op se criptografia inativa ou chave indisponível; retorna o caminho original.
+    """
+    if not caminho or not os.path.isfile(caminho):
+        return caminho
+    if not caminho.lower().endswith(".wav"):
+        return caminho
+    if not (criptografia_ativa() and chave_disponivel()):
+        return caminho
+    path = Path(caminho)
+    destino = str(path) + ".enc"
+    try:
+        plano = path.read_bytes()
+        salvar_bytes_arquivo(destino, plano)
+        path.unlink()
+        return destino
+    except Exception:
+        logger.warning("Falha ao criptografar WAV %s", path.name, exc_info=True)
+        return caminho
+
+
+def recuperar_orfaos_wav(pasta_audio: str) -> int:
+    """Criptografa WAVs plaintext órfãos em PASTA_AUDIO (recuperação pós-crash)."""
+    if not (criptografia_ativa() and chave_disponivel()):
+        return 0
+    pasta = Path(pasta_audio)
+    if not pasta.is_dir():
+        return 0
+    n = 0
+    for wav in sorted(pasta.glob("*.wav")):
+        # ignora se já existe .enc correspondente e o plaintext é residual
+        try:
+            out = criptografar_wav(str(wav))
+            if out.endswith(".wav.enc") and not wav.exists():
+                n += 1
+        except Exception:
+            logger.warning("Falha ao recuperar órfão %s", wav.name, exc_info=True)
+    return n
