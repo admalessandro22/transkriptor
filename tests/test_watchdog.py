@@ -75,6 +75,58 @@ def test_watchdog_loop_para_quando_stop():
     assert not w._thread.is_alive()
 
 
+def test_reiniciar_processar_somente_audio_continua_gravando_wav(tmp_path, monkeypatch):
+    """FR-2.4×FR-6.1: em modo somente áudio, restart deve usar _processar_somente_audio."""
+    import wave
+
+    pasta_audio = tmp_path / "audio"
+    monkeypatch.setattr("transcricao_core.PASTA_AUDIO", str(pasta_audio))
+    monkeypatch.setattr("crypto_storage.criptografia_ativa", lambda: False)
+
+    t = Transcritor(
+        pasta_saida=str(tmp_path),
+        diarizar_ao_final=False,
+        capturar_mic=False,
+        criptografar=False,
+        chunk=0.05,
+    )
+    t._abrir_arquivo()
+    t.rodando = True
+    t._stop.clear()
+    t._somente_audio = True
+    t._modelo = None
+
+    # Simula morte da thread de somente-áudio
+    t._thread_proc = threading.Thread(target=lambda: None, daemon=True)
+    t._thread_proc.start()
+    t._thread_proc.join(timeout=1)
+
+    t._reiniciar_processar()
+    assert t._thread_proc is not None
+    assert t._thread_proc.is_alive()
+
+    # Enfileira frames e aguarda gravação no WAV
+    audio = np.full(int(16000 * 0.2), 0.3, dtype=np.float32)
+    t._q.put(audio)
+    deadline = time.time() + 3
+    while time.time() < deadline:
+        if t._wav is not None:
+            # frames ainda no handle aberto
+            try:
+                # Wave_write não expõe nframes facilmente; checamos tamanho do arquivo temp
+                if Path(t._caminho_wav).stat().st_size > 44:
+                    break
+            except Exception:
+                pass
+        time.sleep(0.05)
+
+    t.stop()
+    wavs = list(pasta_audio.glob("*_audio.wav"))
+    assert len(wavs) == 1, f"esperado WAV em {pasta_audio}: {list(pasta_audio.iterdir()) if pasta_audio.exists() else None}"
+    with wave.open(str(wavs[0]), "rb") as w:
+        assert w.getnframes() > 0
+
+
 def test_reiniciar_processar_preserva_arquivo_e_continua_escrevendo(tmp_path):
     """FR-6.1: matar processar, reiniciar e provar que o texto continua no arquivo."""
     t = Transcritor(

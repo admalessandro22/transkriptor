@@ -240,6 +240,48 @@ def caminho_nao_serve_audio(client, headers, nome):
     return caminho_transcricao_seguro(nome) is None
 
 
+def test_transcrever_bloco_grava_wav_mesmo_sem_modelo(tmp_path, monkeypatch):
+    """FR-2.4: falha/None do modelo não deve pular writeframes do WAV."""
+    monkeypatch.setattr("crypto_storage.criptografia_ativa", lambda: False)
+    t = Transcritor(
+        pasta_saida=str(tmp_path),
+        diarizar_ao_final=False,
+        capturar_mic=False,
+        criptografar=False,
+    )
+    t._abrir_arquivo()
+    t._modelo = None
+    audio = np.full(1600, 0.25, dtype=np.float32)
+    t._transcrever_bloco(audio)
+    assert t._wav is not None
+    # fecha e reabre para contar frames
+    caminho = t._caminho_wav
+    t._wav.close()
+    t._wav = None
+    with wave.open(caminho, "rb") as w:
+        assert w.getnframes() == 1600
+
+
+def test_transcrever_bloco_grava_wav_quando_transcribe_falha(tmp_path, monkeypatch):
+    monkeypatch.setattr("crypto_storage.criptografia_ativa", lambda: False)
+    t = Transcritor(
+        pasta_saida=str(tmp_path),
+        diarizar_ao_final=False,
+        capturar_mic=False,
+        criptografar=False,
+    )
+    t._abrir_arquivo()
+    t._modelo = MagicMock()
+    t._modelo.transcribe.side_effect = RuntimeError("boom")
+    audio = np.full(800, 0.1, dtype=np.float32)
+    t._transcrever_bloco(audio)
+    caminho = t._caminho_wav
+    t._wav.close()
+    t._wav = None
+    with wave.open(caminho, "rb") as w:
+        assert w.getnframes() == 800
+
+
 def test_whisper_falha_ainda_grava_somente_audio(tmp_path, monkeypatch):
     """FR-2.4: WhisperModel lança → start grava WAV; status contém 'somente áudio'."""
     pasta_audio = tmp_path / "audio"

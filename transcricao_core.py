@@ -318,6 +318,13 @@ class Transcritor:
         if audio.size == 0:
             return
         duracao = audio.size / SAMPLE_RATE
+        # FR-2.4 / FR-6.1: grava WAV sempre — antes e independentemente do Whisper
+        self._gravar_audio_bloco(audio)
+
+        segmentos_lista = []
+        if self._modelo is None:
+            self._offset_seg += duracao
+            return
         try:
             segments, _info = self._modelo.transcribe(
                 audio,
@@ -331,10 +338,6 @@ class Transcritor:
             self.on_status(f"Erro na transcrição: {e}")
             self._offset_seg += duracao
             return
-
-        # BUG-02: escreve áudio em disco (WAV) em vez de acumular em RAM
-        if self._wav:
-            self._wav.writeframes((audio * 32767).astype(np.int16).tobytes())
 
         texto_completo = []
         for seg in segmentos_lista:
@@ -490,10 +493,19 @@ class Transcritor:
             self._thread_cap.start()
 
     def _reiniciar_processar(self):
-        """Reinicia a thread de processamento se ela morrer."""
+        """Reinicia a thread de processamento se ela morrer.
+
+        FR-2.4×FR-6.1: no modo somente áudio reinicia `_processar_somente_audio`
+        (não `_processar`, que dependeria de Whisper e perderia frames).
+        """
         if self.rodando and (self._thread_proc is None or not self._thread_proc.is_alive()):
             self.on_status("Reiniciando processamento (watchdog)...")
-            self._thread_proc = threading.Thread(target=self._processar, daemon=True)
+            alvo = (
+                self._processar_somente_audio
+                if getattr(self, "_somente_audio", False)
+                else self._processar
+            )
+            self._thread_proc = threading.Thread(target=alvo, daemon=True)
             self._thread_proc.start()
 
     def caminho_atual(self):
