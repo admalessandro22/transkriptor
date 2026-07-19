@@ -30,10 +30,7 @@ set "VENV_PIP=%~dp0.venv\Scripts\pip.exe"
 
 echo [3/5] Instalando PyTorch (GPU se disponivel)...
 python scripts\instalar_helper.py --check gpu
-for /f "delims=" %%C in ('%VENV_PY% scripts\instalar_helper.py --check torch') do set "TORCH_CMD=%%C"
-REM helper imprime comando com sys.executable do helper — instala via venv
 %VENV_PY% -m pip install --upgrade pip
-%VENV_PY% scripts\instalar_helper.py --check gpu >nul 2>&1
 %VENV_PY% -c "from scripts.instalar_helper import tem_gpu_nvidia, comando_torch; import subprocess,sys; cmd=comando_torch(tem_gpu_nvidia()); cmd[0]=sys.executable; print(' '.join(cmd)); raise SystemExit(subprocess.call(cmd))"
 if errorlevel 1 (
   echo [AVISO] Falha no torch CUDA/CPU automatico — tentando CPU...

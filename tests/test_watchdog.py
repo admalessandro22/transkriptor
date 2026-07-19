@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import numpy as np
+import pytest
 
 from watchdog import Watchdog
 from transcricao_core import Transcritor
@@ -127,6 +128,7 @@ def test_reiniciar_processar_somente_audio_continua_gravando_wav(tmp_path, monke
         assert w.getnframes() > 0
 
 
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
 def test_reiniciar_processar_preserva_arquivo_e_continua_escrevendo(tmp_path):
     """FR-6.1: matar processar, reiniciar e provar que o texto continua no arquivo."""
     t = Transcritor(
