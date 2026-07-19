@@ -78,6 +78,7 @@ def test_ps1_zera_hotkey_do_atalho():
 def test_instalador_usa_script_unico_e_nao_cria_atalho_redundante():
     texto = (REPO / "instalar.bat").read_text(encoding="utf-8")
     assert r"scripts\criar_atalho_desktop.ps1" in texto
-    assert "if %errorlevel% neq 0" in texto.lower()
+    low = texto.lower()
+    assert "if %errorlevel% neq 0" in low or "if errorlevel 1" in low
     assert "Iniciar Transkriptor.lnk" not in texto
     assert "$ws.CreateShortcut" not in texto
