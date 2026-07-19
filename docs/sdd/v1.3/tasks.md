@@ -83,7 +83,7 @@ teste RED observado → implementação mínima → GREEN → gate → commit.
 - **AC (RED):** áudio de 8 dias com transcrição → removido; de 8 dias sem transcrição →
   mantido + reportado; de 2 dias → mantido; `agora` injetável para teste determinístico.
 - **Commit:** `feat: aplica retenção de 7 dias aos áudios de reunião`
-- **Status:** [ ]
+- **Status:** [x]
 
 ### T-F2-04 — Falha de Whisper não perde o áudio
 

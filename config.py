@@ -21,6 +21,7 @@ ARQUIVO_PERFIL_VOZ = os.path.join(DIR_MODELO_VOZ, "perfil_usuario.npz")
 ARQUIVO_PERFIL_VOZ_ENC = os.path.join(DIR_MODELO_VOZ, "perfil_usuario.enc")
 CONFIG_USER_FILE = os.path.join(BASE_DIR, "config_user.json")
 MIN_DISCO_LIVRE_GB = 2
+RETENCAO_AUDIO_DIAS = 7
 
 # ---- Áudio / Whisper ----
 SAMPLE_RATE = 16000

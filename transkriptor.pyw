@@ -59,7 +59,9 @@ from config import (
     USAR_NOMES_MEET,
     MODO_LEGENDAS_MEET,
     VERSAO,
+    RETENCAO_AUDIO_DIAS,
 )
+from retencao_audio import limpar_audios_vencidos
 from meet_bridge import MeetBridge, iniciar_bridge_em_thread, sincronizar_token_extensao
 from status_seguro import sanitizar_para_log
 from crypto_storage import (
@@ -221,9 +223,9 @@ class AppTranskriptor:
             )
             if vozes:
                 logging.info("Migrados %d arquivos de voz legados para .enc", vozes)
-            orfaos = recuperar_orfaos_wav(PASTA_AUDIO)
-            if orfaos:
-                logging.info("Criptografados %d audios orfaos em PASTA_AUDIO", orfaos)
+            orfaos_enc = recuperar_orfaos_wav(PASTA_AUDIO)
+            if orfaos_enc:
+                logging.info("Criptografados %d audios orfaos em PASTA_AUDIO", orfaos_enc)
         if "criptografar_transcricoes" not in cfg:
             cfg["criptografar_transcricoes"] = self.criptografar_transcricoes
             _salvar_config_user(cfg)
@@ -804,6 +806,26 @@ class AppTranskriptor:
             pystray.MenuItem("Sair", self.sair),
         )
 
+    def _rodar_retencao_audio(self):
+        """FR-2.3: remove áudios vencidos com transcrição; notifica órfãos."""
+        try:
+            _removidos, orfaos = limpar_audios_vencidos(
+                PASTA_AUDIO, PASTA_TRANSCRICOES, dias=RETENCAO_AUDIO_DIAS
+            )
+            if orfaos:
+                notificar(
+                    "Transkriptor",
+                    f"{len(orfaos)} áudio(s) antigo(s) sem transcrição — "
+                    "use Retranscrever áudio no menu.",
+                )
+        except Exception:
+            logging.exception("Falha na retenção de áudios")
+
+    def _loop_retencao_audio(self):
+        while True:
+            self._rodar_retencao_audio()
+            time.sleep(24 * 3600)
+
     def _ao_bandeja_pronta(self, icon):
         """Registra o ícone e inicia serviços uma vez após prontidão Win32."""
         try:
@@ -812,6 +834,12 @@ class AppTranskriptor:
                 if self._bandeja_pronta:
                     return
                 self._bandeja_pronta = True
+
+            threading.Thread(
+                target=self._loop_retencao_audio,
+                daemon=True,
+                name="Transkriptor-RetencaoAudio",
+            ).start()
 
             if self.usar_nomes_meet:
                 self._meet_bridge_thread = iniciar_bridge_em_thread(
