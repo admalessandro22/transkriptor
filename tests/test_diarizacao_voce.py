@@ -62,6 +62,62 @@ def test_reforcar_rotulo_por_mic(tmp_path):
     assert reforcado[0][0] == "VOCÊ"
 
 
+def test_reforcar_rotulo_anti_eco_mantem_rotulo(tmp_path):
+    """FR-5.6: mic fraco vs loopback forte (eco do alto-falante) não vira VOCÊ."""
+    from config import MARGEM_ANTI_ECO
+
+    assert MARGEM_ANTI_ECO == 1.5
+    caminho = tmp_path / "mic_eco.wav"
+    sr = 16000
+    # mic com energia acima do limiar mas fraca frente ao loopback
+    dados = (np.ones(sr, dtype=np.float32) * 0.15 * 32767).astype(np.int16)
+    with wave.open(str(caminho), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(sr)
+        w.writeframes(dados.tobytes())
+
+    resultado = [("FALANTE_01", 0.0, 1.0, "voz do outro")]
+    # rms_mic ≈ 0.15; loopback 0.4 → 0.15 <= 0.4 * 1.5 → eco
+    reforcado = reforcar_rotulo_por_mic(
+        resultado,
+        str(caminho),
+        limiar_rms=0.1,
+        rotulo_usuario="VOCÊ",
+        sample_rate=sr,
+        rms_loopback_por_segmento=[0.4],
+        margem_anti_eco=MARGEM_ANTI_ECO,
+    )
+    assert reforcado[0][0] == "FALANTE_01"
+
+
+def test_reforcar_rotulo_fala_real_vira_voce(tmp_path):
+    """FR-5.6: fala real no mic (rms_mic >> loopback) vira VOCÊ."""
+    from config import MARGEM_ANTI_ECO
+
+    caminho = tmp_path / "mic_real.wav"
+    sr = 16000
+    dados = (np.ones(sr, dtype=np.float32) * 0.5 * 32767).astype(np.int16)
+    with wave.open(str(caminho), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(sr)
+        w.writeframes(dados.tobytes())
+
+    resultado = [("FALANTE_00", 0.0, 1.0, "eu falo")]
+    # rms_mic ≈ 0.5; loopback 0.2 → 0.5 > 0.2 * 1.5 = 0.3 → fala real
+    reforcado = reforcar_rotulo_por_mic(
+        resultado,
+        str(caminho),
+        limiar_rms=0.1,
+        rotulo_usuario="VOCÊ",
+        sample_rate=sr,
+        rms_loopback_por_segmento=[0.2],
+        margem_anti_eco=MARGEM_ANTI_ECO,
+    )
+    assert reforcado[0][0] == "VOCÊ"
+
+
 def _mic_wav_alto(tmp_path, duracao_seg=1.0, sr=16000):
     caminho = tmp_path / "mic.wav"
     n = int(sr * duracao_seg)

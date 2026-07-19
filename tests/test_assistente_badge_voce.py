@@ -15,6 +15,14 @@ def test_transcricao_contem_voce_sem_voce():
     assert transcricao_contem_voce("transcricao simples sem diarizacao") is False
 
 
+def test_transcricao_contem_voce_rotulo_customizado():
+    """FR-5.7: badge usa rotulo_usuario efetivo, não só a constante VOCÊ."""
+    texto = "[Alessandro 00:01-00:03] minha fala\n"
+    assert transcricao_contem_voce(texto, rotulo="Alessandro") is True
+    assert transcricao_contem_voce(texto, rotulo="VOCÊ") is False
+    assert transcricao_contem_voce(texto) is False  # default ROTULO_USUARIO
+
+
 def test_api_transcricoes_com_sua_voz(tmp_transcricoes, monkeypatch, headers_token):
     monkeypatch.setattr("assistente.PASTA_TRANSCRICOES", str(tmp_transcricoes))
     com_voce = tmp_transcricoes / "reuniao_diarizado.txt"

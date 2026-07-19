@@ -50,6 +50,7 @@ ROTULO_USUARIO = "VOCÊ"
 CAPTURAR_MIC = True
 DURACAO_CADASTRO_SEG = 20
 LIMIAR_RMS_MIC = 0.05
+MARGEM_ANTI_ECO = 1.5
 
 # ---- Ollama / Assistente ----
 OLLAMA_URL = "http://localhost:11434"

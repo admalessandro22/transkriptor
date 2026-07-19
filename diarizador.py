@@ -24,6 +24,7 @@ from config import (
     LIMIAR_IDENTIFICACAO_VOZ,
     ROTULO_USUARIO,
     LIMIAR_RMS_MIC,
+    MARGEM_ANTI_ECO,
 )
 from identificador_voz import identificar_cluster
 from correlacionador import mesclar_prioridade_rotulos
@@ -122,6 +123,7 @@ def _finalizar_rotulos_voce(
     limiar_rms_mic,
     eventos_meet=None,
     vozes_conhecidas=None,
+    rms_loopback_por_segmento=None,
 ):
     if identificar_ativo and perfil_usuario is not None and embeddings:
         emb_por_label = _centroides_por_label(embeddings, labels)
@@ -140,6 +142,7 @@ def _finalizar_rotulos_voce(
             caminho_mic_wav,
             limiar_rms=limiar_rms_mic,
             rotulo_usuario=rotulo_usuario,
+            rms_loopback_por_segmento=rms_loopback_por_segmento,
         )
     return _aplicar_nomes_meet_e_vozes(
         resultado,
@@ -175,16 +178,30 @@ def reforcar_rotulo_por_mic(
     limiar_rms=LIMIAR_RMS_MIC,
     rotulo_usuario=ROTULO_USUARIO,
     sample_rate=SAMPLE_RATE,
+    rms_loopback_por_segmento=None,
+    margem_anti_eco=MARGEM_ANTI_ECO,
 ):
+    """Força rótulo do usuário quando há energia no mic (FR-5.6).
+
+    Guarda anti-eco: se `rms_loopback_por_segmento` estiver disponível, o segmento
+    só vira VOCÊ se `rms_mic >= limiar` e `rms_mic > rms_loopback * margem_anti_eco`.
+    """
     if not caminho_mic:
         return resultado
     reforcado = []
-    for rot, start, end, texto in resultado:
+    for i, (rot, start, end, texto) in enumerate(resultado):
         trecho = ler_trecho_wav(caminho_mic, start, end, sample_rate)
-        if segmento_tem_voz_mic(trecho, limiar_rms):
-            reforcado.append((rotulo_usuario, start, end, texto))
-        else:
+        rms_mic = _rms(trecho)
+        if rms_mic < limiar_rms:
             reforcado.append((rot, start, end, texto))
+            continue
+        if rms_loopback_por_segmento is not None and i < len(rms_loopback_por_segmento):
+            rms_lb = float(rms_loopback_por_segmento[i])
+            if rms_mic <= rms_lb * margem_anti_eco:
+                # Eco do alto-falante no mic — não rotular como VOCÊ
+                reforcado.append((rot, start, end, texto))
+                continue
+        reforcado.append((rotulo_usuario, start, end, texto))
     return reforcado
 
 
@@ -232,7 +249,7 @@ def diarizar(
         if on_status:
             on_status(msg)
 
-    def _empacotar(resultado, embeddings, labels):
+    def _empacotar(resultado, embeddings, labels, rms_loopback=None):
         final = _finalizar_rotulos_voce(
             resultado,
             embeddings,
@@ -245,6 +262,7 @@ def diarizar(
             limiar_rms_mic,
             eventos_meet,
             vozes_conhecidas,
+            rms_loopback_por_segmento=rms_loopback,
         )
         if not retornar_centroides:
             return final
@@ -264,6 +282,9 @@ def diarizar(
         # Se houver divergência, usa trechos vazios para os extras
         while len(trechos_audio) < len(segmentos):
             trechos_audio.append(np.array([], dtype=np.float32))
+
+    # RMS do loopback por segmento (guarda anti-eco FR-5.6)
+    rms_loopback = [_rms(t) for t in trechos_audio[: len(segmentos)]]
 
     status("Carregando modelo de vozes...")
     encoder = _carregar_encoder()
@@ -285,7 +306,7 @@ def diarizar(
         status("Poucos segmentos para clusterizar. Usando 1 falante.")
         resultado = [("FALANTE_00", s, e, t) for s, e, t in segmentos]
         labels_fallback = [0] * len(embeddings)
-        return _empacotar(resultado, embeddings, labels_fallback)
+        return _empacotar(resultado, embeddings, labels_fallback, rms_loopback)
 
     X = np.array(embeddings)
 
@@ -321,7 +342,7 @@ def diarizar(
             rotulo = _rotulo_proximo(indices_validos, rotulo_map, i)
         resultado.append((rotulo, start, end, texto))
 
-    return _empacotar(resultado, embeddings, labels)
+    return _empacotar(resultado, embeddings, labels, rms_loopback)
 
 
 def _rotulo_proximo(indices_validos, rotulo_map, indice_alvo):

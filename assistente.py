@@ -28,6 +28,7 @@ from config import (
     MAX_HISTORICO_CHAT,
     MAX_CHARS_TRANSCRICAO,
     ROTULO_USUARIO,
+    CONFIG_USER_FILE,
     OLLAMA_NUM_CTX_MAX,
     CHARS_POR_TOKEN_PT,
     OLLAMA_TIMEOUT_CONEXAO,
@@ -128,9 +129,23 @@ def caminho_transcricao_seguro(nome: str):
     return caminho
 
 
-def transcricao_contem_voce(conteudo: str) -> bool:
-    """True se diarização inclui o rótulo do usuário (FR-7.11)."""
-    return ROTULO_USUARIO in conteudo
+def rotulo_usuario_efetivo() -> str:
+    """Lê rotulo_usuario de config_user.json; fallback para ROTULO_USUARIO (FR-5.7)."""
+    try:
+        with open(CONFIG_USER_FILE, encoding="utf-8") as f:
+            cfg = json.load(f)
+        valor = cfg.get("rotulo_usuario")
+        if valor:
+            return str(valor)
+    except Exception:
+        pass
+    return ROTULO_USUARIO
+
+
+def transcricao_contem_voce(conteudo: str, rotulo: str | None = None) -> bool:
+    """True se diarização inclui o rótulo efetivo do usuário (FR-5.7)."""
+    rotulo_efetivo = rotulo if rotulo is not None else ROTULO_USUARIO
+    return bool(rotulo_efetivo) and rotulo_efetivo in conteudo
 
 
 def ler_conteudo_transcricao(nome: str) -> str | None:
@@ -877,7 +892,9 @@ def api_transcricoes():
         except Exception:
             pass
         tipo = "diarizado" if "_diarizado" in nome else "transcricao"
-        com_sua_voz = tipo == "diarizado" and transcricao_contem_voce(conteudo)
+        com_sua_voz = tipo == "diarizado" and transcricao_contem_voce(
+            conteudo, rotulo_usuario_efetivo()
+        )
         resultado.append({
             "arquivo": nome,
             "data": datetime.datetime.fromtimestamp(stat.st_mtime).strftime("%d/%m/%Y %H:%M"),
