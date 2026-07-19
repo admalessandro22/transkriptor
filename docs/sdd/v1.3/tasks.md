@@ -205,7 +205,7 @@ verde + manual: Ctrl+Espaço fora do app inicia (toast) e para (toast) a transcr
   monkeypatcha `config.OLLAMA_URL` e registra as requisições recebidas.
 - **AC:** smoke: `api_modelos()` contra o fake retorna a lista configurada.
 - **Commit:** `test: adiciona servidor Ollama falso para testes de integração`
-- **Status:** [ ]
+- **Status:** [x]
 
 ### T-F4-02 — num_ctx dinâmico e orçamento de contexto
 
@@ -218,7 +218,7 @@ verde + manual: Ctrl+Espaço fora do app inicia (toast) e para (toast) a transcr
 - **AC:** payload contém `options.num_ctx`; modelo com `context_length=4096` recebe menos
   transcrição que um de 32768; fallback coberto.
 - **Commit:** `feat: dimensiona contexto do Ollama pelo modelo (num_ctx)`
-- **Status:** [ ]
+- **Status:** [x]
 
 ### T-F4-03 — Map-reduce para reuniões longas
 
@@ -231,7 +231,7 @@ verde + manual: Ctrl+Espaço fora do app inicia (toast) e para (toast) a transcr
 - **AC:** 3 blocos → 3 chamadas de resumo + 1 final; blocos preservam linhas; transcrição
   curta não passa pelo map-reduce.
 - **Commit:** `feat: responde reuniões longas via map-reduce de blocos`
-- **Status:** [ ]
+- **Status:** [x]
 
 ### T-F4-04 — Timeouts, saúde e token via cookie
 
@@ -244,7 +244,7 @@ verde + manual: Ctrl+Espaço fora do app inicia (toast) e para (toast) a transcr
 - **AC:** query em `/api/*` → 403; cookie válido → 200; corpo 300 KB → 413; histórico com
   50 itens → 400; `/api/saude` com fake desligado → `ollama: false`.
 - **Commit:** `sec: move token do assistente para cookie e adiciona timeouts`
-- **Status:** [ ]
+- **Status:** [x]
 
 **GATE F4:** `python -m pytest tests/test_assistente_api.py tests/test_assistente_ollama.py tests/test_assistente_seguranca.py tests/test_token_sessao.py -v` verde, sem rede externa.
 

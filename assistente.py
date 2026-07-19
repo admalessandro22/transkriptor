@@ -18,7 +18,7 @@ import socket
 import threading
 import time
 import urllib.request
-from flask import Flask, Response, jsonify, request
+from flask import Flask, Response, jsonify, make_response, redirect, request
 
 from config import (
     BASE_DIR,
@@ -28,13 +28,21 @@ from config import (
     MAX_HISTORICO_CHAT,
     MAX_CHARS_TRANSCRICAO,
     ROTULO_USUARIO,
+    OLLAMA_NUM_CTX_MAX,
+    CHARS_POR_TOKEN_PT,
+    OLLAMA_TIMEOUT_CONEXAO,
+    OLLAMA_TIMEOUT_LEITURA,
+    MAX_CORPO_CHAT_BYTES,
+    VERSAO,
 )
 
 app = Flask(__name__)
 
 HEADER_TOKEN = "X-Transkriptor-Token"
+COOKIE_TOKEN = "tkpt_token"
 SESSAO_TOKEN = os.environ.get("TRANSKRIPTOR_TOKEN") or secrets.token_urlsafe(32)
 AVISO_TRUNCAGEM = "[AVISO: transcrição truncada por limite de tamanho]\n"
+_cache_ctx: dict[str, int] = {}
 
 
 def obter_token_sessao():
@@ -42,15 +50,61 @@ def obter_token_sessao():
 
 
 def token_requisicao_valido() -> bool:
-    """Aceita token no header ou query `?token=` (FR-6.1 / SEC-4)."""
+    """Aceita token no header ou cookie HttpOnly — rejeita query em /api/* (SEC-4.1)."""
     header = request.headers.get(HEADER_TOKEN)
-    query = request.args.get("token")
-    return header == SESSAO_TOKEN or query == SESSAO_TOKEN
+    if header == SESSAO_TOKEN:
+        return True
+    cookie = request.cookies.get(COOKIE_TOKEN)
+    return cookie == SESSAO_TOKEN
+
+
+def orcamento_chars(context_length: int) -> int:
+    """FR-4.2: ~75% do contexto em chars (3.2 chars/token PT)."""
+    n = min(int(context_length or 0), OLLAMA_NUM_CTX_MAX)
+    if n <= 0:
+        return MAX_CHARS_TRANSCRICAO
+    tokens_uteis = int(n * 0.75)
+    return max(1000, int(tokens_uteis * CHARS_POR_TOKEN_PT))
+
+
+def consultar_context_length(modelo: str) -> int | None:
+    """Consulta /api/show; None se falhar (fallback)."""
+    if modelo in _cache_ctx:
+        return _cache_ctx[modelo]
+    try:
+        payload = json.dumps({"name": modelo}).encode("utf-8")
+        req = urllib.request.Request(
+            OLLAMA_URL.rstrip("/") + "/api/show",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=OLLAMA_TIMEOUT_LEITURA) as r:
+            dados = json.loads(r.read().decode("utf-8"))
+        info = dados.get("model_info") or {}
+        for k, v in info.items():
+            if "context_length" in str(k).lower() and isinstance(v, (int, float)):
+                val = int(v)
+                _cache_ctx[modelo] = val
+                return val
+        # fallback: parse parameters string
+        params = str(dados.get("parameters") or "")
+        for part in params.split():
+            if part.isdigit() and int(part) >= 512:
+                val = int(part)
+                _cache_ctx[modelo] = val
+                return val
+    except Exception:
+        return None
+    return None
 
 
 @app.before_request
 def verificar_token():
     if request.path.startswith("/api/"):
+        # SEC-4.1: token só via header/cookie — query é rejeitada
+        if request.args.get("token"):
+            return jsonify({"erro": "Token inválido"}), 403
         if not token_requisicao_valido():
             return jsonify({"erro": "Token inválido"}), 403
 
@@ -511,10 +565,14 @@ let timerStart = 0;
 let historico = [];  // T4.2: histórico de conversa (UX-04)
 let transcricoesLista = [];
 let ultimaRespostaIA = '';
+// Token via cookie HttpOnly (definido no redirect ?token=); header opcional se ainda na URL
 const API_TOKEN = new URLSearchParams(window.location.search).get('token') || '';
 function apiHeaders(extra = {}) {
-  return Object.assign({'X-Transkriptor-Token': API_TOKEN}, extra);
+  const h = Object.assign({}, extra);
+  if (API_TOKEN) h['X-Transkriptor-Token'] = API_TOKEN;
+  return h;
 }
+const fetchOpts = { credentials: 'same-origin' };
 
 function atualizarTamanhoKb() {
   const item = transcricoesLista.find(t => t.arquivo === selTrans.value);
@@ -574,7 +632,7 @@ function buildSelectOptions(items) {
 
 async function loadList() {
   try {
-    const r = await fetch('/api/transcricoes', {headers: apiHeaders()}); const d = await r.json();
+    const r = await fetch('/api/transcricoes', {...fetchOpts, headers: apiHeaders()}); const d = await r.json();
     buildSelectOptions(d);
   } catch(e) {
     selTrans.replaceChildren();
@@ -584,7 +642,7 @@ async function loadList() {
     selTrans.appendChild(opt);
   }
   try {
-    const r = await fetch('/api/modelos', {headers: apiHeaders()}); const d = await r.json();
+    const r = await fetch('/api/modelos', {...fetchOpts, headers: apiHeaders()}); const d = await r.json();
     buildModelOptions(d);
   } catch(e) { buildModelOptions([]); }
 }
@@ -660,7 +718,7 @@ async function pergunta(prompt) {
   let firstToken = true;
   abortController = new AbortController();
   try {
-    const res = await fetch('/api/chat', {method:'POST', headers:apiHeaders({'Content-Type':'application/json'}),
+    const res = await fetch('/api/chat', {...fetchOpts, method:'POST', headers:apiHeaders({'Content-Type':'application/json'}),
       body: JSON.stringify({modelo, transcricao:transc, pergunta:prompt, historico}),
       signal: abortController.signal});
     const reader = res.body.getReader(); const dec = new TextDecoder(); let txt='';
@@ -762,7 +820,35 @@ loadList();
 
 @app.route("/")
 def index():
+    token_q = request.args.get("token")
+    if token_q and token_q == SESSAO_TOKEN:
+        resp = make_response(redirect("/", code=302))
+        resp.set_cookie(
+            COOKIE_TOKEN,
+            SESSAO_TOKEN,
+            httponly=True,
+            samesite="Strict",
+            path="/",
+        )
+        return resp
     return HTML
+
+
+@app.route("/api/saude")
+def api_saude():
+    ollama_ok = False
+    modelos: list[str] = []
+    try:
+        with urllib.request.urlopen(
+            OLLAMA_URL.rstrip("/") + "/api/tags",
+            timeout=OLLAMA_TIMEOUT_CONEXAO,
+        ) as r:
+            dados = json.loads(r.read().decode("utf-8"))
+        ollama_ok = True
+        modelos = [m.get("name", "") for m in dados.get("models", []) if m.get("name")]
+    except Exception:
+        ollama_ok = False
+    return jsonify({"ollama": ollama_ok, "modelos": modelos, "versao": VERSAO})
 
 
 @app.route("/api/transcricoes")
@@ -813,9 +899,33 @@ def api_modelos():
         return jsonify([])
 
 
+def _chamar_ollama_sync(modelo: str, mensagens: list[dict], num_ctx: int | None = None) -> str:
+    body = {"model": modelo, "messages": mensagens, "stream": False}
+    if num_ctx:
+        body["options"] = {"num_ctx": num_ctx}
+    payload = json.dumps(body).encode("utf-8")
+    req = urllib.request.Request(
+        OLLAMA_URL.rstrip("/") + "/api/chat",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=OLLAMA_TIMEOUT_LEITURA) as resp:
+            dados = json.loads(resp.read().decode("utf-8"))
+        return (dados.get("message") or {}).get("content") or ""
+    except Exception as e:
+        return f"[Erro ao contatar o Ollama: {e}]"
+
+
 @app.route("/api/chat", methods=["POST"])
 def api_chat():
-    dados = request.json
+    # SEC-4.2: limite de corpo
+    cl = request.content_length or 0
+    if cl > MAX_CORPO_CHAT_BYTES:
+        return jsonify({"erro": "Corpo da requisição muito grande"}), 413
+
+    dados = request.get_json(silent=True) or {}
     modelo = dados.get("modelo", "")
     nome = dados.get("transcricao", "")
     pergunta = dados.get("pergunta", "")
@@ -823,15 +933,47 @@ def api_chat():
 
     if not modelo:
         return jsonify({"erro": "Selecione um modelo Ollama na barra lateral."}), 400
+    if isinstance(historico, list) and len(historico) > MAX_HISTORICO_CHAT:
+        return jsonify({"erro": "Histórico excede o limite permitido"}), 400
 
     transcricao = ler_conteudo_transcricao(nome)
     if transcricao is None:
         return jsonify({"erro": "Acesso negado"}), 403
 
-    truncada = len(transcricao) > MAX_CHARS_TRANSCRICAO
-    if truncada:
-        transcricao = transcricao[:MAX_CHARS_TRANSCRICAO]
+    ctx = consultar_context_length(modelo)
+    if ctx:
+        orcamento = orcamento_chars(ctx)
+        num_ctx = min(ctx, OLLAMA_NUM_CTX_MAX)
+    else:
+        orcamento = MAX_CHARS_TRANSCRICAO
+        num_ctx = None
 
+    # FR-4.3: map-reduce se exceder orçamento
+    if len(transcricao) > orcamento:
+        from resumo_longo import dividir_em_blocos, responder_longo
+
+        blocos = dividir_em_blocos(transcricao, orcamento)
+
+        def stream_longo():
+            yield f"[Reunião longa: resposta consolidada de {len(blocos)} blocos]\n"
+            try:
+                texto = responder_longo(
+                    modelo,
+                    blocos,
+                    pergunta,
+                    lambda m, msgs: _chamar_ollama_sync(m, msgs, num_ctx=num_ctx),
+                )
+                yield texto
+            except Exception as e:
+                yield f"\n[Erro ao processar reunião longa: {e}]"
+
+        return Response(
+            stream_longo(),
+            mimetype="text/plain; charset=utf-8",
+            headers={"X-Transkriptor-Truncada": "true"},
+        )
+
+    truncada = False
     system = (
         "Você é um assistente especializado em analisar reuniões. "
         "Use a transcrição abaixo como contexto para responder às perguntas do usuário. "
@@ -840,31 +982,31 @@ def api_chat():
         f"=== TRANSCRIÇÃO ===\n{transcricao}\n=== FIM ==="
     )
 
-    # T4.1: inclui histórico de conversa (truncado em MAX_HISTORICO_CHAT)
     mensagens = [{"role": "system", "content": system}]
     for msg in historico[-MAX_HISTORICO_CHAT:]:
         if msg.get("role") in ("user", "assistant") and msg.get("content"):
             mensagens.append({"role": msg["role"], "content": msg["content"]})
     mensagens.append({"role": "user", "content": pergunta})
 
-    payload = json.dumps({
+    body = {
         "model": modelo,
         "messages": mensagens,
         "stream": True,
-    }).encode("utf-8")
+    }
+    if num_ctx:
+        body["options"] = {"num_ctx": num_ctx}
+    payload = json.dumps(body).encode("utf-8")
 
     req = urllib.request.Request(
-        OLLAMA_URL + "/api/chat",
+        OLLAMA_URL.rstrip("/") + "/api/chat",
         data=payload,
         headers={"Content-Type": "application/json"},
         method="POST",
     )
 
     def stream():
-        if truncada:
-            yield AVISO_TRUNCAGEM
         try:
-            with urllib.request.urlopen(req, timeout=300) as resp:
+            with urllib.request.urlopen(req, timeout=OLLAMA_TIMEOUT_LEITURA) as resp:
                 for linha in resp:
                     linha = linha.decode("utf-8").strip()
                     if not linha:
@@ -879,7 +1021,7 @@ def api_chat():
                     except json.JSONDecodeError:
                         continue
         except Exception as e:
-            yield f"\n[Erro ao contatar o Ollama: {e}]"
+            yield f"\n[Não foi possível contatar o Ollama. Verifique se está em execução. ({e})]"
 
     headers = {"X-Transkriptor-Truncada": "true"} if truncada else {}
     return Response(stream(), mimetype="text/plain; charset=utf-8", headers=headers)
