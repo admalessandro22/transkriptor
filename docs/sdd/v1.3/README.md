@@ -20,6 +20,12 @@ Decisões incorporadas: gravação local garantida de toda reunião (áudio reti
 criptografado), pausa com confirmação e aviso, transcrições criptografadas por padrão,
 Whisper `auto` por hardware (GTX 1650 → `medium`/CUDA).
 
+**Revisão pós-entrega (2026-07-19):** por decisão do usuário, a **Fase 3 (atalho global
+Ctrl+Espaço) foi removida** — o app abre por dois cliques no atalho/arquivo e fica na
+bandeja até ser fechado, **sem atalho de teclado**. O `.lnk` continua sem `Hotkey`
+(FR-3.6 mantida). `hotkey_global.py` e seus testes foram excluídos; a transcrição manual
+opera apenas pelo menu da bandeja.
+
 ## Ordem obrigatória
 
 ```text

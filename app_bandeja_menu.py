@@ -15,7 +15,6 @@ from config import (
     ARQUIVO_PERFIL_VOZ_ENC,
     ARQUIVO_VOZES_CONHECIDAS,
     ARQUIVO_VOZES_CONHECIDAS_ENC,
-    ATALHO_GLOBAL_PADRAO,
     BASE_DIR,
     LOG_FILE,
     MODELO_WHISPER,
@@ -24,7 +23,6 @@ from config import (
     PORTA_MEET_BRIDGE,
 )
 from crypto_storage import chave_disponivel, migrar_txt_legacy, migrar_vozes_legacy, perfil_existe
-from hotkey_global import formatar_atalho
 from meet_bridge import iniciar_bridge_em_thread
 from notificador import notificar
 from perfil_voz_flow import (
@@ -80,23 +78,6 @@ class MenuBandejaMixin:
             self._status("Ja transcrevendo (Meet ou manual).")
             return
         self._iniciar_transcricao(manual=True)
-
-    def _on_hotkey_ativar(self):
-        try:
-            self.alternar_transcricao_manual()
-            if self._gravando() and self._modo_manual:
-                notificar("Transkriptor", "Transcrição manual iniciada (atalho)")
-            else:
-                notificar("Transkriptor", "Transcrição manual encerrada (atalho)")
-        except Exception:
-            logging.exception("Hotkey ativar")
-
-    def _on_hotkey_falha(self, motivo: str):
-        combo = formatar_atalho(getattr(self, "atalho_global", ATALHO_GLOBAL_PADRAO))
-        notificar(
-            "Transkriptor",
-            f"Atalho {combo} indisponível — em uso por outro programa",
-        )
 
     def _confirmar_saida(self):
         try:
@@ -264,12 +245,6 @@ class MenuBandejaMixin:
                 return
         self._parar_transcricao()
         self._modo_manual = False
-        if self._hotkey is not None:
-            try:
-                self._hotkey.stop()
-            except Exception:
-                pass
-            self._hotkey = None
         if self.icone is not None:
             self.icone.stop()
         liberar_lock()
@@ -310,10 +285,7 @@ class MenuBandejaMixin:
         )
 
     def _texto_transcricao_manual(self, _item=None):
-        combo = formatar_atalho(getattr(self, "atalho_global", ATALHO_GLOBAL_PADRAO))
-        return texto_transcricao_manual(
-            self._gravando() and self._modo_manual, combo=combo
-        )
+        return texto_transcricao_manual(self._gravando() and self._modo_manual)
 
     def _texto_identificar_voz(self, _item=None):
         if self.identificar_minha_voz:

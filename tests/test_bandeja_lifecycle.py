@@ -96,7 +96,7 @@ def test_monitor_so_inicia_depois_da_bandeja_pronta(monkeypatch, modulo_transkri
     app = _app_minimo(modulo_transkriptor)
     app.rodar()
 
-    # retencao + monitor (+ hotkey se Thread global for patchado)
+    # retencao + monitor
     assert ThreadFalsa.eventos
     assert all(ThreadFalsa.eventos)
     assert len(ThreadFalsa.eventos) >= 1

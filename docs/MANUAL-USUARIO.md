@@ -75,15 +75,16 @@ Clique com o **botão direito** no ícone da bandeja para abrir o menu.
 - Ao terminar a diarização, você recebe aviso com o nome do arquivo.
 - Se a gravação estiver pausada e um Meet abrir, um aviso lembra que **não está gravando**.
 
-### Atalho global Ctrl+Espaço
+### Como abrir e fechar
 
-Com o Transkriptor **aberto na bandeja**, use **Ctrl+Espaço** em qualquer aplicativo para
-iniciar ou parar a **transcrição manual** (toasts de início/fim). O atalho do arquivo `.lnk`
-da Área de Trabalho **não** usa mais Ctrl+Alt — a ativação é só pelo app.
+O Transkriptor **não usa atalho de teclado**. Para abrir, dê **dois cliques** no atalho
+"Transkriptor" da Área de Trabalho (ou em `iniciar_bandeja.bat` / `transkriptor.pyw`).
+O app fica **na bandeja do sistema até ser fechado** pelo menu (**Sair**). Abrir de novo
+com ele já rodando apenas avisa que já está em execução — nunca cria segunda instância.
 
-Se o combo estiver em uso por outro programa, o Transkriptor avisa e segue sem o atalho
-(o menu da bandeja continua funcionando). O combo pode ser alterado em `config_user.json`
-(`atalho_global`, ex.: `"ctrl+shift+t"`).
+A **transcrição manual** é iniciada e parada pelo item do menu da bandeja
+("Iniciar/Parar transcrição manual"). O atalho `.lnk` da Área de Trabalho não tem
+tecla de atalho associada (Ctrl+Alt legado foi removido).
 
 ---
 

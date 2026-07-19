@@ -12,11 +12,8 @@ def saida_permitida(gravando: bool, usuario_confirmou: bool) -> bool:
     return usuario_confirmou
 
 
-def texto_transcricao_manual(rodando: bool, combo: str | None = None) -> str:
-    base = "Parar transcrição manual" if rodando else "Iniciar transcrição manual"
-    if combo:
-        return f"{base} ({combo})"
-    return base
+def texto_transcricao_manual(rodando: bool) -> str:
+    return "Parar transcrição manual" if rodando else "Iniciar transcrição manual"
 
 
 def texto_deteccao_menu(deteccao_ativa: bool) -> str:

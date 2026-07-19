@@ -29,7 +29,6 @@ from config import (
     ARQUIVO_PERFIL_VOZ_ENC,
     ARQUIVO_VOZES_CONHECIDAS,
     ARQUIVO_VOZES_CONHECIDAS_ENC,
-    ATALHO_GLOBAL_PADRAO,
     BASE_DIR,
     CAPTURAR_MIC,
     EXIGIR_JANELA_VISIVEL,
@@ -49,7 +48,6 @@ from config import (
 )
 from detector_meet import DetectorMeet, titulo_eh_meet
 from estado_icone import DURACAO_ERRO_ICONE, resolver_estado_icone
-from hotkey_global import HotkeyGlobal, formatar_atalho
 from meet_bridge import MeetBridge, iniciar_bridge_em_thread, sincronizar_token_extensao
 from notificador import (
     deve_toast_ao_vivo,
@@ -111,9 +109,7 @@ class AppTranskriptor(MenuBandejaMixin):
         self.diarizacao_ativa = True
         self._toast_pausa_reuniao = None
         self._confirmar_pausa = self._confirmar_pausa_padrao
-        self._hotkey: HotkeyGlobal | None = None
         cfg = _carregar_config_user()
-        self.atalho_global = cfg.get("atalho_global", ATALHO_GLOBAL_PADRAO)
         self.modelo_whisper = cfg.get("modelo_whisper", MODELO_WHISPER)
         if self.modelo_whisper not in MODELOS_WHISPER_MENU:
             self.modelo_whisper = MODELO_WHISPER
@@ -375,19 +371,6 @@ class AppTranskriptor(MenuBandejaMixin):
                 target=self._monitorar_meet, daemon=True, name="Transkriptor-MonitorMeet"
             )
             self._monitor_thread.start()
-            try:
-                combo = getattr(self, "atalho_global", ATALHO_GLOBAL_PADRAO)
-                self._hotkey = HotkeyGlobal(
-                    combo, on_ativar=self._on_hotkey_ativar, on_falha=self._on_hotkey_falha
-                )
-                self._hotkey.start()
-            except Exception:
-                logging.exception("Falha ao iniciar hotkey global")
-                notificar(
-                    "Transkriptor",
-                    f"Atalho {formatar_atalho(getattr(self, 'atalho_global', ATALHO_GLOBAL_PADRAO))} "
-                    "indisponível — em uso por outro programa",
-                )
             logging.info("Bandeja pronta.")
             logging.info("Monitor do Meet iniciado.")
             notificar(
