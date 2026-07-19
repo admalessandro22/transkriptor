@@ -63,8 +63,10 @@ from config import (
     MODO_LEGENDAS_MEET,
     VERSAO,
     RETENCAO_AUDIO_DIAS,
+    ATALHO_GLOBAL_PADRAO,
 )
 from retencao_audio import limpar_audios_vencidos
+from hotkey_global import HotkeyGlobal, formatar_atalho
 from meet_bridge import MeetBridge, iniciar_bridge_em_thread, sincronizar_token_extensao
 from status_seguro import sanitizar_para_log
 from crypto_storage import (
@@ -212,8 +214,10 @@ class AppTranskriptor:
         self.diarizacao_ativa = True
         self._toast_pausa_reuniao = None
         self._confirmar_pausa = self._confirmar_pausa_padrao
+        self._hotkey: HotkeyGlobal | None = None
         # BUG-10: carrega preferência de startup do Windows
         cfg = _carregar_config_user()
+        self.atalho_global = cfg.get("atalho_global", ATALHO_GLOBAL_PADRAO)
         self.iniciar_com_windows = cfg.get("iniciar_com_windows", _startup_ativo())
         self.criptografar_transcricoes = cfg.get("criptografar_transcricoes", True)
         if self.criptografar_transcricoes and chave_disponivel():
@@ -524,6 +528,23 @@ class AppTranskriptor:
             return
         self._iniciar_transcricao(manual=True)
 
+    def _on_hotkey_ativar(self):
+        try:
+            self.alternar_transcricao_manual()
+            if self._gravando() and self._modo_manual:
+                notificar("Transkriptor", "Transcrição manual iniciada (atalho)")
+            else:
+                notificar("Transkriptor", "Transcrição manual encerrada (atalho)")
+        except Exception:
+            logging.exception("Hotkey ativar")
+
+    def _on_hotkey_falha(self, motivo: str):
+        combo = formatar_atalho(getattr(self, "atalho_global", ATALHO_GLOBAL_PADRAO))
+        notificar(
+            "Transkriptor",
+            f"Atalho {combo} indisponível — em uso por outro programa",
+        )
+
     def _confirmar_saida(self):
         try:
             import ctypes
@@ -729,6 +750,12 @@ class AppTranskriptor:
                 return
         self._parar_transcricao()
         self._modo_manual = False
+        if self._hotkey is not None:
+            try:
+                self._hotkey.stop()
+            except Exception:
+                pass
+            self._hotkey = None
         if self.icone is not None:
             self.icone.stop()
         liberar_lock()
@@ -761,7 +788,10 @@ class AppTranskriptor:
         return "Iniciar com o Windows" if not self.iniciar_com_windows else "✓ Iniciar com o Windows"
 
     def _texto_transcricao_manual(self, _item=None):
-        return texto_transcricao_manual(self._gravando() and self._modo_manual)
+        combo = formatar_atalho(getattr(self, "atalho_global", ATALHO_GLOBAL_PADRAO))
+        return texto_transcricao_manual(
+            self._gravando() and self._modo_manual, combo=combo
+        )
 
     def _texto_identificar_voz(self, _item=None):
         if self.identificar_minha_voz:
@@ -956,6 +986,22 @@ class AppTranskriptor:
                 name="Transkriptor-MonitorMeet",
             )
             self._monitor_thread.start()
+            # FR-3: atalho global após mutex/bandeja
+            try:
+                combo = getattr(self, "atalho_global", ATALHO_GLOBAL_PADRAO)
+                self._hotkey = HotkeyGlobal(
+                    combo,
+                    on_ativar=self._on_hotkey_ativar,
+                    on_falha=self._on_hotkey_falha,
+                )
+                self._hotkey.start()
+            except Exception:
+                logging.exception("Falha ao iniciar hotkey global")
+                notificar(
+                    "Transkriptor",
+                    f"Atalho {formatar_atalho(getattr(self, 'atalho_global', ATALHO_GLOBAL_PADRAO))} "
+                    "indisponível — em uso por outro programa",
+                )
             logging.info("Bandeja pronta.")
             logging.info("Monitor do Meet iniciado.")
             notificar(

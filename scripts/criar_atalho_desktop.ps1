@@ -33,6 +33,8 @@ $atalho.WorkingDirectory = Split-Path -Parent $Aplicativo
 $atalho.IconLocation = $Icone
 $atalho.Description = "Transkriptor - Transcricao automatica de Google Meet"
 $atalho.WindowStyle = 7
+# FR-3.6: não usar Hotkey do .lnk (Ctrl+Alt legado); ativação é Ctrl+Espaço no app
+$atalho.Hotkey = ""
 $atalho.Save()
 
 if (-not (Test-Path -LiteralPath $Destino -PathType Leaf)) {

@@ -21,6 +21,7 @@ $s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:TRANSKRIPTOR_ATAL
   WorkingDirectory = $s.WorkingDirectory
   IconLocation = $s.IconLocation
   WindowStyle = $s.WindowStyle
+  Hotkey = $s.Hotkey
 } | ConvertTo-Json -Compress
 """
     result = subprocess.run(
@@ -64,6 +65,14 @@ def test_cria_atalho_com_metadados_e_caminhos_com_espacos(tmp_path):
     assert Path(dados["WorkingDirectory"]).resolve() == pasta.resolve()
     assert str(icone.resolve()).lower() in dados["IconLocation"].lower()
     assert dados["WindowStyle"] == 7
+    # FR-3.6: sem hotkey no .lnk (Ctrl+Alt legado removido)
+    assert not dados.get("Hotkey")
+
+
+def test_ps1_zera_hotkey_do_atalho():
+    texto = SCRIPT.read_text(encoding="utf-8")
+    assert "Hotkey" in texto
+    assert 'Hotkey = ""' in texto or "Hotkey = ''" in texto
 
 
 def test_instalador_usa_script_unico_e_nao_cria_atalho_redundante():

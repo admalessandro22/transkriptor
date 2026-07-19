@@ -1,4 +1,4 @@
-# Manual do Usuário — Transkriptor v1.2
+# Manual do Usuário — Transkriptor v1.3
 
 Transkriptor é um aplicativo para **Windows** que fica na **bandeja do sistema**, detecta **Google Meet**, transcreve o áudio em segundo plano (Whisper offline), separa vozes (diarização) e oferece um **assistente local** via Ollama.
 
@@ -43,9 +43,10 @@ Clique com o **botão direito** no ícone da bandeja para abrir o menu.
 | Status | Mostra se está aguardando Meet, transcrevendo ou diarizando |
 | Abrir pasta de transcrições | Abre `transcricoes/` no Explorer |
 | Abrir log | Abre `transkriptor.log` para diagnóstico |
-| Transcrição manual | Inicia/para gravação sem detectar Meet |
+| Transcrição manual (Ctrl+Espaço) | Inicia/para gravação sem detectar Meet |
+| Retranscrever áudio… | Reprocessa um áudio salvo em `transcricoes/audio/` |
 | Abrir assistente | Abre o assistente web local (Ollama) |
-| Pausar/retomar detecção | Liga ou desliga detecção automática de Meet |
+| Pausar gravação automática | Exige confirmação; enquanto pausado **não grava** reuniões |
 | Ativar/desativar separação de vozes | Liga ou desliga diarização ao final |
 | Cadastrar minha voz (20s) | Grava perfil de voz pelo microfone |
 | Identificar minha voz | Toggle do rótulo `VOCÊ` na diarização |
@@ -70,6 +71,17 @@ Clique com o **botão direito** no ícone da bandeja para abrir o menu.
 
 - Ao transcrever com Meet em segundo plano, trechos aparecem em notificação (60 caracteres).
 - Ao terminar a diarização, você recebe aviso com o nome do arquivo.
+- Se a gravação estiver pausada e um Meet abrir, um aviso lembra que **não está gravando**.
+
+### Atalho global Ctrl+Espaço
+
+Com o Transkriptor **aberto na bandeja**, use **Ctrl+Espaço** em qualquer aplicativo para
+iniciar ou parar a **transcrição manual** (toasts de início/fim). O atalho do arquivo `.lnk`
+da Área de Trabalho **não** usa mais Ctrl+Alt — a ativação é só pelo app.
+
+Se o combo estiver em uso por outro programa, o Transkriptor avisa e segue sem o atalho
+(o menu da bandeja continua funcionando). O combo pode ser alterado em `config_user.json`
+(`atalho_global`, ex.: `"ctrl+shift+t"`).
 
 ---
 

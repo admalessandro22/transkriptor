@@ -148,7 +148,7 @@ verde + verificação manual do plan.md (falha simulada de modelo → áudio sal
 - **AC:** `"ctrl+space"` → `(0x2, 0x20)`; `"ctrl+shift+t"`; `"CTRL + SPACE"`;
   inválidos (`"space"`, `"ctrl+"`, `"ctrl+enter+x"`) levantam `ValueError`.
 - **Commit:** `feat: adiciona parser de atalho global de teclado`
-- **Status:** [ ]
+- **Status:** [x]
 
 ### T-F3-02 — Registro do hotkey com message loop
 
@@ -163,7 +163,7 @@ verde + verificação manual do plan.md (falha simulada de modelo → áudio sal
   `RegisterHotKey`→0 chama `on_falha` sem levantar; `stop()` chama `UnregisterHotKey`
   exatamente uma vez.
 - **Commit:** `feat: registra atalho global via RegisterHotKey com message loop`
-- **Status:** [ ]
+- **Status:** [x]
 
 ### T-F3-03 — Integração com a bandeja
 
@@ -177,7 +177,7 @@ verde + verificação manual do plan.md (falha simulada de modelo → áudio sal
 - **AC:** com hotkey mockado, ativação alterna transcrição manual; falha de registro não
   impede a bandeja; `texto_transcricao_manual` inclui o combo.
 - **Commit:** `feat: ativa transcrição manual por Ctrl+Espaço global`
-- **Status:** [ ]
+- **Status:** [x]
 
 ### T-F3-04 — Migração do atalho .lnk (remover Ctrl+Alt)
 
@@ -187,7 +187,7 @@ verde + verificação manual do plan.md (falha simulada de modelo → áudio sal
   ativação agora é Ctrl+Espaço com o app aberto.
 - **AC:** teste verifica a limpeza de `Hotkey` no `.ps1`; manual atualizado.
 - **Commit:** `fix: remove hotkey Ctrl+Alt do atalho da Área de Trabalho`
-- **Status:** [ ]
+- **Status:** [x]
 
 **GATE F3:** `python -m pytest tests/test_hotkey_global.py tests/test_atalho_desktop.py -v`
 verde + manual: Ctrl+Espaço fora do app inicia (toast) e para (toast) a transcrição.
