@@ -113,7 +113,7 @@ teste RED observado → implementação mínima → GREEN → gate → commit.
   segmentos conhecidos, `retranscrever` gera transcrição e diarizada com os mesmos
   formatos de arquivo da reunião ao vivo; `.wav.enc` também funciona.
 - **Commit:** `feat: adiciona retranscrição de áudios retidos pelo menu`
-- **Status:** [ ]
+- **Status:** [x]
 
 ### T-F2-06 — Pausa com confirmação e aviso persistente
 

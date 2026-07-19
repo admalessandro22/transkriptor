@@ -435,6 +435,65 @@ class AppTranskriptor:
         except Exception as e:
             self._status(f"Erro ao abrir log: {e}")
 
+    def retranscrever_audio_menu(self, _icone=None, _item=None):
+        """FR-2.5: lista áudios retidos e retranscreve o escolhido em thread."""
+        def _ui():
+            try:
+                from retranscritor import listar_audios, retranscrever
+
+                items = listar_audios(PASTA_AUDIO)
+                if not items:
+                    notificar("Transkriptor", "Nenhum áudio retido em transcricoes/audio.")
+                    return
+                import tkinter as tk
+                from tkinter import simpledialog
+
+                root = tk.Tk()
+                root.withdraw()
+                root.attributes("-topmost", True)
+                opcoes = "\n".join(f"{i+1}. {it['rotulo']}" for i, it in enumerate(items[:30]))
+                escolha = simpledialog.askstring(
+                    "Retranscrever áudio",
+                    f"Escolha o número do áudio:\n\n{opcoes}",
+                    parent=root,
+                )
+                root.destroy()
+                if not escolha:
+                    return
+                idx = int(escolha.strip()) - 1
+                if idx < 0 or idx >= len(items):
+                    notificar("Transkriptor", "Número inválido.")
+                    return
+                caminho = items[idx]["caminho"]
+                self._status("Retranscrevendo áudio…")
+                notificar("Transkriptor", "Retranscrição iniciada…")
+
+                def _job():
+                    try:
+                        saida = retranscrever(
+                            caminho,
+                            pasta_saida=PASTA_TRANSCRICOES,
+                            diarizar=self.diarizacao_ativa,
+                            criptografar=self.criptografar_transcricoes,
+                            on_status=self._status,
+                            identificar_voz=self.identificar_minha_voz,
+                            usar_vozes_conhecidas=True,
+                        )
+                        notificar(
+                            "Transkriptor",
+                            f"Retranscrição salva: {os.path.basename(saida) if saida else '?'}",
+                        )
+                    except Exception as e:
+                        logging.exception("Retranscrição falhou")
+                        notificar("Transkriptor", f"Erro na retranscrição: {e}")
+
+                threading.Thread(target=_job, daemon=True, name="Retranscrever").start()
+            except Exception as e:
+                logging.exception("Menu retranscrever")
+                notificar("Transkriptor", f"Erro: {e}")
+
+        threading.Thread(target=_ui, daemon=True).start()
+
     def alternar_transcricao_manual(self, _icone=None, _item=None):
         if self._gravando() and self._modo_manual:
             self._parar_transcricao()
@@ -785,6 +844,7 @@ class AppTranskriptor:
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Abrir pasta de transcricoes", self.abrir_pasta),
             pystray.MenuItem("Abrir log", self.abrir_log),
+            pystray.MenuItem("Retranscrever áudio…", self.retranscrever_audio_menu),
             pystray.MenuItem(self._texto_transcricao_manual, self.alternar_transcricao_manual),
             pystray.MenuItem("Abrir assistente (resumo, perguntas)", self.abrir_assistente),
             pystray.MenuItem(self._texto_deteccao, self.alternar_deteccao),
