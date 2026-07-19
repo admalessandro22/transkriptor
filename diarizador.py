@@ -11,10 +11,10 @@ com limiar de distância do cosseno.
 
 import logging
 import os
-import wave
 
 import numpy as np
 
+from audio_utils import ler_trecho_wav
 from config import (
     MODELO_VOZ_FONTE,
     DIR_MODELO_VOZ,
@@ -73,23 +73,6 @@ def _rms(trecho: np.ndarray) -> float:
 
 def segmento_tem_voz_mic(trecho: np.ndarray, limiar_rms: float = LIMIAR_RMS_MIC) -> bool:
     return _rms(trecho) >= limiar_rms
-
-
-def _ler_trecho_wav(caminho_wav, start_sec, end_sec, sample_rate=SAMPLE_RATE):
-    if not caminho_wav or not os.path.isfile(caminho_wav):
-        return np.array([], dtype=np.float32)
-    w = wave.open(caminho_wav, "rb")
-    try:
-        total = w.getnframes()
-        i_start = max(0, int(start_sec * sample_rate))
-        i_end = min(total, int(end_sec * sample_rate))
-        if i_start >= i_end:
-            return np.array([], dtype=np.float32)
-        w.setpos(i_start)
-        frames = w.readframes(i_end - i_start)
-        return np.frombuffer(frames, dtype=np.int16).astype(np.float32) / 32767.0
-    finally:
-        w.close()
 
 
 def _centroides_por_label(embeddings, labels):
@@ -197,7 +180,7 @@ def reforcar_rotulo_por_mic(
         return resultado
     reforcado = []
     for rot, start, end, texto in resultado:
-        trecho = _ler_trecho_wav(caminho_mic, start, end, sample_rate)
+        trecho = ler_trecho_wav(caminho_mic, start, end, sample_rate)
         if segmento_tem_voz_mic(trecho, limiar_rms):
             reforcado.append((rotulo_usuario, start, end, texto))
         else:

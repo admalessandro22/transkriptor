@@ -20,6 +20,7 @@ import numpy as np
 import soundcard as sc
 from faster_whisper import WhisperModel
 
+from audio_utils import ler_trecho_wav
 from config import (
     SAMPLE_RATE,
     CHUNK_SEGUNDOS,
@@ -330,23 +331,6 @@ class Transcritor:
         if texto:
             self.on_status(texto)
 
-    def _ler_trecho_wav(self, caminho_wav, start_sec, end_sec):
-        """Lê um trecho do WAV temporário para a diarização (não carrega tudo em RAM)."""
-        if not caminho_wav or not os.path.isfile(caminho_wav):
-            return np.array([], dtype=np.float32)
-        w = wave.open(caminho_wav, "rb")
-        try:
-            total = w.getnframes()
-            i_start = max(0, int(start_sec * SAMPLE_RATE))
-            i_end = min(total, int(end_sec * SAMPLE_RATE))
-            if i_start >= i_end:
-                return np.array([], dtype=np.float32)
-            w.setpos(i_start)
-            frames = w.readframes(i_end - i_start)
-            return np.frombuffer(frames, dtype=np.int16).astype(np.float32) / 32767.0
-        finally:
-            w.close()
-
     def _rodar_diarizacao(self, caminho_saida, caminho_wav):
         """Pós-processamento: separa falantes e escreve versão diarizada do .txt."""
         self.diarizando = True
@@ -363,7 +347,7 @@ class Transcritor:
                 trechos_audio = []
                 if caminho_wav and os.path.isfile(caminho_wav):
                     for start, end, _t in self._segmentos:
-                        trechos_audio.append(self._ler_trecho_wav(caminho_wav, start, end))
+                        trechos_audio.append(ler_trecho_wav(caminho_wav, start, end))
                 else:
                     trechos_audio = [np.array([], dtype=np.float32)] * len(self._segmentos)
 

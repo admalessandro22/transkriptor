@@ -173,7 +173,7 @@ def retranscrever(
     if diarizar and segmentos and caminho:
         # roda diarização de forma síncrona
         t._segmentos = segmentos
-        # usa o áudio original para diarização via _ler_trecho_wav — precisa de WAV temp
+        # usa o áudio original para diarização via audio_utils.ler_trecho_wav — precisa de WAV temp
         tmp = None
         try:
             fd, tmp = tempfile.mkstemp(suffix="_audio.wav")
