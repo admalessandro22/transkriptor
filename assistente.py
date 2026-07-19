@@ -28,7 +28,6 @@ from config import (
     MAX_HISTORICO_CHAT,
     MAX_CHARS_TRANSCRICAO,
     ROTULO_USUARIO,
-    CONFIG_USER_FILE,
     OLLAMA_NUM_CTX_MAX,
     CHARS_POR_TOKEN_PT,
     OLLAMA_TIMEOUT_CONEXAO,
@@ -132,8 +131,9 @@ def caminho_transcricao_seguro(nome: str):
 def rotulo_usuario_efetivo() -> str:
     """Lê rotulo_usuario de config_user.json; fallback para ROTULO_USUARIO (FR-5.7)."""
     try:
-        with open(CONFIG_USER_FILE, encoding="utf-8") as f:
-            cfg = json.load(f)
+        import config_user
+
+        cfg = config_user.carregar()
         valor = cfg.get("rotulo_usuario")
         if valor:
             return str(valor)
