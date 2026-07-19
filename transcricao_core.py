@@ -11,6 +11,7 @@ import io
 import logging
 import os
 import queue
+import shutil
 import threading
 import time
 import wave
@@ -34,6 +35,8 @@ from config import (
     ROTULO_USUARIO,
     LIMIAR_RMS_MIC,
     TIMEOUT_JOIN_STOP_SEG,
+    PASTA_AUDIO,
+    MIN_DISCO_LIVRE_GB,
 )
 
 logger = logging.getLogger(__name__)
@@ -125,14 +128,13 @@ class Transcritor:
             self._arq.write(cabecalho)
             self._arq.flush()
 
-        # WAV temporário para áudio em disco (BUG-02: não acumular em RAM)
-        if self.diarizar_ao_final:
-            base = os.path.splitext(self._caminho_saida)[0]
-            self._caminho_wav = base + "_audio.wav"
-            self._wav = wave.open(self._caminho_wav, "wb")
-            self._wav.setnchannels(1)
-            self._wav.setsampwidth(2)  # int16
-            self._wav.setframerate(SAMPLE_RATE)
+        # WAV sempre gravado (FR-2.1); ao final é movido para PASTA_AUDIO
+        base = os.path.splitext(self._caminho_saida)[0]
+        self._caminho_wav = base + "_audio.wav"
+        self._wav = wave.open(self._caminho_wav, "wb")
+        self._wav.setnchannels(1)
+        self._wav.setsampwidth(2)  # int16
+        self._wav.setframerate(SAMPLE_RATE)
 
         if self.capturar_mic:
             base = os.path.splitext(self._caminho_saida)[0]
@@ -389,18 +391,47 @@ class Transcritor:
             self.on_status(f"Diarização concluída: {os.path.basename(caminho_diar)}")
         finally:
             self.diarizando = False
-            # limpa WAV temporário
-            for caminho_tmp in (caminho_wav, getattr(self, "_caminho_wav_mic_salvo", None)):
-                if caminho_tmp and os.path.isfile(caminho_tmp):
-                    try:
-                        os.remove(caminho_tmp)
-                    except Exception:
-                        pass
+            # FR-2.1: preserva áudio em PASTA_AUDIO (não apaga)
+            self._preservar_audios(
+                caminho_wav, getattr(self, "_caminho_wav_mic_salvo", None)
+            )
+
+    def _preservar_audios(self, *caminhos):
+        """Move WAVs finalizados para PASTA_AUDIO; retorna caminhos de destino."""
+        destinos = []
+        os.makedirs(PASTA_AUDIO, exist_ok=True)
+        for caminho in caminhos:
+            if not caminho or not os.path.isfile(caminho):
+                continue
+            try:
+                destino = os.path.join(PASTA_AUDIO, os.path.basename(caminho))
+                if os.path.abspath(caminho) != os.path.abspath(destino):
+                    if os.path.isfile(destino):
+                        os.remove(destino)
+                    shutil.move(caminho, destino)
+                destinos.append(destino)
+            except Exception:
+                logger.exception("Falha ao preservar áudio %s", caminho)
+        return destinos
+
+    def _checar_disco_livre(self):
+        """FR-2.8: avisa se espaço livre < MIN_DISCO_LIVRE_GB (gravação segue)."""
+        try:
+            livre = shutil.disk_usage(self.pasta_saida).free
+            limite = MIN_DISCO_LIVRE_GB * (1024**3)
+            if livre < limite:
+                self.on_status(
+                    f"Aviso: pouco espaço em disco "
+                    f"(menos de {MIN_DISCO_LIVRE_GB} GB livres). A gravação continua."
+                )
+        except Exception:
+            logger.debug("Não foi possível checar espaço em disco", exc_info=True)
 
     def start(self):
         if self.rodando:
             return
         self._carregar_modelo()
+        self._checar_disco_livre()
         self._abrir_arquivo()
         self._stop.clear()
         self._segmentos = []
@@ -471,6 +502,9 @@ class Transcritor:
                 daemon=True,
             )
             self._thread_diar.start()
+        else:
+            # FR-2.1: sem diarização (ou sem segmentos), move WAV imediatamente
+            self._preservar_audios(caminho_wav, self._caminho_wav_mic_salvo)
 
         self._caminho_saida = None
         self.finalizando = False

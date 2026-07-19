@@ -13,12 +13,14 @@ VERSAO = "1.3.0"
 # ---- Caminhos ----
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PASTA_TRANSCRICOES = os.path.join(BASE_DIR, "transcricoes")
+PASTA_AUDIO = os.path.join(PASTA_TRANSCRICOES, "audio")
 LOG_FILE = os.path.join(BASE_DIR, "transkriptor.log")
 ICONE_FILE = os.path.join(BASE_DIR, "transkriptor.ico")
 DIR_MODELO_VOZ = os.path.join(BASE_DIR, "_modelo_voz")
 ARQUIVO_PERFIL_VOZ = os.path.join(DIR_MODELO_VOZ, "perfil_usuario.npz")
 ARQUIVO_PERFIL_VOZ_ENC = os.path.join(DIR_MODELO_VOZ, "perfil_usuario.enc")
 CONFIG_USER_FILE = os.path.join(BASE_DIR, "config_user.json")
+MIN_DISCO_LIVRE_GB = 2
 
 # ---- Áudio / Whisper ----
 SAMPLE_RATE = 16000

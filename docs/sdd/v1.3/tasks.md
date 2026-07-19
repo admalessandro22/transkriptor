@@ -54,7 +54,7 @@ teste RED observado → implementação mínima → GREEN → gate → commit.
   `transcricoes/audio/<base>_audio.wav` com frames > 0; com diarização ativa, o arquivo é
   movido ao fim dela; nenhum caminho apaga o áudio.
 - **Commit:** `feat: preserva áudio da reunião em transcricoes/audio`
-- **Status:** [ ]
+- **Status:** [x]
 
 ### T-F2-02 — Criptografia do áudio finalizado + recuperação de órfãos
 
