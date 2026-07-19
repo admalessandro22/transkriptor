@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Transkriptor Meet Bridge",
+  "version": "1.0.0",
+  "description": "Envia nomes dos participantes do Google Meet ao Transkriptor local.",
+  "host_permissions": ["https://meet.google.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://meet.google.com/*"],
+      "js": ["config.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

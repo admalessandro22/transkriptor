@@ -1,0 +1,39 @@
+# ============================================
+# Transkiptor 1.1 — Dependências
+# ============================================
+# IMPORTANTE: O PyTorch (torch/torchaudio) deve ser instalado ANTES,
+# usando o index CUDA apropriado para sua GPU:
+#
+#   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128
+#
+# (Para CPU apenas, use: pip install torch torchaudio)
+# ============================================
+
+torch>=2.0
+torchaudio>=2.0
+
+# Transcrição (Whisper offline)
+faster-whisper==1.1.1
+soundcard==0.4.3
+numpy>=1.24
+
+# Bandeja + detecção de janelas
+pystray==0.19.5
+pygetwindow==0.0.9
+pillow>=10.0
+
+# Diarização (separação de vozes)
+speechbrain>=1.0
+scikit-learn>=1.3
+
+# Assistente web (Flask + Ollama)
+flask>=3.0
+
+# Ponte WebSocket Meet (Fase 8)
+websockets>=12.0
+
+# Notificações do Windows
+plyer>=2.1
+
+# Criptografia em repouso (F3)
+cryptography>=42.0

@@ -1,0 +1,10 @@
+[project]
+name = "Transkriptor"
+version = "1.2.0"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"

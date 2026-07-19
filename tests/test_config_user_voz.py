@@ -1,0 +1,25 @@
+# -*- coding: utf-8 -*-
+"""Testes de sincronização identificar_minha_voz com perfil."""
+from transkriptor import _resolver_identificar_minha_voz
+
+
+def test_desativa_quando_perfil_ausente():
+    cfg = {"identificar_minha_voz": True}
+    ativo, cfg_out = _resolver_identificar_minha_voz(cfg, tem_perfil=False)
+    assert ativo is False
+    assert cfg_out["identificar_minha_voz"] is False
+
+
+def test_mantem_quando_perfil_existe():
+    cfg = {"identificar_minha_voz": True}
+    ativo, cfg_out = _resolver_identificar_minha_voz(cfg, tem_perfil=True)
+    assert ativo is True
+    assert cfg_out["identificar_minha_voz"] is True
+
+
+def test_default_segue_existencia_perfil():
+    cfg = {}
+    ativo, _ = _resolver_identificar_minha_voz(cfg, tem_perfil=True)
+    assert ativo is True
+    ativo, _ = _resolver_identificar_minha_voz(cfg, tem_perfil=False)
+    assert ativo is False

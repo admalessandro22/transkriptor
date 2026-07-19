@@ -1,0 +1,1 @@
+# Pacote de testes do Transkriptor v1.2
