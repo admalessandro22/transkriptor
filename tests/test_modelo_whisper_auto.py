@@ -16,14 +16,23 @@ def test_resolver_cuda_vram_4gb_medium():
     assert resolver_modelo_whisper(True, 6.0) == ("medium", "cuda", "int8_float16")
 
 
+def test_placa_de_4gb_reporta_menos_de_4_e_ainda_usa_gpu():
+    """Regressão v1.4: a GTX 1650 reporta 3.99969 GiB — não pode cair para CPU."""
+    assert resolver_modelo_whisper(True, 4294639616 / 1024**3) == (
+        "medium",
+        "cuda",
+        "int8_float16",
+    )
+
+
 def test_resolver_sem_cuda_small_cpu():
     """FR-6.3: sem CUDA → small/cpu/int8."""
     assert resolver_modelo_whisper(False, 8.0) == ("small", "cpu", "int8")
 
 
 def test_resolver_cuda_vram_baixa_small_cpu():
-    """FR-6.3: CUDA com VRAM < 4 GB → small/cpu/int8."""
-    assert resolver_modelo_whisper(True, 3.9) == ("small", "cpu", "int8")
+    """FR-6.3: CUDA com VRAM abaixo do limiar → small/cpu/int8."""
+    assert resolver_modelo_whisper(True, 3.5) == ("small", "cpu", "int8")
     assert resolver_modelo_whisper(True, 2.0) == ("small", "cpu", "int8")
 
 
