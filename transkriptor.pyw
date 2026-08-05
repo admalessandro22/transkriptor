@@ -16,6 +16,11 @@ import pygetwindow as gw
 import pystray
 
 from app_bandeja_menu import MenuBandejaMixin
+from app_bootstrap import (
+    carregar_config_user as _carregar_config_user,
+    resolver_identificar_minha_voz as _resolver_identificar_minha_voz,
+    salvar_config_user as _salvar_config_user,
+)
 from bandeja_icone import criar_ico, criar_imagem, imagem_por_estado
 from crypto_storage import (
     chave_disponivel,
@@ -31,7 +36,7 @@ from config import (
     ARQUIVO_VOZES_CONHECIDAS_ENC,
     BASE_DIR,
     CAPTURAR_MIC,
-    EXIGIR_JANELA_VISIVEL,
+    HEARTBEAT_MONITOR_CICLOS,
     IDIOMA,
     INTERVALO_MONITOR_MEET,
     LOG_FILE,
@@ -40,13 +45,15 @@ from config import (
     MODO_LEGENDAS_MEET,
     PASTA_AUDIO,
     PASTA_TRANSCRICOES,
+    PERGUNTAR_ANTES_DE_GRAVAR,
     PORTA_MEET_BRIDGE,
     RETENCAO_AUDIO_DIAS,
     ROTULO_USUARIO,
     USAR_NOMES_MEET,
     VERSAO,
 )
-from detector_meet import DetectorMeet, titulo_eh_meet
+from detector_meet import titulo_eh_meet
+from monitor_reuniao import autoteste_audio, construir_detector, texto_heartbeat
 from estado_icone import DURACAO_ERRO_ICONE, resolver_estado_icone
 from meet_bridge import MeetBridge, iniciar_bridge_em_thread, sincronizar_token_extensao
 from notificador import (
@@ -81,34 +88,11 @@ logging.root.setLevel(logging.INFO)
 logging.root.addHandler(_log_handler)
 
 
-def _carregar_config_user():
-    import config_user
-
-    return config_user.carregar()
-
-
-def _salvar_config_user(cfg):
-    import config_user
-
-    try:
-        config_user.salvar(cfg)
-    except Exception as e:
-        logging.error(f"Erro ao salvar config_user: {e}")
-
-
-def _resolver_identificar_minha_voz(cfg, tem_perfil):
-    ativo = cfg.get("identificar_minha_voz", tem_perfil) and tem_perfil
-    if cfg.get("identificar_minha_voz") and not tem_perfil:
-        cfg["identificar_minha_voz"] = False
-    return ativo, cfg
-
-
 class AppTranskriptor(MenuBandejaMixin):
     def __init__(self):
         self.icone = None
         self.transcritor = None
         self.watchdog = None
-        self.detector = DetectorMeet(exigir_janela_visivel=EXIGIR_JANELA_VISIVEL)
         self.deteccao_ativa = True
         self.diarizacao_ativa = True
         self._toast_pausa_reuniao = None
@@ -155,6 +139,12 @@ class AppTranskriptor(MenuBandejaMixin):
             _salvar_config_user(cfg_meet)
         self.meet_bridge = MeetBridge(token=meet_token)
         sincronizar_token_extensao(meet_token, BASE_DIR)
+        self.perguntar_antes_de_gravar = cfg.get(
+            "perguntar_antes_de_gravar", PERGUNTAR_ANTES_DE_GRAVAR
+        )
+        # FR-9.B1: fusão de fontes. Qualquer uma mantém a reunião viva; assim
+        # trocar de aba no meio da chamada não encerra mais a gravação.
+        self.detector = construir_detector(self.meet_bridge)
         self._meet_bridge_thread = None
         self._monitor_thread = None
         self._bandeja_pronta = False
@@ -165,6 +155,7 @@ class AppTranskriptor(MenuBandejaMixin):
         self._em_erro = False
         self._instante_erro = None
         self._modo_manual = False
+        self._iniciando = False
 
     def _gravando(self):
         return bool(self.transcritor and self.transcritor.rodando)
@@ -217,17 +208,31 @@ class AppTranskriptor(MenuBandejaMixin):
         return relativos
 
     def _iniciar_transcricao(self, manual=False):
+        with self._lock:
+            # Um único portão: o monitor e o menu manual podem chamar isto ao
+            # mesmo tempo, e duas capturas simultâneas brigam pelo loopback.
+            if getattr(self, "_iniciando", False) or (
+                self.transcritor and self.transcritor.rodando
+            ):
+                return
+            self._iniciando = True
+        try:
+            self._iniciar_transcricao_interno(manual)
+        finally:
+            with self._lock:
+                self._iniciando = False
+
+    def _iniciar_transcricao_interno(self, manual=False):
         from transcricao_core import Transcritor
 
-        with self._lock:
-            if self.transcritor and self.transcritor.rodando:
-                return
         self._inicio_transcricao_wall_ms = int(time.time() * 1000)
         self._modo_manual = bool(manual)
+        detector = getattr(self, "detector", None)
+        fontes = ", ".join(getattr(detector, "fontes_da_reuniao", None) or []) or "?"
         self._status(
             "Iniciando transcricao manual..."
             if manual
-            else "Meet confirmado. Iniciando transcricao..."
+            else f"Reunião detectada ({fontes}). Iniciando transcricao..."
         )
         self.transcritor = Transcritor(
             modelo=getattr(self, "modelo_whisper", MODELO_WHISPER),
@@ -249,8 +254,9 @@ class AppTranskriptor(MenuBandejaMixin):
             self.watchdog.start()
             self._status("Transcricao em andamento.")
             notificar("Transkriptor", "Transcrição iniciada (reunião detectada)")
-            if not manual:
+            if not manual and self.perguntar_antes_de_gravar:
                 # FR-2.9: aviso com opção de recusar; a gravação já está rodando
+                # (gravar primeiro e perguntar depois nunca perde o começo da fala)
                 threading.Thread(
                     target=self._avisar_gravacao_iniciada, daemon=True
                 ).start()
@@ -297,35 +303,45 @@ class AppTranskriptor(MenuBandejaMixin):
                 )
             self._atualizar_tooltip()
 
+    def _em_thread(self, alvo, nome):
+        """Executa fora da thread do monitor.
+
+        Carregar o Whisper e finalizar a diarização levam dezenas de segundos.
+        Rodando no monitor, a detecção ficava cega justamente durante o início e
+        o fim da reunião.
+        """
+        threading.Thread(target=alvo, daemon=True, name=nome).start()
+
     def _processar_mudanca_meet(self, mudanca):
         if mudanca == "iniciou":
             if not self._modo_manual and deve_iniciar_gravacao_auto(
                 self._recusa_reuniao_ativa
             ):
-                self._iniciar_transcricao()
+                self._em_thread(self._iniciar_transcricao, "Transkriptor-Inicio")
             return
         if mudanca == "encerrou":
             # FR-2.10: recusa vale só para a reunião que acabou
             self._recusa_reuniao_ativa = False
         if deve_parar_transcricao_por_meet(mudanca, self._modo_manual):
-            self._status("Meet encerrado. Finalizando transcricao...")
-            self._parar_transcricao()
+            self._status("Reunião encerrada. Finalizando transcricao...")
+            self._em_thread(self._parar_transcricao, "Transkriptor-Fim")
 
     def _detectar_mudanca_meet(self):
-        if EXIGIR_JANELA_VISIVEL:
-            janelas = []
-            for w in gw.getAllWindows():
-                try:
-                    janelas.append({"titulo": w.title, "visivel": not w.isMinimized})
-                except Exception:
-                    continue
-            return self.detector.verificar_janelas(janelas)
-        return self.detector.verificar(gw.getAllTitles())
+        return self.detector.verificar()
+
+    def _heartbeat_monitor(self, ciclos):
+        """FR-9.C4: prova periódica no log de que o monitor continua vivo."""
+        if ciclos % HEARTBEAT_MONITOR_CICLOS:
+            return
+        logging.info("%s", texto_heartbeat(self.detector, self._gravando(), ciclos))
 
     def _monitorar_meet(self):
+        ciclos = 0
         while True:
             try:
+                ciclos += 1
                 mudanca = self._detectar_mudanca_meet()
+                self._heartbeat_monitor(ciclos)
                 if self.deteccao_ativa:
                     self._processar_mudanca_meet(mudanca)
                 else:
@@ -335,13 +351,17 @@ class AppTranskriptor(MenuBandejaMixin):
                         self._toast_pausa_reuniao = mudanca
                         notificar(
                             "Transkriptor",
-                            "Meet detectado, mas a gravação está pausada",
+                            "Reunião detectada, mas a gravação está pausada",
                         )
                     if mudanca == "encerrou":
                         self._toast_pausa_reuniao = None
             except Exception:
-                logging.exception("Erro no monitor do Meet")
+                logging.exception("Erro no monitor de reunião")
             time.sleep(INTERVALO_MONITOR_MEET)
+
+    def _autoteste_audio(self):
+        """FR-9.A4: falha de captura vira aviso visível, nunca silêncio no log."""
+        autoteste_audio(self._erro_critico)
 
     def _rodar_retencao_audio(self):
         try:
@@ -376,11 +396,25 @@ class AppTranskriptor(MenuBandejaMixin):
                 name="Transkriptor-RetencaoAudio",
             ).start()
 
-            if self.usar_nomes_meet:
-                self._meet_bridge_thread = iniciar_bridge_em_thread(
-                    self.meet_bridge, "127.0.0.1", PORTA_MEET_BRIDGE
-                )
-                logging.info("Ponte Meet iniciada em 127.0.0.1:%s", PORTA_MEET_BRIDGE)
+            # FR-9.3: a ponte agora também é fonte de detecção, então sobe
+            # sempre — não só quando "Identificar nomes do Meet" está ligado.
+            # Se ela falhar (porta ocupada), a bandeja continua: título e
+            # microfone seguem detectando reuniões sem a extensão.
+            bridge = getattr(self, "meet_bridge", None)
+            if bridge is not None:
+                try:
+                    self._meet_bridge_thread = iniciar_bridge_em_thread(
+                        bridge, "127.0.0.1", PORTA_MEET_BRIDGE
+                    )
+                    logging.info(
+                        "Ponte Meet iniciada em 127.0.0.1:%s", PORTA_MEET_BRIDGE
+                    )
+                except Exception:
+                    logging.exception("Ponte Meet indisponível; detecção segue sem ela")
+
+            threading.Thread(
+                target=self._autoteste_audio, daemon=True, name="Transkriptor-AutoTeste"
+            ).start()
 
             self._monitor_thread = threading.Thread(
                 target=self._monitorar_meet, daemon=True, name="Transkriptor-MonitorMeet"
@@ -440,7 +474,7 @@ def _mostrar_erro_fatal(msg):
 
 
 if __name__ == "__main__":
-    if not adquirir_lock(LOCK_FILE):
+    if not adquirir_lock(LOCK_FILE, usar_mutex_nomeado=True):
         logging.info("Segunda instancia bloqueada pelo mutex.")
         for _h in logging.root.handlers:
             try:

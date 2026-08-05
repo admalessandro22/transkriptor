@@ -7,6 +7,25 @@ from pathlib import Path
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _isolar_pasta_audio(monkeypatch, tmp_path):
+    """Nenhum teste escreve na pasta de áudio real do usuário.
+
+    Vários testes instanciam `Transcritor`, cujo `stop()` move o WAV para
+    `PASTA_AUDIO`. Sem este isolamento, rodar a suíte sujava
+    `transcricoes/audio/` com dezenas de arquivos de teste — indistinguíveis das
+    gravações reais do usuário.
+    """
+    pasta = tmp_path / "audio_isolado"
+    pasta.mkdir(exist_ok=True)
+    for alvo in ("config.PASTA_AUDIO", "transcricao_core.PASTA_AUDIO"):
+        try:
+            monkeypatch.setattr(alvo, str(pasta))
+        except (AttributeError, ImportError):
+            pass
+    return pasta
+
+
 @pytest.fixture
 def headers_token():
     from assistente import HEADER_TOKEN, obter_token_sessao

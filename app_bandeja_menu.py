@@ -16,7 +16,6 @@ from config import (
     ARQUIVO_VOZES_CONHECIDAS,
     ARQUIVO_VOZES_CONHECIDAS_ENC,
     BASE_DIR,
-    TIMEOUT_AVISO_GRAVACAO_SEG,
     LOG_FILE,
     MODELO_WHISPER,
     MODELOS_WHISPER_MENU,
@@ -37,7 +36,6 @@ from startup_windows import (
     remover_atalho_startup as _remover_atalho_startup,
 )
 from transkriptor_acoes import (
-    IDYES,
     confirmacao_saida_necessaria,
     deve_confirmar_pausa,
     resposta_continuar_gravacao,
@@ -50,6 +48,8 @@ from transkriptor_menu_flows import (
     iniciar_assistente_ui,
     iniciar_renomear_falante_ui,
     iniciar_retranscricao_ui,
+    perguntar_continuar_gravacao,
+    rodar_diagnostico_ui,
 )
 
 
@@ -102,26 +102,30 @@ class MenuBandejaMixin:
         threading.Thread(target=iniciar_assistente_ui, args=(self,), daemon=True).start()
 
     def _perguntar_continuar_gravacao_padrao(self) -> int:
-        """FR-2.9: Sim/Não com timeout — sem resposta, a gravação continua."""
-        try:
-            import ctypes
+        """FR-9.D4: Sim/Não com timeout — sem resposta, a gravação continua."""
+        return perguntar_continuar_gravacao()
 
-            # YESNO | ICONQUESTION | SETFOREGROUND | TOPMOST
-            return int(
-                ctypes.windll.user32.MessageBoxTimeoutW(
-                    0,
-                    "O Transkriptor está gravando esta reunião.\n"
-                    "Deseja continuar gravando?\n\n"
-                    f"(Sem resposta em {TIMEOUT_AVISO_GRAVACAO_SEG}s, continua gravando.)",
-                    "Transkriptor — reunião detectada",
-                    0x4 | 0x20 | 0x10000 | 0x40000,
-                    0,
-                    TIMEOUT_AVISO_GRAVACAO_SEG * 1000,
-                )
-            )
-        except Exception:
-            logging.exception("Diálogo de gravação indisponível")
-            return IDYES
+    def alternar_pergunta_gravacao(self, _icone=None, _item=None):
+        import config_user
+
+        self.perguntar_antes_de_gravar = not self.perguntar_antes_de_gravar
+        config_user.atualizar(perguntar_antes_de_gravar=self.perguntar_antes_de_gravar)
+        self._status(
+            "Vou perguntar antes de gravar cada reunião."
+            if self.perguntar_antes_de_gravar
+            else "Vou gravar reuniões automaticamente, sem perguntar."
+        )
+        self._atualizar_tooltip()
+
+    def _texto_pergunta_gravacao(self, _item=None):
+        return (
+            "✓ Perguntar antes de gravar"
+            if self.perguntar_antes_de_gravar
+            else "Perguntar antes de gravar"
+        )
+
+    def abrir_diagnostico(self, _icone=None, _item=None):
+        threading.Thread(target=rodar_diagnostico_ui, args=(self,), daemon=True).start()
 
     def _avisar_gravacao_iniciada(self):
         """FR-2.9: aviso pós-início com opção de recusar; a gravação já roda."""
@@ -308,10 +312,25 @@ class MenuBandejaMixin:
             if self.transcritor and getattr(self.transcritor, "diarizando", False):
                 return "Separando vozes (pós-processamento)..."
             if self.transcritor and self.transcritor.rodando:
-                return "Transcrevendo reuniao..."
-            if self.deteccao_ativa:
-                return "Aguardando Google Meet..."
-            return "PAUSADO — não está gravando"
+                fontes = ", ".join(
+                    getattr(getattr(self, "detector", None), "fontes_da_reuniao", None) or []
+                )
+                return f"Gravando reunião ({fontes})..." if fontes else "Gravando reunião..."
+            if not self.deteccao_ativa:
+                return "PAUSADO — não está gravando"
+        # Fora do lock: consultar as fontes pode levar alguns milissegundos.
+        return f"Aguardando reunião — {self._resumo_fontes()}"
+
+    def _resumo_fontes(self):
+        """UX-9.1: o menu diz o que o detector está enxergando agora."""
+        detector = getattr(self, "detector", None)
+        if detector is None:
+            return "detector indisponível"
+        try:
+            ativos = [s.fonte for s in detector.instantaneo() if s.ativo]
+        except Exception:
+            return "falha ao consultar fontes"
+        return f"sinal de: {', '.join(ativos)}" if ativos else "nenhuma reunião à vista"
 
     def _texto_deteccao(self, _item=None):
         return texto_deteccao_menu(self.deteccao_ativa)
@@ -412,11 +431,13 @@ class MenuBandejaMixin:
             pystray.MenuItem(self._texto_status, None, enabled=False),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Abrir pasta de transcricoes", self.abrir_pasta),
+            pystray.MenuItem("Diagnóstico (por que não está gravando?)", self.abrir_diagnostico),
             pystray.MenuItem("Abrir log", self.abrir_log),
             pystray.MenuItem("Retranscrever áudio…", self.retranscrever_audio_menu),
             pystray.MenuItem(self._texto_transcricao_manual, self.alternar_transcricao_manual),
             pystray.MenuItem("Abrir assistente (resumo, perguntas)", self.abrir_assistente),
             pystray.MenuItem(self._texto_deteccao, self.alternar_deteccao),
+            pystray.MenuItem(self._texto_pergunta_gravacao, self.alternar_pergunta_gravacao),
             pystray.MenuItem(self._texto_diarizacao, self.alternar_diarizacao),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Cadastrar minha voz (20s)", self.cadastrar_minha_voz),

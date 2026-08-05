@@ -7,10 +7,93 @@ import logging
 import os
 import threading
 
-from config import PASTA_AUDIO, PASTA_TRANSCRICOES
+from config import (
+    MODELO_WHISPER,
+    PASTA_AUDIO,
+    PASTA_TRANSCRICOES,
+    TIMEOUT_AVISO_GRAVACAO_SEG,
+)
 from notificador import notificar
 
 logger = logging.getLogger(__name__)
+
+IDYES = 6
+
+
+def perguntar_continuar_gravacao() -> int:
+    """FR-9.D4: Sim/Não com timeout — sem resposta, a gravação continua.
+
+    O toast antes do diálogo não é enfeite: o Windows bloqueia o foco de janelas
+    criadas por processos em segundo plano, então a MessageBox pode nascer atrás
+    do navegador. O toast garante que o usuário perceba que há algo a responder.
+    """
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        notificar(
+            "Transkriptor",
+            "Reunião detectada — gravando. Responda se quer manter a gravação.",
+        )
+        fn = ctypes.windll.user32.MessageBoxTimeoutW
+        fn.argtypes = [
+            wintypes.HWND,
+            wintypes.LPCWSTR,
+            wintypes.LPCWSTR,
+            wintypes.UINT,
+            wintypes.WORD,
+            wintypes.DWORD,
+        ]
+        fn.restype = ctypes.c_int
+        # YESNO | ICONQUESTION | SETFOREGROUND | TOPMOST
+        return int(
+            fn(
+                None,
+                "O Transkriptor detectou uma reunião e já começou a gravar.\n\n"
+                "Quer gravar e transcrever esta reunião?\n\n"
+                "Sim  — continua gravando e transcreve ao final.\n"
+                "Não  — para agora e apaga o que já foi gravado.\n\n"
+                f"(Sem resposta em {TIMEOUT_AVISO_GRAVACAO_SEG}s, continua gravando.)",
+                "Transkriptor — reunião detectada",
+                0x4 | 0x20 | 0x10000 | 0x40000,
+                0,
+                TIMEOUT_AVISO_GRAVACAO_SEG * 1000,
+            )
+        )
+    except Exception:
+        logger.exception("Diálogo de gravação indisponível")
+        return IDYES
+
+
+def rodar_diagnostico_ui(app) -> None:
+    """FR-9.C1: responde 'por que não está gravando?' em uma tela."""
+    import diagnostico
+
+    app._status("Rodando diagnóstico...")
+    try:
+        itens = diagnostico.coletar(
+            detector=getattr(app, "detector", None),
+            modelo_whisper=getattr(app, "modelo_whisper", MODELO_WHISPER),
+            capturar_mic=getattr(app, "capturar_mic", True),
+            gravando=app._gravando(),
+        )
+        texto = diagnostico.formatar_texto(itens)
+        caminho = diagnostico.salvar_relatorio(texto)
+    except Exception as e:
+        logger.exception("Diagnóstico falhou")
+        app._status(f"Erro no diagnóstico: {e}")
+        notificar("Transkriptor", f"Diagnóstico falhou: {e}")
+        return
+    erros, avisos = diagnostico.resumir(itens)
+    app._status(f"Diagnóstico: {erros} erro(s), {avisos} aviso(s).")
+    notificar(
+        "Transkriptor",
+        f"Diagnóstico: {erros} erro(s), {avisos} aviso(s). Relatório aberto.",
+    )
+    try:
+        os.startfile(caminho)
+    except Exception:
+        logger.warning("Não foi possível abrir o relatório de diagnóstico.")
 
 
 def iniciar_retranscricao_ui(app) -> None:

@@ -8,7 +8,7 @@ Isso evita magic numbers espalhados e facilita ajustes.
 import os
 
 # ---- Versão do produto (fonte única) ----
-VERSAO = "1.3.0"
+VERSAO = "1.4.0"
 
 # ---- Caminhos ----
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -29,7 +29,10 @@ SAMPLE_RATE = 16000
 CHUNK_SEGUNDOS = 25.0
 MODELO_WHISPER = "auto"  # FR-6.3: resolve pelo hardware em runtime
 MODELOS_WHISPER_MENU = ("auto", "tiny", "base", "small", "medium", "large-v3")
-VRAM_MIN_MEDIUM_GB = 4.0
+# Uma placa "de 4 GB" reporta 3.9997 GiB (a GTX 1650 do usuário reporta
+# 4294639616 bytes). Com o limiar em 4.0 exato, o hardware de referência caía
+# sempre em small/CPU — mais lento e menos preciso. 3.8 cobre a folga.
+VRAM_MIN_MEDIUM_GB = 3.8
 IDIOMA = "pt"
 COMPUTE_TYPE = "int8"
 DEVICE_WHISPER = "auto"
@@ -107,8 +110,16 @@ MAX_CORPO_CHAT_BYTES = 256 * 1024
 # ---- Monitor de Meet ----
 EXIGIR_JANELA_VISIVEL = False
 INTERVALO_MONITOR_MEET = 5          # segundos entre verificações
-CONFIRMACAO_INICIO_MEET = 2         # ciclos consecutivos para confirmar início
-CONFIRMACAO_FIM_MEET = 3            # ciclos consecutivos para confirmar fim
+CONFIRMACAO_INICIO_MEET = 2         # ciclos com sinal forte para confirmar início (10 s)
+CONFIRMACAO_FIM_MEET = 3            # legado: debounce do DetectorMeet por título
+# Fusão multi-fonte (FR-9.1): só sinal fraco (microfone) exige mais ciclos, e o
+# fim é mais lento que o início — cortar no meio custa a reunião inteira.
+CONFIRMACAO_INICIO_FRACA = 4        # ciclos só com microfone para confirmar (20 s)
+CONFIRMACAO_FIM_REUNIAO = 6         # ciclos sem nenhuma fonte para encerrar (30 s)
+DETECTAR_POR_MICROFONE = True       # usar o registro de microfone em uso do Windows
+HEARTBEAT_MONITOR_CICLOS = 120      # log periódico do monitor (a cada ~10 min)
+# ---- Aviso de gravação (FR-2.9 / FR-9.4) ----
+PERGUNTAR_ANTES_DE_GRAVAR = True    # diálogo Sim/Não ao detectar reunião
 
 # ---- Nomes no Meet (Fase 8) ----
 PORTA_MEET_BRIDGE = 5051

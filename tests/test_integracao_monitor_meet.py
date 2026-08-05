@@ -12,6 +12,9 @@ def _app_controlado(modulo, manual=False):
     app._iniciar_transcricao = Mock()
     app._parar_transcricao = Mock()
     app._status = Mock()
+    # Iniciar/parar rodam fora da thread do monitor (FR-9.6); aqui executamos
+    # em linha para o teste ser determinístico.
+    app._em_thread = lambda alvo, _nome: alvo()
     return app
 
 
@@ -37,7 +40,8 @@ def test_fim_do_meet_para_transcricao_apos_debounce(modulo_transkriptor):
         app._processar_mudanca_meet(detector.verificar([]))
 
     app._parar_transcricao.assert_called_once_with()
-    app._status.assert_called_with("Meet encerrado. Finalizando transcricao...")
+    # v1.4: a mensagem fala em "reunião" porque o detector cobre Meet e Zoom.
+    app._status.assert_called_with("Reunião encerrada. Finalizando transcricao...")
 
 
 def test_modo_manual_ignora_inicio_e_fim_do_meet(modulo_transkriptor):
