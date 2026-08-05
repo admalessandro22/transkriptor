@@ -1,4 +1,4 @@
-# Manual do Usuário — Transkriptor v1.3
+# Manual do Usuário — Transkriptor v1.4
 
 Transkriptor é um aplicativo para **Windows** que fica na **bandeja do sistema**, detecta **Google Meet**, transcreve o áudio em segundo plano (Whisper offline), separa vozes (diarização) e oferece um **assistente local** via Ollama.
 
@@ -42,13 +42,15 @@ Clique com o **botão direito** no ícone da bandeja para abrir o menu.
 
 | Item | Função |
 |------|--------|
-| Status | Mostra se está aguardando Meet, transcrevendo ou diarizando |
+| Status | Mostra o que o detector vê agora, ou se está transcrevendo/diarizando |
 | Abrir pasta de transcrições | Abre `transcricoes/` no Explorer |
+| Diagnóstico (por que não está gravando?) | Testa áudio e detecção e abre um relatório |
 | Abrir log | Abre `transkriptor.log` para diagnóstico |
-| Transcrição manual (Ctrl+Espaço) | Inicia/para gravação sem detectar Meet |
+| Transcrição manual | Inicia/para gravação sem detectar Meet |
 | Retranscrever áudio… | Reprocessa um áudio salvo em `transcricoes/audio/` |
 | Abrir assistente | Abre o assistente web local (Ollama) |
 | Pausar gravação automática | Exige confirmação; enquanto pausado **não grava** reuniões |
+| Perguntar antes de gravar | Toggle (padrão **ligado**): diálogo Sim/Não ao detectar reunião |
 | Ativar/desativar separação de vozes | Liga ou desliga diarização ao final |
 | Cadastrar minha voz (20s) | Grava perfil de voz pelo microfone |
 | Identificar minha voz | Toggle do rótulo `VOCÊ` na diarização |
@@ -65,7 +67,7 @@ Clique com o **botão direito** no ícone da bandeja para abrir o menu.
 ### Cores do ícone
 
 - **Verde** — transcrevendo
-- **Azul** — aguardando Meet
+- **Azul** — aguardando reunião
 - **Cinza** — detecção pausada
 - **Vermelho** — erro crítico (reverte após ~30 s)
 
@@ -91,13 +93,38 @@ tecla de atalho associada (Ctrl+Alt legado foi removido).
 ## 3. Transcrição automática (Google Meet)
 
 1. Deixe o Transkriptor na bandeja com detecção **ativa**.
-2. Entre em uma reunião no Google Meet (Chrome, Edge, etc.).
-3. Quando o título da janela confirmar o Meet, a transcrição **inicia sozinha** e um
-   aviso pergunta se você quer **continuar gravando**:
-   - **Sim** ou sem resposta em 30s → continua gravando normalmente;
+2. Entre em uma reunião no Google Meet (Chrome, Edge, etc.) ou no Zoom.
+3. Em até ~10 segundos a transcrição **inicia sozinha**, um toast avisa e um
+   diálogo pergunta se você quer gravar esta reunião:
+   - **Sim** ou sem resposta em 30s → continua gravando e transcreve ao final;
    - **Não** → para e **descarta** tudo desta reunião (texto e áudio), e não volta a
      gravar até essa reunião acabar. A próxima reunião pergunta de novo.
-4. Ao encerrar a reunião (janela fechada ou título sem Meet por alguns ciclos), a gravação **para e salva**.
+4. Ao sair da reunião, a gravação **para e salva** após ~30 segundos de confirmação.
+
+> A gravação começa **antes** da pergunta de propósito: perguntar primeiro custaria
+> o primeiro meio minuto de fala, que normalmente é a pauta da reunião. Se você
+> responder **Não**, nada é mantido.
+
+Se preferir gravar sempre sem ser interrompido, desmarque **Perguntar antes de
+gravar** no menu da bandeja.
+
+### Como o Transkriptor sabe que há uma reunião
+
+Ele usa **três sinais independentes** ao mesmo tempo. Basta um para gravar, e
+basta um para a gravação continuar:
+
+| Sinal | O que observa | Cobre |
+|-------|---------------|-------|
+| **Título da janela** | `Meet – abc-defg-hij`, `<sala> - Google Meet`, `Zoom Meeting` | O caso comum |
+| **Microfone em uso** | O mesmo indicador de microfone da barra de tarefas do Windows | Aba em segundo plano, janela minimizada, Zoom, Teams |
+| **Extensão do Meet** | A própria página da reunião (opcional — seção 6) | Certeza total |
+
+Por que três: o título da janela só mostra a **aba que está na frente**. Se você
+entrar na reunião e trocar de aba, o título some — e é o sinal do microfone que
+segura a gravação. Nenhuma reunião é interrompida por você abrir outra aba.
+
+Só apps de conferência contam no sinal do microfone; ditado por voz e digitação
+por voz nunca disparam gravação.
 
 ### Arquivos gerados
 
@@ -276,6 +303,7 @@ Arquivo na raiz do projeto (criado/atualizado pelo menu):
   "capturar_mic": true,
   "usar_nomes_meet": false,
   "modo_legendas_meet": false,
+  "perguntar_antes_de_gravar": true,
   "meet_bridge_token": "<gerado automaticamente>",
   "chave_dpapi": "<gerado automaticamente — não editar>"
 }
@@ -292,11 +320,39 @@ Constantes globais em `config.py` (modelo Whisper, portas, limiares).
 - Clique na seta **^** na barra de tarefas
 - Verifique se não há segunda instância bloqueada no log
 
+### Nada é gravado — comece pelo Diagnóstico
+
+Menu da bandeja → **Diagnóstico (por que não está gravando?)**. Ele grava meio
+segundo de áudio de verdade, consulta as três fontes de detecção e abre um
+relatório dizendo, item a item, o que está `OK`, `AVISO` ou `ERRO`.
+
+Leia primeiro as linhas com **ERRO** — são as que impedem a gravação. `AVISO`
+costuma ser normal (por exemplo, "loopback em silêncio" quando nada está tocando).
+
 ### Meet não inicia transcrição
 
-- Confirme que a detecção não está pausada
-- Título da janela deve conter `- Google Meet` ou `meet.google.com/...`
+- Confirme que a detecção não está pausada (o status do menu diz o que ele vê agora)
+- Rode o **Diagnóstico** e veja a linha `Fonte: titulo` — ela mostra se alguma
+  janela foi reconhecida
 - Com `exigir_janela_visivel` ativo, janela minimizada não conta
+
+### Gravou, mas a transcrição saiu vazia
+
+Sinal clássico de captura de áudio quebrada: o arquivo em `transcricoes/audio/`
+fica com pouquíssimos bytes.
+
+- Rode o **Diagnóstico**: a linha `soundcard` aponta incompatibilidade de versão
+- Correção: `pip install -U "soundcard>=0.4.6"` (versões anteriores não funcionam
+  com numpy 2)
+- Confira também se o dispositivo de saída do Windows não mudou (fone conectado
+  no meio da reunião)
+
+### "Já está em execução" mas não há ícone na bandeja
+
+A partir da v1.4 isso não deve mais acontecer: o controle de instância única usa
+um mutex do Windows, liberado pelo sistema mesmo se o app for encerrado à força.
+Se acontecer, feche `pythonw.exe` no Gerenciador de Tarefas e apague
+`transkriptor.lock`.
 
 ### Diarização não gera arquivo
 
