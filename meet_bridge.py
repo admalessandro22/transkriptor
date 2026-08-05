@@ -42,6 +42,16 @@ def sanitizar_texto_legenda(texto: str) -> str:
     return limpo[:MAX_TEXTO_LEGENDA]
 
 
+def eh_evento_estado(dados: Any) -> bool:
+    """True para o heartbeat de estado da reunião enviado pela extensão (FR-9.3)."""
+    return isinstance(dados, dict) and str(dados.get("tipo", "")) == "reuniao"
+
+
+def estado_reuniao_do_evento(dados: Any) -> bool:
+    """Lê `{tipo:"reuniao", ativa: bool}` — qualquer valor falso encerra."""
+    return bool(isinstance(dados, dict) and dados.get("ativa"))
+
+
 def normalizar_evento(dados: Any) -> dict | None:
     """Normaliza payload `{nome, ts_ms, tipo, texto?}` para a fila interna (FR-5.4)."""
     if not isinstance(dados, dict):
@@ -92,8 +102,36 @@ class MeetBridge:
         self._parar = threading.Event()
         self._loop: asyncio.AbstractEventLoop | None = None
         self._stop_future: asyncio.Future | None = None
+        self._estado_lock = threading.Lock()
+        self._reuniao_ativa = False
+        self._visto_em: float = 0.0
+
+    def reuniao_ativa(self, agora: float | None = None, validade: float = 20.0) -> bool:
+        """FR-9.3: a extensão reportou reunião ativa há menos de `validade` s.
+
+        O heartbeat expira de propósito: se a aba do Meet for fechada de vez, a
+        extensão morre sem avisar e o estado precisa cair sozinho.
+        """
+        import time as _time
+
+        agora = _time.monotonic() if agora is None else agora
+        with self._estado_lock:
+            if not self._reuniao_ativa:
+                return False
+            return (agora - self._visto_em) <= validade
+
+    def registrar_estado_reuniao(self, ativa: bool, agora: float | None = None) -> None:
+        import time as _time
+
+        agora = _time.monotonic() if agora is None else agora
+        with self._estado_lock:
+            self._reuniao_ativa = bool(ativa)
+            self._visto_em = agora
 
     def registrar_evento(self, dados: Any) -> None:
+        if eh_evento_estado(dados):
+            self.registrar_estado_reuniao(estado_reuniao_do_evento(dados))
+            return
         ev = normalizar_evento(dados)
         if ev is None:
             return
