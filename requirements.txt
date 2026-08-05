@@ -14,8 +14,10 @@ torchaudio>=2.0
 
 # Transcrição (Whisper offline)
 faster-whisper==1.1.1
-soundcard==0.4.3
-numpy>=1.24
+# soundcard < 0.4.6 usa numpy.fromstring (removido no numpy 2.x): toda captura
+# levanta ValueError e o app grava silêncio para sempre. Não rebaixar.
+soundcard>=0.4.6
+numpy>=1.24,<3
 
 # Bandeja + detecção de janelas
 pystray==0.19.5
