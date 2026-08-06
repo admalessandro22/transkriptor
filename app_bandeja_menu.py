@@ -38,7 +38,6 @@ from startup_windows import (
 from transkriptor_acoes import (
     confirmacao_saida_necessaria,
     deve_confirmar_pausa,
-    resposta_continuar_gravacao,
     saida_permitida,
     texto_deteccao_menu,
     texto_transcricao_manual,
@@ -48,7 +47,6 @@ from transkriptor_menu_flows import (
     iniciar_assistente_ui,
     iniciar_renomear_falante_ui,
     iniciar_retranscricao_ui,
-    perguntar_continuar_gravacao,
     rodar_diagnostico_ui,
 )
 
@@ -101,59 +99,11 @@ class MenuBandejaMixin:
     def abrir_assistente(self, _icone=None, _item=None):
         threading.Thread(target=iniciar_assistente_ui, args=(self,), daemon=True).start()
 
-    def _perguntar_continuar_gravacao_padrao(self) -> int:
-        """FR-9.D4: Sim/Não com timeout — sem resposta, a gravação continua."""
-        return perguntar_continuar_gravacao()
-
-    def alternar_pergunta_gravacao(self, _icone=None, _item=None):
-        import config_user
-
-        self.perguntar_antes_de_gravar = not self.perguntar_antes_de_gravar
-        config_user.atualizar(perguntar_antes_de_gravar=self.perguntar_antes_de_gravar)
-        self._status(
-            "Vou perguntar antes de gravar cada reunião."
-            if self.perguntar_antes_de_gravar
-            else "Vou gravar reuniões automaticamente, sem perguntar."
-        )
-        self._atualizar_tooltip()
-
     def _texto_pergunta_gravacao(self, _item=None):
-        return (
-            "✓ Perguntar antes de gravar"
-            if self.perguntar_antes_de_gravar
-            else "Perguntar antes de gravar"
-        )
+        return "✓ Confirmar antes de gravar (obrigatório)"
 
     def abrir_diagnostico(self, _icone=None, _item=None):
         threading.Thread(target=rodar_diagnostico_ui, args=(self,), daemon=True).start()
-
-    def _avisar_gravacao_iniciada(self):
-        """FR-2.9: aviso pós-início com opção de recusar; a gravação já roda."""
-        perguntar = (
-            getattr(self, "_perguntar_continuar_gravacao", None)
-            or self._perguntar_continuar_gravacao_padrao
-        )
-        if resposta_continuar_gravacao(perguntar()):
-            return
-        self._recusa_reuniao_ativa = True
-        self._cancelar_gravacao_reuniao()
-
-    def _cancelar_gravacao_reuniao(self):
-        """Para e descarta a gravação atual (recusa do usuário)."""
-        with self._lock:
-            t, w = self.transcritor, self.watchdog
-        if w:
-            w.stop()
-            self.watchdog = None
-        if t and t.rodando:
-            t.descartar()
-        self._modo_manual = False
-        self._status("Gravação desta reunião cancelada e descartada.")
-        notificar(
-            "Transkriptor",
-            "Ok — esta reunião NÃO será gravada. A próxima pergunta de novo.",
-        )
-        self._atualizar_tooltip()
 
     def _confirmar_pausa_padrao(self) -> bool:
         try:
@@ -437,7 +387,7 @@ class MenuBandejaMixin:
             pystray.MenuItem(self._texto_transcricao_manual, self.alternar_transcricao_manual),
             pystray.MenuItem("Abrir assistente (resumo, perguntas)", self.abrir_assistente),
             pystray.MenuItem(self._texto_deteccao, self.alternar_deteccao),
-            pystray.MenuItem(self._texto_pergunta_gravacao, self.alternar_pergunta_gravacao),
+            pystray.MenuItem(self._texto_pergunta_gravacao, None, enabled=False),
             pystray.MenuItem(self._texto_diarizacao, self.alternar_diarizacao),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Cadastrar minha voz (20s)", self.cadastrar_minha_voz),

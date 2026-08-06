@@ -8,7 +8,7 @@ Status inicial: ⬜ pendente. Cada tarefa termina com o teste listado e commit.
 | T-10.A2 | isolamento integral dos testes de estado local | SEC-10.F3 | testes de isolamento | ✅ |
 | T-10.B1 | microfone nunca inicia reunião | FR-10.A1/A3 | detecção multi-fonte | ✅ |
 | T-10.B2 | fim limitado sem fonte forte | FR-10.A2/A4 | detecção + integração | ✅ |
-| T-10.C1 | consentimento antes da captura e timeout negativo | FR-10.B1/B2/B3 | aviso de gravação | ⬜ |
+| T-10.C1 | consentimento antes da captura e timeout negativo | FR-10.B1/B2/B3 | aviso de gravação | ✅ |
 | T-10.C2 | remover toast ao vivo e backend `plyer` | UX-10.B1/B2 | notificador + bandeja | ⬜ |
 | T-10.D1 | modo de captura posterior sem Whisper | FR/NFR-10.C* | gravação posterior | ⬜ |
 | T-10.D2 | flush, métricas e watchdog do modo leve | FR-10.C2/C3 | gravação + watchdog | ⬜ |
@@ -36,4 +36,7 @@ da linha, o commit e a evidência correspondente precisam existir.
 - **T-10.B2:** RED confirmou que microfone mantinha a sessão e heartbeat não
   distinguia confiança; GREEN com `42 passed`, encerrando no sexto ciclo sem
   título/extensão e mantendo a extensão forte em segundo plano.
+- **T-10.C1:** RED confirmou a autorização permissiva e a captura anterior à
+  resposta; GREEN com `16 passed` no fluxo consentimento/integração e `14 passed`
+  de regressão da bandeja. Apenas Sim autoriza; Não, timeout e erro não capturam.
 

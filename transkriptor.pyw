@@ -21,6 +21,7 @@ from app_bootstrap import (
     carregar_config_user as _carregar_config_user,
     resolver_identificar_minha_voz as _resolver_identificar_minha_voz,
 )
+from consentimento_gravacao import pedir_consentimento
 from bandeja_icone import criar_ico, criar_imagem, imagem_por_estado
 from crypto_storage import (
     chave_disponivel,
@@ -45,7 +46,6 @@ from config import (
     MODO_LEGENDAS_MEET,
     PASTA_AUDIO,
     PASTA_TRANSCRICOES,
-    PERGUNTAR_ANTES_DE_GRAVAR,
     PORTA_MEET_BRIDGE,
     RETENCAO_AUDIO_DIAS,
     ROTULO_USUARIO,
@@ -98,6 +98,7 @@ class AppTranskriptor(MenuBandejaMixin):
         self._toast_pausa_reuniao = None
         self._confirmar_pausa = self._confirmar_pausa_padrao
         self._recusa_reuniao_ativa = False
+        self._consentimento_em_andamento = False
         cfg = _carregar_config_user()
         self.modelo_whisper = cfg.get("modelo_whisper", MODELO_WHISPER)
         if self.modelo_whisper not in MODELOS_WHISPER_MENU:
@@ -139,9 +140,6 @@ class AppTranskriptor(MenuBandejaMixin):
             _atualizar_config_user(meet_bridge_token=meet_token)
         self.meet_bridge = MeetBridge(token=meet_token)
         sincronizar_token_extensao(meet_token, BASE_DIR)
-        self.perguntar_antes_de_gravar = cfg.get(
-            "perguntar_antes_de_gravar", PERGUNTAR_ANTES_DE_GRAVAR
-        )
         # FR-9.B1: fusão de fontes. Qualquer uma mantém a reunião viva; assim
         # trocar de aba no meio da chamada não encerra mais a gravação.
         self.detector = construir_detector(self.meet_bridge)
@@ -254,12 +252,6 @@ class AppTranskriptor(MenuBandejaMixin):
             self.watchdog.start()
             self._status("Transcricao em andamento.")
             notificar("Transkriptor", "Transcrição iniciada (reunião detectada)")
-            if not manual and self.perguntar_antes_de_gravar:
-                # FR-2.9: aviso com opção de recusar; a gravação já está rodando
-                # (gravar primeiro e perguntar depois nunca perde o começo da fala)
-                threading.Thread(
-                    target=self._avisar_gravacao_iniciada, daemon=True
-                ).start()
             self._atualizar_tooltip()
         except Exception as e:
             self._status(f"Erro ao iniciar: {e}")
@@ -317,7 +309,11 @@ class AppTranskriptor(MenuBandejaMixin):
             if not self._modo_manual and deve_iniciar_gravacao_auto(
                 self._recusa_reuniao_ativa
             ):
-                self._em_thread(self._iniciar_transcricao, "Transkriptor-Inicio")
+                with self._lock:
+                    if self._consentimento_em_andamento:
+                        return
+                    self._consentimento_em_andamento = True
+                self._em_thread(self._pedir_e_iniciar, "Transkriptor-Consentimento")
             return
         if mudanca == "encerrou":
             # FR-2.10: recusa vale só para a reunião que acabou
@@ -325,6 +321,27 @@ class AppTranskriptor(MenuBandejaMixin):
         if deve_parar_transcricao_por_meet(mudanca, self._modo_manual):
             self._status("Reunião encerrada. Finalizando transcricao...")
             self._em_thread(self._parar_transcricao, "Transkriptor-Fim")
+
+    def _pedir_e_iniciar(self):
+        """Solicita consentimento antes de abrir dispositivo ou arquivo de áudio."""
+        try:
+            perguntar = getattr(self, "_pedir_consentimento", None) or pedir_consentimento
+            autorizado = bool(perguntar())
+            detector = getattr(self, "detector", None)
+            reuniao_ainda_ativa = bool(
+                detector is not None and getattr(detector, "reuniao_ativa", False)
+            )
+            if not autorizado:
+                if reuniao_ainda_ativa:
+                    self._recusa_reuniao_ativa = True
+                    self._status("Esta reunião não será gravada.")
+                return
+            if not reuniao_ainda_ativa:
+                return
+            self._iniciar_transcricao()
+        finally:
+            with self._lock:
+                self._consentimento_em_andamento = False
 
     def _detectar_mudanca_meet(self):
         return self.detector.verificar()

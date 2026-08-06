@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Integração do detector com as ações do app de bandeja (v1.2.1)."""
+import threading
 from unittest.mock import Mock
 
 from detector_meet import DetectorMeet
@@ -11,7 +12,10 @@ def _app_controlado(modulo, manual=False):
     app = modulo.AppTranskriptor.__new__(modulo.AppTranskriptor)
     app._modo_manual = manual
     app._recusa_reuniao_ativa = False
+    app._consentimento_em_andamento = False
+    app._lock = threading.Lock()
     app._iniciar_transcricao = Mock()
+    app._pedir_e_iniciar = Mock()
     app._parar_transcricao = Mock()
     app._status = Mock()
     # Iniciar/parar rodam fora da thread do monitor (FR-9.6); aqui executamos
@@ -20,7 +24,7 @@ def _app_controlado(modulo, manual=False):
     return app
 
 
-def test_titulo_real_inicia_transcricao_uma_vez(modulo_transkriptor):
+def test_titulo_real_solicita_consentimento_uma_vez(modulo_transkriptor):
     app = _app_controlado(modulo_transkriptor)
     detector = DetectorMeet(confirma_inicio=2, confirma_fim=3)
     titulos = ["Daily - Google Meet - Google Chrome"]
@@ -29,7 +33,8 @@ def test_titulo_real_inicia_transcricao_uma_vez(modulo_transkriptor):
     app._processar_mudanca_meet(detector.verificar(titulos))
     app._processar_mudanca_meet(detector.verificar(titulos))
 
-    app._iniciar_transcricao.assert_called_once_with()
+    app._pedir_e_iniciar.assert_called_once_with()
+    app._iniciar_transcricao.assert_not_called()
 
 
 def test_fim_do_meet_para_transcricao_apos_debounce(modulo_transkriptor):

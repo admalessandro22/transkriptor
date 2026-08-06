@@ -6,9 +6,9 @@ IDNO = 7
 MB_TIMEDOUT = 32000  # retorno de MessageBoxTimeoutW quando o tempo expira
 
 
-def resposta_continuar_gravacao(retorno) -> bool:
-    """FR-2.9: só recusa a gravação com 'Não' explícito; timeout ou erro continuam."""
-    return retorno != IDNO
+def resposta_autoriza_gravacao(retorno) -> bool:
+    """FR-10.B2: somente Sim explícito autoriza abrir a captura."""
+    return retorno == IDYES
 
 
 def deve_iniciar_gravacao_auto(recusa_reuniao_ativa: bool) -> bool:
