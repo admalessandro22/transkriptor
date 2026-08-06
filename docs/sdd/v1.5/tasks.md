@@ -6,7 +6,7 @@ Status inicial: ⬜ pendente. Cada tarefa termina com o teste listado e commit.
 |---|---|---|---|---|
 | T-10.A1 | persistência dedicada da chave e merge de config | SEC-10.F1/F2 | config + crypto | ✅ |
 | T-10.A2 | isolamento integral dos testes de estado local | SEC-10.F3 | testes de isolamento | ✅ |
-| T-10.B1 | microfone nunca inicia reunião | FR-10.A1/A3 | detecção multi-fonte | ⬜ |
+| T-10.B1 | microfone nunca inicia reunião | FR-10.A1/A3 | detecção multi-fonte | ✅ |
 | T-10.B2 | fim limitado sem fonte forte | FR-10.A2/A4 | detecção + integração | ⬜ |
 | T-10.C1 | consentimento antes da captura e timeout negativo | FR-10.B1/B2/B3 | aviso de gravação | ⬜ |
 | T-10.C2 | remover toast ao vivo e backend `plyer` | UX-10.B1/B2 | notificador + bandeja | ⬜ |
@@ -31,4 +31,6 @@ da linha, o commit e a evidência correspondente precisam existir.
 - **T-10.A2:** RED por ausência do guard; GREEN no subprocesso controlado e
   suíte integral com `325 passed`. O guard resolveu o checkout real como
   `C:\Projetos\transkriptor` e comparou config, chave, transcrições e atalhos.
+- **T-10.B1:** RED confirmou início indevido no quarto ciclo fraco; GREEN com
+  `38 passed`, incluindo 120 ciclos contínuos de microfone sem iniciar reunião.
 

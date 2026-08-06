@@ -130,7 +130,7 @@ class FonteFake:
 def _detector(**kwargs):
     forte = FonteFake("titulo", forte=True)
     fraca = FonteFake("microfone")
-    opcoes = {"confirma_inicio": 2, "confirma_inicio_fraca": 4, "confirma_fim": 6}
+    opcoes = {"confirma_inicio": 2, "confirma_fim": 6}
     opcoes.update(kwargs)
     return DetectorReuniao([forte, fraca], **opcoes), forte, fraca
 
@@ -143,14 +143,12 @@ def test_sinal_forte_inicia_em_dois_ciclos():
     assert det.reuniao_ativa is True
 
 
-def test_sinal_fraco_sozinho_exige_mais_ciclos():
-    """Chrome pegando o microfone por 10s (áudio de WhatsApp) não vira reunião."""
+def test_sinal_fraco_nunca_inicia():
+    """FR-10.A1: nem atividade longa de microfone/WhatsApp vira reunião."""
     det, _forte, fraca = _detector()
     fraca.ativo = True
-    assert det.verificar() is None
-    assert det.verificar() is None
-    assert det.verificar() is None
-    assert det.verificar() == "iniciou"
+    assert all(det.verificar() is None for _ in range(120))
+    assert det.reuniao_ativa is False
 
 
 def test_sinal_fraco_curto_nao_inicia():

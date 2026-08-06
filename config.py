@@ -113,9 +113,8 @@ EXIGIR_JANELA_VISIVEL = False
 INTERVALO_MONITOR_MEET = 5          # segundos entre verificações
 CONFIRMACAO_INICIO_MEET = 2         # ciclos com sinal forte para confirmar início (10 s)
 CONFIRMACAO_FIM_MEET = 3            # legado: debounce do DetectorMeet por título
-# Fusão multi-fonte (FR-9.1): só sinal fraco (microfone) exige mais ciclos, e o
-# fim é mais lento que o início — cortar no meio custa a reunião inteira.
-CONFIRMACAO_INICIO_FRACA = 4        # ciclos só com microfone para confirmar (20 s)
+# Fusão multi-fonte: apenas título/ponte fortes podem iniciar uma reunião.
+# Microfone permanece somente como sinal diagnóstico na v1.5.
 CONFIRMACAO_FIM_REUNIAO = 6         # ciclos sem nenhuma fonte para encerrar (30 s)
 DETECTAR_POR_MICROFONE = True       # usar o registro de microfone em uso do Windows
 HEARTBEAT_MONITOR_CICLOS = 120      # log periódico do monitor (a cada ~10 min)

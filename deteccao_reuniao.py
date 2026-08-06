@@ -5,15 +5,13 @@ Uma fonte só nunca foi suficiente:
 
 * **título da janela** enxerga só a aba em primeiro plano — trocar de aba no meio
   da reunião parecia "reunião encerrada";
-* **microfone em uso** cobre aba em segundo plano, janela minimizada, Zoom e
-  Teams, mas demora a soltar e não distingue chamada de ditado;
+* **microfone em uso** é apenas diagnóstico: não distingue reunião de áudio,
+  ditado ou WhatsApp e, por isso, nunca pode iniciar uma captura;
 * **ponte da extensão** é a única que sabe de verdade, mas exige instalar a
   extensão.
 
-A fusão resolve o conjunto: qualquer fonte **mantém** a reunião viva (some o
-falso "encerrou" ao trocar de aba); para **iniciar**, uma fonte forte basta e uma
-fonte fraca precisa se sustentar por mais ciclos (some o falso positivo de um
-`chrome.exe` que abriu o microfone por dez segundos para um áudio de WhatsApp).
+A fusão resolve o conjunto: para **iniciar**, exige uma fonte forte reconhecida;
+o sinal fraco permanece exposto apenas para diagnóstico.
 """
 
 from __future__ import annotations
@@ -22,7 +20,6 @@ import logging
 
 from config import (
     CONFIRMACAO_FIM_REUNIAO,
-    CONFIRMACAO_INICIO_FRACA,
     CONFIRMACAO_INICIO_MEET,
 )
 
@@ -81,11 +78,7 @@ class FonteTitulo:
 
 
 class FonteMicrofone:
-    """Reunião inferida de um app de conferência segurando o microfone.
-
-    Fonte **fraca** de início: sozinha, precisa de mais ciclos para confirmar.
-    Mas mantém a reunião viva sozinha, que é o que conserta a troca de aba.
-    """
+    """Sinal diagnóstico de um app que está usando o microfone."""
 
     nome = "microfone"
 
@@ -143,7 +136,6 @@ class DetectorReuniao:
     """Debounce assimétrico sobre a fusão das fontes.
 
     * início por fonte forte: `confirma_inicio` ciclos;
-    * início só por fonte fraca: `confirma_inicio_fraca` ciclos;
     * fim: `confirma_fim` ciclos sem **nenhuma** fonte ativa.
 
     O fim é deliberadamente mais lento que o início: perder o fim de uma reunião
@@ -155,15 +147,12 @@ class DetectorReuniao:
         self,
         fontes,
         confirma_inicio=CONFIRMACAO_INICIO_MEET,
-        confirma_inicio_fraca=CONFIRMACAO_INICIO_FRACA,
         confirma_fim=CONFIRMACAO_FIM_REUNIAO,
     ):
         self.fontes = list(fontes)
         self.confirma_inicio = confirma_inicio
-        self.confirma_inicio_fraca = confirma_inicio_fraca
         self.confirma_fim = confirma_fim
         self._contagem_forte = 0
-        self._contagem_fraca = 0
         self._contagem_fim = 0
         self._ativa = False
         self.ultimos_sinais: list[Sinal] = []
@@ -199,23 +188,19 @@ class DetectorReuniao:
     def _processar(self, algum, forte, fontes_ativas):
         if algum:
             self._contagem_fim = 0
-            self._contagem_fraca += 1
             self._contagem_forte = self._contagem_forte + 1 if forte else 0
         else:
             self._contagem_forte = 0
-            self._contagem_fraca = 0
             self._contagem_fim += 1
 
         if not self._ativa:
             confirmou_forte = self._contagem_forte >= self.confirma_inicio
-            confirmou_fraca = self._contagem_fraca >= self.confirma_inicio_fraca
-            if confirmou_forte or confirmou_fraca:
+            if confirmou_forte:
                 self._ativa = True
                 self.fontes_da_reuniao = list(fontes_ativas)
                 logger.info(
-                    "Reunião confirmada por %s (%s).",
+                    "Reunião confirmada por fonte forte: %s.",
                     ", ".join(fontes_ativas) or "?",
-                    "sinal forte" if confirmou_forte else "sinal sustentado",
                 )
                 return "iniciou"
             return None
