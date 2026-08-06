@@ -14,7 +14,7 @@ Status inicial: ⬜ pendente. Cada tarefa termina com o teste listado e commit.
 | T-10.D2 | flush, métricas e watchdog do modo leve | FR-10.C2/C3 | gravação + watchdog | ✅ |
 | T-10.E1 | fila durável atômica e retomada | FR-10.D1/D2/D4 | fila | ✅ |
 | T-10.E2 | subprocesso posterior e `.txt` atômico | FR-10.D3, FR-10.E* | processador + retranscritor | ✅ |
-| T-10.F1 | integrar ciclo completo no app/menu | FR-10.A4, FR-10.E4 | fluxo v1.5 | ⬜ |
+| T-10.F1 | integrar ciclo completo no app/menu | FR-10.A4, FR-10.E4 | fluxo v1.5 | ✅ |
 | T-10.F2 | versão, manual e gates de recursos | NFR-10.C*, H1 | versão/manual/recursos | ⬜ |
 | T-10.G1 | extrator genérico e seguro de intervalos | FR-10.G1 | recuperação | ⬜ |
 | T-10.G2 | recuperar e retranscrever as duas reuniões | FR-10.G2/G3 | auditoria de artefatos | ⬜ |
@@ -57,4 +57,9 @@ da linha, o commit e a evidência correspondente precisam existir.
   retranscritor e criptografia. Saída principal `.txt` tem timestamps relativos,
   cópia `.tkpt` adicional e subprocesso Windows sem janela/prioridade baixa;
   gate integral da fase com `351 passed`.
+- **T-10.F1:** RED confirmou que o app ainda não solicitava o modo posterior;
+  GREEN com `29 passed` no gate dirigido e `355 passed` na suíte integral.
+  O fim da reunião libera a captura, cria job durável e inicia um único worker;
+  a bandeja mostra os quatro estados. O comando e o estado interno de captura
+  manual foram removidos, e falha anterior ao claim não entra em laço de restart.
 

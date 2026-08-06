@@ -8,9 +8,8 @@ from deteccao_reuniao import Sinal
 from monitor_reuniao import texto_heartbeat
 
 
-def _app_controlado(modulo, manual=False):
+def _app_controlado(modulo):
     app = modulo.AppTranskriptor.__new__(modulo.AppTranskriptor)
-    app._modo_manual = manual
     app._recusa_reuniao_ativa = False
     app._consentimento_em_andamento = False
     app._lock = threading.Lock()
@@ -51,14 +50,11 @@ def test_fim_do_meet_para_transcricao_apos_debounce(modulo_transkriptor):
     app._status.assert_called_with("Reunião encerrada. Finalizando transcricao...")
 
 
-def test_modo_manual_ignora_inicio_e_fim_do_meet(modulo_transkriptor):
-    app = _app_controlado(modulo_transkriptor, manual=True)
-
-    app._processar_mudanca_meet("iniciou")
+def test_fim_detectado_nao_pode_ser_ignorado(modulo_transkriptor):
+    app = _app_controlado(modulo_transkriptor)
     app._processar_mudanca_meet("encerrou")
 
-    app._iniciar_transcricao.assert_not_called()
-    app._parar_transcricao.assert_not_called()
+    app._parar_transcricao.assert_called_once_with()
 
 
 def test_heartbeat_distingue_fontes_fortes_de_auxiliares():

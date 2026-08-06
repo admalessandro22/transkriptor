@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import tempfile
@@ -14,6 +15,8 @@ from pathlib import Path
 
 import config as _config
 
+
+logger = logging.getLogger(__name__)
 
 ESTADOS = {"pending", "processing", "ready", "failed"}
 CHAVES_METADADOS = {
@@ -169,6 +172,24 @@ class FilaProcessamento:
     def obter(self, job_id: str) -> Job:
         with self._lock:
             return self._para_job(self._carregar(self.caminho_job(job_id)))
+
+    def listar(self, estado: str | None = None) -> list[Job]:
+        if estado is not None and estado not in ESTADOS:
+            raise ValueError("estado de job inválido")
+        jobs = []
+        with self._lock:
+            for caminho in self.pasta_jobs.glob("*.json"):
+                try:
+                    job = self._para_job(self._carregar(caminho))
+                except (OSError, ValueError, KeyError, json.JSONDecodeError):
+                    logger.warning("Job inválido ignorado na fila: %s", caminho.name)
+                    continue
+                if estado is None or job.estado == estado:
+                    jobs.append(job)
+        return sorted(jobs, key=lambda job: (job.criado_em, job.id))
+
+    def quantidade(self, estado: str | None = None) -> int:
+        return len(self.listar(estado))
 
     def reivindicar_proximo(self) -> Job | None:
         with self._lock:

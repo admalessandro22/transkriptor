@@ -26,10 +26,6 @@ def saida_permitida(gravando: bool, usuario_confirmou: bool) -> bool:
     return usuario_confirmou
 
 
-def texto_transcricao_manual(rodando: bool) -> str:
-    return "Parar transcrição manual" if rodando else "Iniciar transcrição manual"
-
-
 def texto_deteccao_menu(deteccao_ativa: bool) -> str:
     """UX-2.1: deixa claro que pausa = não grava reuniões."""
     if deteccao_ativa:
@@ -51,8 +47,6 @@ def deve_toast_meet_em_pausa(deteccao_ativa: bool, mudanca: str, ja_avisou: bool
     return not ja_avisou
 
 
-def deve_parar_transcricao_por_meet(mudanca: str, modo_manual: bool) -> bool:
-    """Transcrição manual não deve ser encerrada quando o detector vê Meet fechar."""
-    if mudanca != "encerrou":
-        return False
-    return not modo_manual
+def deve_parar_transcricao_por_meet(mudanca: str) -> bool:
+    """Toda captura pertence à reunião detectada e termina junto com ela."""
+    return mudanca == "encerrou"

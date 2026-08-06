@@ -183,7 +183,6 @@ def test_iniciar_transcricao_usa_modelo_da_config(monkeypatch, modulo_transkript
     app.identificar_minha_voz = False
     app.rotulo_usuario = "VOCÊ"
     app.criptografar_transcricoes = False
-    app._modo_manual = False
     app._inicio_transcricao_wall_ms = None
     app._lock = __import__("threading").Lock()
     app._status = MagicMock()
@@ -198,5 +197,5 @@ def test_iniciar_transcricao_usa_modelo_da_config(monkeypatch, modulo_transkript
     )
 
     # _iniciar_transcricao faz `from transcricao_core import Transcritor`
-    app._iniciar_transcricao(manual=True)
+    app._iniciar_transcricao()
     assert capturados.get("modelo") == "small"

@@ -40,7 +40,6 @@ from transkriptor_acoes import (
     deve_confirmar_pausa,
     saida_permitida,
     texto_deteccao_menu,
-    texto_transcricao_manual,
 )
 from transkriptor_lock import liberar_lock
 from transkriptor_menu_flows import (
@@ -68,17 +67,6 @@ class MenuBandejaMixin:
 
     def retranscrever_audio_menu(self, _icone=None, _item=None):
         iniciar_retranscricao_ui(self)
-
-    def alternar_transcricao_manual(self, _icone=None, _item=None):
-        if self._gravando() and self._modo_manual:
-            self._parar_transcricao()
-            self._modo_manual = False
-            self._status("Transcricao manual encerrada.")
-            return
-        if self._gravando():
-            self._status("Ja transcrevendo (Meet ou manual).")
-            return
-        self._iniciar_transcricao(manual=True)
 
     def _confirmar_saida(self):
         try:
@@ -251,7 +239,6 @@ class MenuBandejaMixin:
             if not saida_permitida(gravando, self._confirmar_saida()):
                 return
         self._parar_transcricao()
-        self._modo_manual = False
         if self.icone is not None:
             self.icone.stop()
         liberar_lock()
@@ -266,6 +253,9 @@ class MenuBandejaMixin:
                     getattr(getattr(self, "detector", None), "fontes_da_reuniao", None) or []
                 )
                 return f"Gravando reunião ({fontes})..." if fontes else "Gravando reunião..."
+            estado = getattr(self, "_estado_processamento", None)
+            if estado:
+                return f"Pós-processamento: {estado}"
             if not self.deteccao_ativa:
                 return "PAUSADO — não está gravando"
         # Fora do lock: consultar as fontes pode levar alguns milissegundos.
@@ -305,9 +295,6 @@ class MenuBandejaMixin:
             if self.iniciar_com_windows
             else "Iniciar com o Windows"
         )
-
-    def _texto_transcricao_manual(self, _item=None):
-        return texto_transcricao_manual(self._gravando() and self._modo_manual)
 
     def _texto_identificar_voz(self, _item=None):
         if self.identificar_minha_voz:
@@ -384,7 +371,6 @@ class MenuBandejaMixin:
             pystray.MenuItem("Diagnóstico (por que não está gravando?)", self.abrir_diagnostico),
             pystray.MenuItem("Abrir log", self.abrir_log),
             pystray.MenuItem("Retranscrever áudio…", self.retranscrever_audio_menu),
-            pystray.MenuItem(self._texto_transcricao_manual, self.alternar_transcricao_manual),
             pystray.MenuItem("Abrir assistente (resumo, perguntas)", self.abrir_assistente),
             pystray.MenuItem(self._texto_deteccao, self.alternar_deteccao),
             pystray.MenuItem(self._texto_pergunta_gravacao, None, enabled=False),

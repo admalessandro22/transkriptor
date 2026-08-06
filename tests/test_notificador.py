@@ -8,7 +8,6 @@ from transkriptor_acoes import (
     confirmacao_saida_necessaria,
     deve_parar_transcricao_por_meet,
     saida_permitida,
-    texto_transcricao_manual,
 )
 
 REPO = Path(__file__).resolve().parent.parent
@@ -53,23 +52,16 @@ def test_saida_bloqueada_sem_confirmacao():
     assert saida_permitida(False, usuario_confirmou=False) is True
 
 
-def test_texto_menu_transcricao_manual():
-    assert texto_transcricao_manual(False) == "Iniciar transcrição manual"
-    assert texto_transcricao_manual(True) == "Parar transcrição manual"
+def test_fim_detectado_sempre_encerra_captura():
+    assert deve_parar_transcricao_por_meet("encerrou") is True
+    assert deve_parar_transcricao_por_meet("iniciou") is False
+    assert deve_parar_transcricao_por_meet(None) is False
 
 
-def test_modo_manual_ignora_meet_encerrado():
-    assert deve_parar_transcricao_por_meet("encerrou", modo_manual=True) is False
-    assert deve_parar_transcricao_por_meet("encerrou", modo_manual=False) is True
-    assert deve_parar_transcricao_por_meet("iniciou", modo_manual=False) is False
-    assert deve_parar_transcricao_por_meet(None, modo_manual=False) is False
-
-
-def test_monitorar_meet_usa_guard_modo_manual():
+def test_fluxo_nao_contem_modo_manual_irrestrito():
     texto = TRANSKRIPTOR.read_text(encoding="utf-8")
-    bloco = texto.split("def _processar_mudanca_meet")[1].split("def _monitorar_meet")[0]
-    assert "deve_parar_transcricao_por_meet" in bloco
-    assert "not self._modo_manual" in bloco
+    assert "_modo_manual" not in texto
+    assert "manual=True" not in texto
 
 
 def test_menu_contem_itens_fase3():
@@ -79,6 +71,6 @@ def test_menu_contem_itens_fase3():
     combined = texto + "\n" + menu
     assert "Abrir log" in combined
     assert "abrir_log" in combined
-    assert "alternar_transcricao_manual" in combined
+    assert "alternar_transcricao_manual" not in combined
     assert "LOG_FILE" in combined
     assert "saida_permitida" in combined or "confirmacao_saida" in combined

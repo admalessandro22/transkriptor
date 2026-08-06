@@ -15,6 +15,7 @@ from logging.handlers import RotatingFileHandler
 import pystray
 
 from app_bandeja_menu import MenuBandejaMixin
+from app_processamento import ProcessamentoReuniaoMixin
 from app_bootstrap import (
     atualizar_config_user as _atualizar_config_user,
     carregar_config_user as _carregar_config_user,
@@ -53,6 +54,7 @@ from config import (
 )
 from monitor_reuniao import autoteste_audio, construir_detector, texto_heartbeat
 from estado_icone import DURACAO_ERRO_ICONE, resolver_estado_icone
+from fila_processamento import fila_padrao
 from meet_bridge import MeetBridge, iniciar_bridge_em_thread, sincronizar_token_extensao
 from notificador import (
     configurar_icone,
@@ -84,7 +86,7 @@ logging.root.setLevel(logging.INFO)
 logging.root.addHandler(_log_handler)
 
 
-class AppTranskriptor(MenuBandejaMixin):
+class AppTranskriptor(ProcessamentoReuniaoMixin, MenuBandejaMixin):
     def __init__(self):
         self.icone = None
         self.transcritor = None
@@ -148,8 +150,11 @@ class AppTranskriptor(MenuBandejaMixin):
         self._lock = threading.Lock()
         self._em_erro = False
         self._instante_erro = None
-        self._modo_manual = False
         self._iniciando = False
+        self.fila = fila_padrao()
+        self._worker_processamento = None
+        self._estado_processamento = None
+        self._ultimo_job_id = None
 
     def _gravando(self):
         return bool(self.transcritor and self.transcritor.rodando)
@@ -168,6 +173,7 @@ class AppTranskriptor(MenuBandejaMixin):
             self.deteccao_ativa,
             em_erro=self._em_erro,
             instante_erro=self._instante_erro,
+            processando=self._processamento_em_execucao(),
         )
         if self._em_erro and estado_icone != "erro":
             self._em_erro = False
@@ -189,33 +195,27 @@ class AppTranskriptor(MenuBandejaMixin):
             relativos.append({**ev, "ts_sec": (ts_ms - inicio) / 1000.0})
         return relativos
 
-    def _iniciar_transcricao(self, manual=False):
+    def _iniciar_transcricao(self):
         with self._lock:
-            # Um único portão: o monitor e o menu manual podem chamar isto ao
-            # mesmo tempo, e duas capturas simultâneas brigam pelo loopback.
+            # Um único portão impede duas capturas simultâneas no loopback.
             if getattr(self, "_iniciando", False) or (
                 self.transcritor and self.transcritor.rodando
             ):
                 return
             self._iniciando = True
         try:
-            self._iniciar_transcricao_interno(manual)
+            self._iniciar_transcricao_interno()
         finally:
             with self._lock:
                 self._iniciando = False
 
-    def _iniciar_transcricao_interno(self, manual=False):
+    def _iniciar_transcricao_interno(self):
         from transcricao_core import Transcritor
 
         self._inicio_transcricao_wall_ms = int(time.time() * 1000)
-        self._modo_manual = bool(manual)
         detector = getattr(self, "detector", None)
         fontes = ", ".join(getattr(detector, "fontes_da_reuniao", None) or []) or "?"
-        self._status(
-            "Iniciando transcricao manual..."
-            if manual
-            else f"Reunião detectada ({fontes}). Iniciando transcricao..."
-        )
+        self._status(f"Reunião detectada ({fontes}). Iniciando gravação...")
         self.transcritor = Transcritor(
             modelo=getattr(self, "modelo_whisper", MODELO_WHISPER),
             idioma=IDIOMA,
@@ -227,6 +227,7 @@ class AppTranskriptor(MenuBandejaMixin):
             and perfil_existe(ARQUIVO_PERFIL_VOZ, ARQUIVO_PERFIL_VOZ_ENC),
             rotulo_usuario=self.rotulo_usuario,
             criptografar=self.criptografar_transcricoes,
+            processar_ao_vivo=False,
         )
         try:
             self.transcritor.start()
@@ -272,11 +273,11 @@ class AppTranskriptor(MenuBandejaMixin):
                         "Ative legendas no Meet para identificar participantes",
                     )
             caminho = t.stop()
+            with self._lock:
+                if self.transcritor is t:
+                    self.transcritor = None
             if caminho:
-                self._status(f"Salvo: {os.path.basename(caminho)}")
-                notificar(
-                    "Transkriptor", f"Transcrição salva: {os.path.basename(caminho)}"
-                )
+                self._enfileirar_reuniao(t, caminho)
             self._atualizar_tooltip()
 
     def _em_thread(self, alvo, nome):
@@ -290,9 +291,7 @@ class AppTranskriptor(MenuBandejaMixin):
 
     def _processar_mudanca_meet(self, mudanca):
         if mudanca == "iniciou":
-            if not self._modo_manual and deve_iniciar_gravacao_auto(
-                self._recusa_reuniao_ativa
-            ):
+            if deve_iniciar_gravacao_auto(self._recusa_reuniao_ativa):
                 with self._lock:
                     if self._consentimento_em_andamento:
                         return
@@ -302,7 +301,7 @@ class AppTranskriptor(MenuBandejaMixin):
         if mudanca == "encerrou":
             # FR-2.10: recusa vale só para a reunião que acabou
             self._recusa_reuniao_ativa = False
-        if deve_parar_transcricao_por_meet(mudanca, self._modo_manual):
+        if deve_parar_transcricao_por_meet(mudanca):
             self._status("Reunião encerrada. Finalizando transcricao...")
             self._em_thread(self._parar_transcricao, "Transkriptor-Fim")
 
@@ -390,6 +389,12 @@ class AppTranskriptor(MenuBandejaMixin):
                 if self._bandeja_pronta:
                     return
                 self._bandeja_pronta = True
+
+            threading.Thread(
+                target=self._preparar_processamento,
+                daemon=True,
+                name="Transkriptor-FilaProcessamento",
+            ).start()
 
             threading.Thread(
                 target=self._loop_retencao_audio,
