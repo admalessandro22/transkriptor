@@ -12,7 +12,6 @@ import threading
 import time
 from logging.handlers import RotatingFileHandler
 
-import pygetwindow as gw
 import pystray
 
 from app_bandeja_menu import MenuBandejaMixin
@@ -52,14 +51,11 @@ from config import (
     USAR_NOMES_MEET,
     VERSAO,
 )
-from detector_meet import titulo_eh_meet
 from monitor_reuniao import autoteste_audio, construir_detector, texto_heartbeat
 from estado_icone import DURACAO_ERRO_ICONE, resolver_estado_icone
 from meet_bridge import MeetBridge, iniciar_bridge_em_thread, sincronizar_token_extensao
 from notificador import (
-    deve_toast_ao_vivo,
-    formatar_mensagem_toast,
-    meet_em_foco,
+    configurar_icone,
     notificar,
 )
 from retencao_audio import limpar_audios_vencidos
@@ -158,22 +154,10 @@ class AppTranskriptor(MenuBandejaMixin):
     def _gravando(self):
         return bool(self.transcritor and self.transcritor.rodando)
 
-    def _meet_em_foco(self):
-        try:
-            ativa = gw.getActiveWindow()
-            titulo = ativa.title if ativa else ""
-            return meet_em_foco(titulo, titulo_eh_meet)
-        except Exception:
-            return False
-
     def _status(self, msg):
         with self._lock:
             self.ultimo_log = msg
         logging.info(sanitizar_para_log(msg))
-        if deve_toast_ao_vivo(msg, self._meet_em_foco(), self._gravando()):
-            notificar("Transkriptor", formatar_mensagem_toast(msg))
-        if msg.startswith("Diarização concluída"):
-            notificar("Transkriptor", f"Vozes separadas: {msg.split(':')[-1].strip()}")
         self._atualizar_tooltip()
 
     def _atualizar_tooltip(self):
@@ -439,17 +423,6 @@ class AppTranskriptor(MenuBandejaMixin):
             self._monitor_thread.start()
             logging.info("Bandeja pronta.")
             logging.info("Monitor do Meet iniciado.")
-            notificar(
-                "Transkriptor",
-                "Ativo na bandeja. Se o ícone não aparecer, clique em ^ na barra de tarefas.",
-            )
-            try:
-                icon.notify(
-                    "Ícone na bandeja do sistema. Use ^ se estiver oculto.",
-                    "Transkriptor ativo",
-                )
-            except Exception:
-                logging.warning("Notificação nativa da bandeja indisponível.")
         except Exception:
             logging.exception("Falha ao preparar bandeja")
             with self._lock:
@@ -469,6 +442,7 @@ class AppTranskriptor(MenuBandejaMixin):
             title=f"Transkriptor {VERSAO} - Aguardando Meet",
             menu=self._menu(),
         )
+        configurar_icone(self.icone)
         try:
             self.icone.run(setup=self._ao_bandeja_pronta)
         finally:

@@ -34,8 +34,5 @@ flask>=3.0
 # Ponte WebSocket Meet (Fase 8)
 websockets>=12.0
 
-# Notificações do Windows
-plyer>=2.1
-
 # Criptografia em repouso (F3)
 cryptography>=42.0

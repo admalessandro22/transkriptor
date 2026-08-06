@@ -90,6 +90,20 @@ def test_icone_so_fica_visivel_depois_do_backend_pronto(monkeypatch, modulo_tran
     assert IconeFalso.instancia.visible_events == [(True, True)]
 
 
+def test_registra_icone_unico_sem_balao_duplicado_de_startup(
+    monkeypatch, modulo_transkriptor
+):
+    _preparar_rodar(monkeypatch, modulo_transkriptor)
+    registrados = []
+    monkeypatch.setattr(modulo_transkriptor, "configurar_icone", registrados.append)
+
+    app = _app_minimo(modulo_transkriptor)
+    app.rodar()
+
+    assert registrados == [IconeFalso.instancia]
+    assert IconeFalso.instancia.notifications == []
+
+
 def test_monitor_so_inicia_depois_da_bandeja_pronta(monkeypatch, modulo_transkriptor):
     _preparar_rodar(monkeypatch, modulo_transkriptor)
 
