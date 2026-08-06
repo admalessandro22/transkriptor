@@ -17,7 +17,7 @@ Status inicial: ⬜ pendente. Cada tarefa termina com o teste listado e commit.
 | T-10.F1 | integrar ciclo completo no app/menu | FR-10.A4, FR-10.E4 | fluxo v1.5 | ✅ |
 | T-10.F2 | versão, manual e gates de recursos | NFR-10.C*, H1 | versão/manual/recursos | ✅ |
 | T-10.G1 | extrator genérico e seguro de intervalos | FR-10.G1 | recuperação | ✅ |
-| T-10.G2 | recuperar e retranscrever as duas reuniões | FR-10.G2/G3 | auditoria de artefatos | ⬜ |
+| T-10.G2 | recuperar e retranscrever as duas reuniões | FR-10.G2/G3 | auditoria de artefatos | ✅ |
 | T-10.H1 | auditoria final de qualidade/coerência/segurança | NFR-10.H* | suíte + Windows + diff | ⬜ |
 
 Nenhuma tarefa pode ser marcada ✅ apenas porque o código existe. O teste final
@@ -72,4 +72,12 @@ da linha, o commit e a evidência correspondente precisam existir.
   duração/frames, limites finitos, WAV inválido, colisão, streaming limitado e
   SHA-256 imutável da origem. A publicação usa hard link exclusivo do temporário
   validado, portanto não sobrescreve destino nem expõe arquivo parcial.
+- **T-10.G2:** as duas reuniões foram extraídas e processadas separadamente com
+  Whisper `medium`; `29 passed` no gate dirigido após regressões para a lacuna de
+  285 s, explosão de clusters e intervalo visual zero. A auditoria confirmou
+  hashes, WAV mono/16 kHz, 815/136 segmentos, UTF-8, ordem temporal, conteúdo
+  idêntico entre TXT simples e diarizado, jobs `ready` e ausência de fala em
+  JSON/log. Só depois disso os 979.463.830 bytes combinados/indevidos e o `.tkpt`
+  ilegível foram movidos para a Lixeira. Evidência detalhada em
+  `recuperacao-2026-08-06.md`.
 

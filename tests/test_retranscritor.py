@@ -132,3 +132,23 @@ def test_retranscrever_nome_deterministico_txt_e_escrita_atomica(
     assert Path(saida).name == "reuniao_cliente.txt"
     assert replaces and replaces[-1][1] == Path(saida)
     assert not list(pasta_tr.glob("*.tmp"))
+
+
+def test_retranscricao_sinaliza_lacuna_estimada(tmp_path):
+    pasta = tmp_path / "tr"
+    pasta.mkdir()
+    wav = _escrever_wav(tmp_path / "reuniao-2.wav", segundos=0.2)
+    modelo = MagicMock()
+    modelo.transcribe.return_value = ([_Seg("trecho recuperado", 0, 0.1)], MagicMock())
+
+    saida = retranscrever(
+        str(wav),
+        pasta_saida=str(pasta),
+        nome_base_saida="reuniao-2-recuperada",
+        modelo_whisper=modelo,
+        diarizar=False,
+        metadados={"lacuna_estimada_seg": 285},
+    )
+
+    texto = Path(saida).read_text(encoding="utf-8")
+    assert "AVISO DE INTEGRIDADE: lacuna estimada de 285 s" in texto

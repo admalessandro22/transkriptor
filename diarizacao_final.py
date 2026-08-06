@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import datetime
 import logging
+import math
 import os
 import shutil
 
@@ -18,6 +19,15 @@ from config import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def formatar_intervalo_diarizacao(start: float, end: float) -> str:
+    """Formata um intervalo legivel sem produzir duracao visual igual a zero."""
+    inicio = max(0, math.floor(float(start)))
+    fim = max(inicio + 1, math.ceil(float(end)))
+    inicio_fmt = f"{inicio // 60:02d}:{inicio % 60:02d}"
+    fim_fmt = f"{fim // 60:02d}:{fim % 60:02d}"
+    return f"{inicio_fmt}-{fim_fmt}"
 
 
 def preservar_audios(criptografar: bool, *caminhos, pasta_audio: str | None = None) -> list:
@@ -106,9 +116,8 @@ def rodar_diarizacao(transcritor, caminho_saida, caminho_wav) -> None:
             f"=== Transcricao diarizada em {datetime.datetime.now():%Y-%m-%d %H:%M:%S} ===\n\n"
         ]
         for rotulo, start, end, texto in resultado:
-            mm_ss_start = f"{int(start // 60):02d}:{int(start % 60):02d}"
-            mm_ss_end = f"{int(end // 60):02d}:{int(end % 60):02d}"
-            linhas.append(f"[{rotulo} {mm_ss_start}-{mm_ss_end}] {texto}\n")
+            intervalo = formatar_intervalo_diarizacao(start, end)
+            linhas.append(f"[{rotulo} {intervalo}] {texto}\n")
         linhas.append("\n=== Fim ===\n")
         texto_diar = "".join(linhas)
         if transcritor.criptografar:

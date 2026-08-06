@@ -87,6 +87,9 @@ def detectar_cuda_e_vram() -> tuple[bool, float]:
 MODELO_VOZ_FONTE = "speechbrain/spkrec-ecapa-voxceleb"
 LIMIAR_COSSENO_DIARIZACAO = 0.25
 DURACAO_MIN_SEGMENTO = 0.5
+# Guarda operacional para o modo automatico. Reunioes maiores podem informar
+# explicitamente ``num_falantes`` sem passar por este limite.
+MAX_FALANTES_AUTO_DIARIZACAO = 12
 
 # ---- Identificação de voz (VOCÊ) ----
 LIMIAR_IDENTIFICACAO_VOZ = 0.72

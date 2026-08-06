@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import logging
+import math
 import os
 import re
 import tempfile
@@ -160,8 +161,17 @@ def _texto_transcricao(linhas: list[str], metadados: dict, duracao: float) -> st
         f"Fim: {fim}",
         f"Duracao: {_duracao_legivel(float(metadados.get('duracao_seg', duracao)))}",
         f"Origem: {origem}",
-        "",
     ]
+    try:
+        lacuna = float(metadados.get("lacuna_estimada_seg") or 0)
+    except (TypeError, ValueError):
+        lacuna = 0
+    if math.isfinite(lacuna) and lacuna > 0:
+        valor = int(lacuna) if lacuna.is_integer() else round(lacuna, 3)
+        cabecalho.append(
+            f"AVISO DE INTEGRIDADE: lacuna estimada de {valor} s no áudio desta reunião."
+        )
+    cabecalho.append("")
     if not linhas:
         linhas = ["[00:00:00] (nenhuma fala reconhecida)"]
     return "\n".join(cabecalho + linhas + ["", "=== Fim ===", ""])
