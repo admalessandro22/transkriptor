@@ -25,7 +25,6 @@ from consentimento_gravacao import pedir_consentimento
 from bandeja_icone import criar_ico, criar_imagem, imagem_por_estado
 from crypto_storage import (
     chave_disponivel,
-    migrar_txt_legacy,
     migrar_vozes_legacy,
     perfil_existe,
     recuperar_orfaos_wav,
@@ -104,9 +103,6 @@ class AppTranskriptor(ProcessamentoReuniaoMixin, MenuBandejaMixin):
         self.iniciar_com_windows = cfg.get("iniciar_com_windows", _startup_ativo())
         self.criptografar_transcricoes = cfg.get("criptografar_transcricoes", True)
         if self.criptografar_transcricoes and chave_disponivel():
-            migrados = migrar_txt_legacy(PASTA_TRANSCRICOES)
-            if migrados:
-                logging.info("Migradas %d transcricoes .txt para .tkpt", migrados)
             vozes = migrar_vozes_legacy(
                 ARQUIVO_PERFIL_VOZ,
                 ARQUIVO_PERFIL_VOZ_ENC,

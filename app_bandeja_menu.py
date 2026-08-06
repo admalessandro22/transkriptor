@@ -22,7 +22,7 @@ from config import (
     PASTA_TRANSCRICOES,
     PORTA_MEET_BRIDGE,
 )
-from crypto_storage import chave_disponivel, migrar_txt_legacy, migrar_vozes_legacy, perfil_existe
+from crypto_storage import chave_disponivel, migrar_vozes_legacy, perfil_existe
 from meet_bridge import iniciar_bridge_em_thread
 from notificador import notificar
 from perfil_voz_flow import (
@@ -203,7 +203,6 @@ class MenuBandejaMixin:
         cfg["criptografar_transcricoes"] = self.criptografar_transcricoes
         config_user.salvar(cfg)
         if self.criptografar_transcricoes and chave_disponivel():
-            migrar_txt_legacy(PASTA_TRANSCRICOES)
             migrar_vozes_legacy(
                 ARQUIVO_PERFIL_VOZ,
                 ARQUIVO_PERFIL_VOZ_ENC,
@@ -211,7 +210,7 @@ class MenuBandejaMixin:
                 ARQUIVO_VOZES_CONHECIDAS_ENC,
             )
         estado = "ativada" if self.criptografar_transcricoes else "desativada"
-        self._status(f"Criptografia de transcricoes {estado}.")
+        self._status(f"Cópia criptografada {estado}.")
         self._atualizar_tooltip()
 
     def alternar_startup(self, _icone=None, _item=None):
@@ -284,9 +283,9 @@ class MenuBandejaMixin:
 
     def _texto_criptografia(self, _item=None):
         return (
-            "✓ Criptografar transcrições"
+            "✓ Criar cópia criptografada (.tkpt)"
             if self.criptografar_transcricoes
-            else "Criptografar transcrições"
+            else "Criar cópia criptografada (.tkpt)"
         )
 
     def _texto_startup(self, _item=None):

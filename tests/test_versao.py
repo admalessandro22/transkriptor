@@ -12,7 +12,7 @@ REPO = Path(__file__).resolve().parent.parent
 def test_versao_config_bate_com_pyproject():
     pyproject = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
     assert config.VERSAO == pyproject["project"]["version"]
-    assert config.VERSAO == "1.4.0"
+    assert config.VERSAO == "1.5.0"
 
 
 def test_transkriptor_pyw_sem_versao_hardcoded():
@@ -38,3 +38,10 @@ def test_agents_md_aponta_sdd_v15():
     assert "docs/sdd/v1.5/" in agents
     # A fonte de verdade atual é a v1.5; a v1.4 só aparece como legado.
     assert "docs/sdd/v1.5/tasks.md" in agents
+
+
+def test_v15_preserva_txt_principal_ao_criar_copia_criptografada():
+    app = (REPO / "transkriptor.pyw").read_text(encoding="utf-8")
+    menu = (REPO / "app_bandeja_menu.py").read_text(encoding="utf-8")
+    assert "migrar_txt_legacy" not in app
+    assert "migrar_txt_legacy" not in menu
