@@ -12,7 +12,7 @@ Status inicial: ⬜ pendente. Cada tarefa termina com o teste listado e commit.
 | T-10.C2 | remover toast ao vivo e backend `plyer` | UX-10.B1/B2 | notificador + bandeja | ✅ |
 | T-10.D1 | modo de captura posterior sem Whisper | FR/NFR-10.C* | gravação posterior | ✅ |
 | T-10.D2 | flush, métricas e watchdog do modo leve | FR-10.C2/C3 | gravação + watchdog | ✅ |
-| T-10.E1 | fila durável atômica e retomada | FR-10.D1/D2/D4 | fila | ⬜ |
+| T-10.E1 | fila durável atômica e retomada | FR-10.D1/D2/D4 | fila | ✅ |
 | T-10.E2 | subprocesso posterior e `.txt` atômico | FR-10.D3, FR-10.E* | processador + retranscritor | ⬜ |
 | T-10.F1 | integrar ciclo completo no app/menu | FR-10.A4, FR-10.E4 | fluxo v1.5 | ⬜ |
 | T-10.F2 | versão, manual e gates de recursos | NFR-10.C*, H1 | versão/manual/recursos | ⬜ |
@@ -50,4 +50,7 @@ da linha, o commit e a evidência correspondente precisam existir.
   de linhas (`337 passed`); extração coesa para `captura_leve.py` corrigiu o
   residual, com gate dirigido posterior de `39 passed` e integral de
   `338 passed`.
+- **T-10.E1:** RED por módulo inexistente; GREEN com `9 passed` cobrindo
+  atomicidade, estados, retomada, allowlist de metadados e rejeição de paths
+  fora de `transcricoes/`.
 
