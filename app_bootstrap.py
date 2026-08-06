@@ -19,13 +19,15 @@ def carregar_config_user():
     return config_user.carregar()
 
 
-def salvar_config_user(cfg):
+def atualizar_config_user(**kv):
+    """Mescla valores do bootstrap sem sobrescrever chaves concorrentes."""
     import config_user
 
     try:
-        config_user.salvar(cfg)
+        return config_user.atualizar(**kv)
     except Exception as e:  # noqa: BLE001 — config ruim não pode derrubar a subida
-        logging.error(f"Erro ao salvar config_user: {e}")
+        logging.error(f"Erro ao atualizar config_user: {e}")
+        return None
 
 
 def resolver_identificar_minha_voz(cfg, tem_perfil):

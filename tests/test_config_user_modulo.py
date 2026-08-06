@@ -33,6 +33,23 @@ def test_atualizar_mescla_chaves(tmp_path, monkeypatch):
     assert config_user.carregar() == {"a": 1, "b": 3, "c": 4}
 
 
+def test_bootstrap_atualiza_sem_apagar_chaves_concorrentes(tmp_path, monkeypatch):
+    """SEC-10.F2: defaults do bootstrap usam merge, nunca snapshot stale."""
+    import app_bootstrap
+
+    caminho = tmp_path / "config_user.json"
+    monkeypatch.setattr(config_user, "CONFIG_USER_FILE", str(caminho))
+    config_user.salvar({"meet_bridge_token": "abc", "preferencia_usuario": True})
+
+    app_bootstrap.atualizar_config_user(criptografar_transcricoes=True)
+
+    assert config_user.carregar() == {
+        "meet_bridge_token": "abc",
+        "preferencia_usuario": True,
+        "criptografar_transcricoes": True,
+    }
+
+
 def test_escrita_atomica_usa_replace(tmp_path, monkeypatch):
     """FR-6.5: escrita via tmp + os.replace (sem deixar JSON parcial)."""
     caminho = tmp_path / "config_user.json"

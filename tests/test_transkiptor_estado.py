@@ -54,6 +54,7 @@ def test_app_inicia_com_deteccao_ativa(modulo_transkriptor, monkeypatch):
     monkeypatch.setattr(modulo_transkriptor, "chave_disponivel", lambda: False)
     monkeypatch.setattr(modulo_transkriptor, "perfil_existe", lambda *a, **k: False)
     monkeypatch.setattr(modulo_transkriptor, "_carregar_config_user", lambda: {})
+    monkeypatch.setattr(modulo_transkriptor, "_atualizar_config_user", lambda **kv: None)
     monkeypatch.setattr(modulo_transkriptor, "sincronizar_token_extensao", lambda *a, **k: None)
     app = modulo_transkriptor.AppTranskriptor()
     assert app.deteccao_ativa is True
@@ -64,6 +65,7 @@ def test_pausar_sem_confirmar_nao_pausa(modulo_transkriptor, monkeypatch):
     monkeypatch.setattr(modulo_transkriptor, "chave_disponivel", lambda: False)
     monkeypatch.setattr(modulo_transkriptor, "perfil_existe", lambda *a, **k: False)
     monkeypatch.setattr(modulo_transkriptor, "_carregar_config_user", lambda: {})
+    monkeypatch.setattr(modulo_transkriptor, "_atualizar_config_user", lambda **kv: None)
     monkeypatch.setattr(modulo_transkriptor, "sincronizar_token_extensao", lambda *a, **k: None)
     app = modulo_transkriptor.AppTranskriptor()
     app._confirmar_pausa = lambda: False

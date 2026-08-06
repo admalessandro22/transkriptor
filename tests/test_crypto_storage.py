@@ -101,9 +101,11 @@ def test_dpapi_falha_nao_rotaciona_chave(tmp_path, monkeypatch):
     import crypto_storage
 
     cfg = tmp_path / "config_user.json"
+    chave_dpapi = tmp_path / "transkriptor_key.dpapi"
     blob_original = "Y2hhdmUtdGVzdGU="
     cfg.write_text(json.dumps({"chave_dpapi": blob_original}), encoding="utf-8")
     monkeypatch.setattr(config_user, "CONFIG_USER_FILE", str(cfg))
+    monkeypatch.setattr(crypto_storage._config, "ARQUIVO_CHAVE_DPAPI", str(chave_dpapi))
     monkeypatch.setattr(crypto_storage, "_chave_mestra", None)
 
     def falha_unprotect(_data):
@@ -114,6 +116,55 @@ def test_dpapi_falha_nao_rotaciona_chave(tmp_path, monkeypatch):
 
     assert garantir_chave_mestra() is False
     assert json.loads(cfg.read_text(encoding="utf-8"))["chave_dpapi"] == blob_original
+
+
+def test_chave_dedicada_sobrevive_a_salvamento_de_config_stale(tmp_path, monkeypatch):
+    """SEC-10.F1: a chave não pode depender do JSON sobrescrito no bootstrap."""
+    import config_user
+    import crypto_storage
+
+    cfg = tmp_path / "config_user.json"
+    chave_dpapi = tmp_path / "transkriptor_key.dpapi"
+    cfg.write_text(json.dumps({"meet_bridge_token": "token-preservado"}), encoding="utf-8")
+    monkeypatch.setattr(config_user, "CONFIG_USER_FILE", str(cfg))
+    monkeypatch.setattr(crypto_storage._config, "ARQUIVO_CHAVE_DPAPI", str(chave_dpapi))
+    monkeypatch.setattr(crypto_storage, "_dpapi_protect", lambda b: b"DPAPI:" + b)
+    monkeypatch.setattr(crypto_storage, "_dpapi_unprotect", lambda b: b[6:])
+    monkeypatch.setattr(crypto_storage, "_chave_mestra", None)
+
+    assert garantir_chave_mestra() is True
+    chave_original = crypto_storage._chave_mestra
+    assert chave_dpapi.read_bytes() == b"DPAPI:" + chave_original
+
+    # Reproduz o defeito real: um snapshot antigo do bootstrap substitui o JSON.
+    config_user.salvar({"modelo_whisper": "small"})
+    monkeypatch.setattr(crypto_storage, "_chave_mestra", None)
+
+    assert garantir_chave_mestra() is True
+    assert crypto_storage._chave_mestra == chave_original
+
+
+def test_chave_legada_e_migrada_para_arquivo_dedicado(tmp_path, monkeypatch):
+    """SEC-10.F2: instalações antigas mantêm a chave ao adotar o arquivo dedicado."""
+    import config_user
+    import crypto_storage
+
+    chave = b"k" * crypto_storage.KEY_SIZE
+    protegido = b"DPAPI:" + chave
+    cfg = tmp_path / "config_user.json"
+    chave_dpapi = tmp_path / "transkriptor_key.dpapi"
+    cfg.write_text(
+        json.dumps({"chave_dpapi": __import__("base64").b64encode(protegido).decode("ascii")}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config_user, "CONFIG_USER_FILE", str(cfg))
+    monkeypatch.setattr(crypto_storage._config, "ARQUIVO_CHAVE_DPAPI", str(chave_dpapi))
+    monkeypatch.setattr(crypto_storage, "_dpapi_unprotect", lambda b: b[6:])
+    monkeypatch.setattr(crypto_storage, "_chave_mestra", None)
+
+    assert garantir_chave_mestra() is True
+    assert crypto_storage._chave_mestra == chave
+    assert chave_dpapi.read_bytes() == protegido
 
 
 def test_migrar_vozes_legacy_npz_e_json(chave_teste, tmp_path):

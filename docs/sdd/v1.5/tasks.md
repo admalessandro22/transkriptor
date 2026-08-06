@@ -4,7 +4,7 @@ Status inicial: ⬜ pendente. Cada tarefa termina com o teste listado e commit.
 
 | ID | Entrega | Spec | Teste obrigatório ao final | Status |
 |---|---|---|---|---|
-| T-10.A1 | persistência dedicada da chave e merge de config | SEC-10.F1/F2 | config + crypto | ⬜ |
+| T-10.A1 | persistência dedicada da chave e merge de config | SEC-10.F1/F2 | config + crypto | ✅ |
 | T-10.A2 | isolamento integral dos testes de estado local | SEC-10.F3 | testes de isolamento | ⬜ |
 | T-10.B1 | microfone nunca inicia reunião | FR-10.A1/A3 | detecção multi-fonte | ⬜ |
 | T-10.B2 | fim limitado sem fonte forte | FR-10.A2/A4 | detecção + integração | ⬜ |
@@ -22,4 +22,10 @@ Status inicial: ⬜ pendente. Cada tarefa termina com o teste listado e commit.
 
 Nenhuma tarefa pode ser marcada ✅ apenas porque o código existe. O teste final
 da linha, o commit e a evidência correspondente precisam existir.
+
+## Evidências de execução
+
+- **T-10.A1:** RED confirmado nos dois comportamentos ausentes; GREEN com
+  `21 passed` em configuração/criptografia e regressão de bootstrap com
+  `15 passed`.
 

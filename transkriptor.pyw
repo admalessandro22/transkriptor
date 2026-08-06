@@ -17,9 +17,9 @@ import pystray
 
 from app_bandeja_menu import MenuBandejaMixin
 from app_bootstrap import (
+    atualizar_config_user as _atualizar_config_user,
     carregar_config_user as _carregar_config_user,
     resolver_identificar_minha_voz as _resolver_identificar_minha_voz,
-    salvar_config_user as _salvar_config_user,
 )
 from bandeja_icone import criar_ico, criar_imagem, imagem_por_estado
 from crypto_storage import (
@@ -120,13 +120,14 @@ class AppTranskriptor(MenuBandejaMixin):
             if orfaos_enc:
                 logging.info("Criptografados %d audios orfaos em PASTA_AUDIO", orfaos_enc)
         if "criptografar_transcricoes" not in cfg:
-            cfg["criptografar_transcricoes"] = self.criptografar_transcricoes
-            _salvar_config_user(cfg)
+            _atualizar_config_user(
+                criptografar_transcricoes=self.criptografar_transcricoes
+            )
         tem_perfil = perfil_existe(ARQUIVO_PERFIL_VOZ, ARQUIVO_PERFIL_VOZ_ENC)
         antes = cfg.get("identificar_minha_voz")
         self.identificar_minha_voz, cfg = _resolver_identificar_minha_voz(cfg, tem_perfil)
         if antes and not tem_perfil:
-            _salvar_config_user(cfg)
+            _atualizar_config_user(identificar_minha_voz=False)
         self.rotulo_usuario = cfg.get("rotulo_usuario", ROTULO_USUARIO)
         self.capturar_mic = cfg.get("capturar_mic", CAPTURAR_MIC)
         self.usar_nomes_meet = cfg.get("usar_nomes_meet", USAR_NOMES_MEET)
@@ -135,8 +136,7 @@ class AppTranskriptor(MenuBandejaMixin):
         meet_token = cfg_meet.get("meet_bridge_token")
         if not meet_token:
             meet_token = secrets.token_urlsafe(24)
-            cfg_meet["meet_bridge_token"] = meet_token
-            _salvar_config_user(cfg_meet)
+            _atualizar_config_user(meet_bridge_token=meet_token)
         self.meet_bridge = MeetBridge(token=meet_token)
         sincronizar_token_extensao(meet_token, BASE_DIR)
         self.perguntar_antes_de_gravar = cfg.get(

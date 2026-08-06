@@ -36,8 +36,10 @@ def headers_token():
 @pytest.fixture
 def chave_teste(monkeypatch, tmp_path):
     cfg = tmp_path / "config_user.json"
+    chave_dpapi = tmp_path / "transkriptor_key.dpapi"
     cfg.write_text("{}", encoding="utf-8")
     monkeypatch.setattr("config_user.CONFIG_USER_FILE", str(cfg))
+    monkeypatch.setattr("config.ARQUIVO_CHAVE_DPAPI", str(chave_dpapi))
     monkeypatch.setattr("crypto_storage._dpapi_protect", lambda b: b"DPAPI:" + b)
     monkeypatch.setattr("crypto_storage._dpapi_unprotect", lambda b: b[6:])
     from crypto_storage import garantir_chave_mestra

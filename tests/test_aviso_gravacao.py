@@ -59,7 +59,7 @@ def _app(modulo, monkeypatch):
     monkeypatch.setattr(modulo, "chave_disponivel", lambda: False)
     monkeypatch.setattr(modulo, "perfil_existe", lambda *a, **k: False)
     monkeypatch.setattr(modulo, "_carregar_config_user", lambda: {})
-    monkeypatch.setattr(modulo, "_salvar_config_user", lambda cfg: None)
+    monkeypatch.setattr(modulo, "_atualizar_config_user", lambda **kv: None)
     monkeypatch.setattr(modulo, "sincronizar_token_extensao", lambda *a, **k: None)
     monkeypatch.setattr(modulo, "notificar", lambda *a, **k: None)
     monkeypatch.setattr(app_bandeja_menu, "notificar", lambda *a, **k: None)
