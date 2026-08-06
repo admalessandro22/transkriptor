@@ -16,4 +16,5 @@ config_user.json
 .venv/
 terminals/
 agent-tools/
+.worktrees/
 _*.txt
