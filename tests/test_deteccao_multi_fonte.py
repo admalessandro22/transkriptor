@@ -161,30 +161,37 @@ def test_sinal_fraco_curto_nao_inicia():
     assert det.reuniao_ativa is False
 
 
-def test_troca_de_aba_nao_encerra_a_reuniao():
-    """Regressão central: título some, microfone segura (FR-9.1)."""
+def test_microfone_nao_mantem_reuniao_sem_fonte_forte():
+    """FR-10.A2: título sumiu; WhatsApp/microfone não sustenta captura."""
     det, forte, fraca = _detector()
     forte.ativo = True
     fraca.ativo = True
     det.verificar()
     assert det.verificar() == "iniciou"
 
-    forte.ativo = False  # usuário trocou de aba: o título sumiu
-    for _ in range(10):
-        assert det.verificar() is None
-    assert det.reuniao_ativa is True
-
-
-def test_fim_so_quando_nenhuma_fonte_ve_reuniao():
-    det, forte, fraca = _detector()
-    forte.ativo = fraca.ativo = True
-    det.verificar()
-    det.verificar()
-    forte.ativo = fraca.ativo = False
+    forte.ativo = False
     for _ in range(5):
         assert det.verificar() is None
     assert det.verificar() == "encerrou"
     assert det.reuniao_ativa is False
+
+
+def test_extensao_mantem_reuniao_com_aba_em_segundo_plano():
+    titulo = FonteFake("titulo", forte=True)
+    microfone = FonteFake("microfone")
+    extensao = FonteFake("extensao", forte=True)
+    det = DetectorReuniao(
+        [titulo, microfone, extensao], confirma_inicio=2, confirma_fim=6
+    )
+    titulo.ativo = microfone.ativo = True
+    det.verificar()
+    assert det.verificar() == "iniciou"
+
+    titulo.ativo = False
+    extensao.ativo = True
+    for _ in range(20):
+        assert det.verificar() is None
+    assert det.reuniao_ativa is True
 
 
 def test_fim_e_mais_lento_que_inicio():

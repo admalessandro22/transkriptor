@@ -115,7 +115,7 @@ CONFIRMACAO_INICIO_MEET = 2         # ciclos com sinal forte para confirmar iní
 CONFIRMACAO_FIM_MEET = 3            # legado: debounce do DetectorMeet por título
 # Fusão multi-fonte: apenas título/ponte fortes podem iniciar uma reunião.
 # Microfone permanece somente como sinal diagnóstico na v1.5.
-CONFIRMACAO_FIM_REUNIAO = 6         # ciclos sem nenhuma fonte para encerrar (30 s)
+CONFIRMACAO_FIM_SEM_SINAL_FORTE = 6 # ciclos sem título/extensão para encerrar (30 s)
 DETECTAR_POR_MICROFONE = True       # usar o registro de microfone em uso do Windows
 HEARTBEAT_MONITOR_CICLOS = 120      # log periódico do monitor (a cada ~10 min)
 # ---- Aviso de gravação (FR-2.9 / FR-9.4) ----

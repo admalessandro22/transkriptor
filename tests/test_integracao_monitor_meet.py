@@ -3,6 +3,8 @@
 from unittest.mock import Mock
 
 from detector_meet import DetectorMeet
+from deteccao_reuniao import Sinal
+from monitor_reuniao import texto_heartbeat
 
 
 def _app_controlado(modulo, manual=False):
@@ -52,3 +54,18 @@ def test_modo_manual_ignora_inicio_e_fim_do_meet(modulo_transkriptor):
 
     app._iniciar_transcricao.assert_not_called()
     app._parar_transcricao.assert_not_called()
+
+
+def test_heartbeat_distingue_fontes_fortes_de_auxiliares():
+    detector = Mock()
+    detector.reuniao_ativa = True
+    detector.ultimos_sinais = [
+        Sinal("titulo", False, forte=True),
+        Sinal("microfone", True, forte=False),
+        Sinal("extensao", True, forte=True),
+    ]
+
+    texto = texto_heartbeat(detector, gravando=True, ciclos=42)
+
+    assert "fortes=[extensao]" in texto
+    assert "auxiliares=[microfone]" in texto

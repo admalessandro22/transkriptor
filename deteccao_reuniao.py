@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 
 from config import (
-    CONFIRMACAO_FIM_REUNIAO,
+    CONFIRMACAO_FIM_SEM_SINAL_FORTE,
     CONFIRMACAO_INICIO_MEET,
 )
 
@@ -136,7 +136,7 @@ class DetectorReuniao:
     """Debounce assimétrico sobre a fusão das fontes.
 
     * início por fonte forte: `confirma_inicio` ciclos;
-    * fim: `confirma_fim` ciclos sem **nenhuma** fonte ativa.
+    * fim: `confirma_fim` ciclos sem fonte **forte** ativa.
 
     O fim é deliberadamente mais lento que o início: perder o fim de uma reunião
     custa alguns segundos de áudio a mais no arquivo; cortar no meio custa a
@@ -147,7 +147,7 @@ class DetectorReuniao:
         self,
         fontes,
         confirma_inicio=CONFIRMACAO_INICIO_MEET,
-        confirma_fim=CONFIRMACAO_FIM_REUNIAO,
+        confirma_fim=CONFIRMACAO_FIM_SEM_SINAL_FORTE,
     ):
         self.fontes = list(fontes)
         self.confirma_inicio = confirma_inicio
@@ -186,12 +186,14 @@ class DetectorReuniao:
         return self._processar(algum, forte, fontes_ativas)
 
     def _processar(self, algum, forte, fontes_ativas):
-        if algum:
+        if forte:
             self._contagem_fim = 0
-            self._contagem_forte = self._contagem_forte + 1 if forte else 0
+            self._contagem_forte += 1
         else:
             self._contagem_forte = 0
-            self._contagem_fim += 1
+            # Sinal auxiliar nunca inicia nem sustenta reunião. Antes do início,
+            # não há motivo para acumular contador de fim.
+            self._contagem_fim = self._contagem_fim + 1 if self._ativa else 0
 
         if not self._ativa:
             confirmou_forte = self._contagem_forte >= self.confirma_inicio
@@ -208,6 +210,8 @@ class DetectorReuniao:
         if self._contagem_fim >= self.confirma_fim:
             self._ativa = False
             self.fontes_da_reuniao = []
-            logger.info("Reunião encerrada após %d ciclos sem sinal.", self._contagem_fim)
+            logger.info(
+                "Reunião encerrada após %d ciclos sem sinal forte.", self._contagem_fim
+            )
             return "encerrou"
         return None

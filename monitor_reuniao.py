@@ -21,8 +21,8 @@ def listar_janelas(exigir_visivel=EXIGIR_JANELA_VISIVEL):
     """Títulos das janelas de topo, com estado de minimizada quando exigido.
 
     Atenção ao mexer aqui: o título de um navegador é o da **aba em primeiro
-    plano**. Uma reunião em aba de fundo é invisível para esta fonte — é a fonte
-    do microfone que cobre esse caso (ver `deteccao_reuniao`).
+    plano**. A extensão é a fonte forte que cobre uma aba de Meet em segundo
+    plano; microfone é apenas diagnóstico na v1.5.
     """
     if not exigir_visivel:
         return list(gw.getAllTitles())
@@ -46,10 +46,12 @@ def construir_detector(bridge, usar_microfone=DETECTAR_POR_MICROFONE):
 
 def texto_heartbeat(detector, gravando, ciclos):
     """FR-9.C4: linha de prova de vida do monitor."""
-    fontes = ", ".join(s.fonte for s in getattr(detector, "ultimos_sinais", []) if s.ativo)
+    sinais = [s for s in getattr(detector, "ultimos_sinais", []) if s.ativo]
+    fortes = ", ".join(s.fonte for s in sinais if s.forte)
+    auxiliares = ", ".join(s.fonte for s in sinais if not s.forte)
     return (
         f"Monitor vivo: ciclo {ciclos}, reunião={getattr(detector, 'reuniao_ativa', False)}, "
-        f"fontes ativas=[{fontes}], gravando={bool(gravando)}"
+        f"fortes=[{fortes}], auxiliares=[{auxiliares}], gravando={bool(gravando)}"
     )
 
 
