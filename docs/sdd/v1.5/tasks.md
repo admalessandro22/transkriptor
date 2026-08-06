@@ -16,7 +16,7 @@ Status inicial: ⬜ pendente. Cada tarefa termina com o teste listado e commit.
 | T-10.E2 | subprocesso posterior e `.txt` atômico | FR-10.D3, FR-10.E* | processador + retranscritor | ✅ |
 | T-10.F1 | integrar ciclo completo no app/menu | FR-10.A4, FR-10.E4 | fluxo v1.5 | ✅ |
 | T-10.F2 | versão, manual e gates de recursos | NFR-10.C*, H1 | versão/manual/recursos | ✅ |
-| T-10.G1 | extrator genérico e seguro de intervalos | FR-10.G1 | recuperação | ⬜ |
+| T-10.G1 | extrator genérico e seguro de intervalos | FR-10.G1 | recuperação | ✅ |
 | T-10.G2 | recuperar e retranscrever as duas reuniões | FR-10.G2/G3 | auditoria de artefatos | ⬜ |
 | T-10.H1 | auditoria final de qualidade/coerência/segurança | NFR-10.H* | suíte + Windows + diff | ⬜ |
 
@@ -68,4 +68,8 @@ da linha, o commit e a evidência correspondente precisam existir.
   páginas sem páginas vazias ou defeitos visuais. O coletor Win32 de working set,
   CPU de um núcleo e classes pystray foi exercitado em processo controlado; o
   gate real de 10 minutos permanece no fechamento Windows de T-10.H1.
+- **T-10.G1:** RED por ferramenta inexistente; GREEN com `10 passed` para
+  duração/frames, limites finitos, WAV inválido, colisão, streaming limitado e
+  SHA-256 imutável da origem. A publicação usa hard link exclusivo do temporário
+  validado, portanto não sobrescreve destino nem expõe arquivo parcial.
 
