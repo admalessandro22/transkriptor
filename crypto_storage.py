@@ -199,7 +199,23 @@ def descriptografar_bytes(cifrado: bytes) -> bytes:
 def salvar_bytes_arquivo(caminho: str, plano: bytes) -> None:
     path = Path(caminho)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(criptografar_bytes(plano))
+    cifrado = criptografar_bytes(plano)
+    fd, temporario = tempfile.mkstemp(
+        prefix=f"{path.stem}_", suffix=".tmp", dir=str(path.parent)
+    )
+    try:
+        with os.fdopen(fd, "wb") as arquivo:
+            arquivo.write(cifrado)
+            arquivo.flush()
+            os.fsync(arquivo.fileno())
+        os.replace(temporario, path)
+        temporario = None
+    finally:
+        if temporario and os.path.isfile(temporario):
+            try:
+                os.remove(temporario)
+            except OSError:
+                pass
 
 
 def ler_bytes_arquivo(caminho: str) -> bytes:

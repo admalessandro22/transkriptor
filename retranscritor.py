@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime
 import logging
 import os
+import re
 import tempfile
 import wave
 from pathlib import Path
@@ -102,96 +103,174 @@ def struct_unpack_sr(plano: bytes) -> int:
     return struct.unpack_from("<I", plano, 24)[0]
 
 
+PADRAO_BASE_SAIDA = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$")
+
+
+def _timestamp_relativo(segundos: float) -> str:
+    total = max(0, int(segundos))
+    return f"{total // 3600:02d}:{(total % 3600) // 60:02d}:{total % 60:02d}"
+
+
+def _duracao_legivel(segundos: float) -> str:
+    return _timestamp_relativo(segundos)
+
+
+def _escrever_texto_atomico(caminho: Path, texto: str) -> None:
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporario = tempfile.mkstemp(
+        prefix=f"{caminho.stem}_", suffix=".tmp", dir=str(caminho.parent)
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as arquivo:
+            arquivo.write(texto)
+            arquivo.flush()
+            os.fsync(arquivo.fileno())
+        os.replace(temporario, caminho)
+        temporario = None
+    finally:
+        if temporario and os.path.isfile(temporario):
+            try:
+                os.remove(temporario)
+            except OSError:
+                pass
+
+
+def _carregar_modelo(modelo_whisper, pasta: str, on_status, modelo_nome=None):
+    if modelo_whisper is not None:
+        return modelo_whisper
+    transcritor = Transcritor(
+        modelo=modelo_nome,
+        pasta_saida=pasta,
+        capturar_mic=False,
+        diarizar_ao_final=False,
+        criptografar=False,
+        on_status=on_status,
+    )
+    transcritor._carregar_modelo()
+    return transcritor._modelo
+
+
+def _texto_transcricao(linhas: list[str], metadados: dict, duracao: float) -> str:
+    inicio = metadados.get("inicio_iso") or datetime.datetime.now().astimezone().isoformat()
+    fim = metadados.get("fim_iso") or "não informado"
+    origem = str(metadados.get("origem") or "reunião")
+    cabecalho = [
+        "=== Transcricao da reuniao ===",
+        f"Inicio: {inicio}",
+        f"Fim: {fim}",
+        f"Duracao: {_duracao_legivel(float(metadados.get('duracao_seg', duracao)))}",
+        f"Origem: {origem}",
+        "",
+    ]
+    if not linhas:
+        linhas = ["[00:00:00] (nenhuma fala reconhecida)"]
+    return "\n".join(cabecalho + linhas + ["", "=== Fim ===", ""])
+
+
 def retranscrever(
     caminho_audio: str,
     *,
     pasta_saida: str | None = None,
+    nome_base_saida: str | None = None,
     modelo_whisper=None,
+    modelo_nome: str | None = None,
+    idioma: str = "pt",
     diarizar: bool = True,
     chunk: float = CHUNK_SEGUNDOS,
+    gerar_copia_tkpt: bool = False,
+    metadados: dict | None = None,
+    caminho_mic: str | None = None,
     criptografar: bool | None = None,
     on_status=None,
     identificar_voz: bool = False,
     usar_vozes_conhecidas: bool = True,
     **_kwargs,
 ) -> str:
-    """Retranscreve WAV (ou .wav.enc) gerando os mesmos artefatos da reunião ao vivo."""
+    """Transcreve áudio retido e entrega `.txt` UTF-8 atômico como principal."""
+    from crypto_storage import nome_base_transcricao
+
     on_status = on_status or (lambda _m: None)
-    pasta = pasta_saida or PASTA_TRANSCRICOES
+    pasta = str(Path(pasta_saida or PASTA_TRANSCRICOES).resolve())
     os.makedirs(pasta, exist_ok=True)
+    base = nome_base_saida or nome_base_transcricao()
+    if not PADRAO_BASE_SAIDA.fullmatch(str(base)):
+        raise ValueError("nome base de saída inválido")
+    if criptografar is not None:
+        gerar_copia_tkpt = gerar_copia_tkpt or bool(criptografar)
 
     audio, sr = _ler_audio_pcm(caminho_audio)
     if sr != SAMPLE_RATE and audio.size:
-        # reamostragem linear simples
         n_out = int(audio.size * SAMPLE_RATE / sr)
         x_old = np.linspace(0, 1, num=audio.size, endpoint=False)
         x_new = np.linspace(0, 1, num=n_out, endpoint=False)
         audio = np.interp(x_new, x_old, audio).astype(np.float32)
 
-    t = Transcritor(
-        pasta_saida=pasta,
-        diarizar_ao_final=diarizar,
-        capturar_mic=False,
-        identificar_voz=identificar_voz,
-        usar_vozes_conhecidas=usar_vozes_conhecidas,
-        criptografar=criptografar,
-        on_status=on_status,
-        chunk=chunk,
-    )
-    if modelo_whisper is not None:
-        t._modelo = modelo_whisper
-    else:
-        t._carregar_modelo()
+    modelo = _carregar_modelo(modelo_whisper, pasta, on_status, modelo_nome)
+    tamanho_bloco = max(SAMPLE_RATE, int(SAMPLE_RATE * chunk))
+    linhas, segmentos = [], []
+    for inicio_frame in range(0, audio.size, tamanho_bloco):
+        fim_frame = min(audio.size, inicio_frame + tamanho_bloco)
+        pedaco = audio[inicio_frame:fim_frame]
+        inicio_bloco = inicio_frame / SAMPLE_RATE
+        encontrados, _info = modelo.transcribe(
+            pedaco,
+            language=None if idioma == "auto" else idioma,
+            vad_filter=True,
+            beam_size=1,
+            vad_parameters={"min_silence_duration_ms": 600},
+        )
+        for segmento in list(encontrados):
+            texto = str(segmento.text).strip()
+            if not texto:
+                continue
+            inicio_abs = inicio_bloco + float(segmento.start)
+            fim_abs = inicio_bloco + float(segmento.end)
+            linhas.append(f"[{_timestamp_relativo(inicio_abs)}] {texto}")
+            segmentos.append((inicio_abs, fim_abs, texto))
 
-    t._abrir_arquivo()
-    # retranscrição não re-grava o áudio no WAV de captura — fecha e remove temp
-    if t._wav:
-        t._wav.close()
-        t._wav = None
-    if t._caminho_wav and os.path.isfile(t._caminho_wav):
+    metadados = dict(metadados or {})
+    duracao = audio.size / float(SAMPLE_RATE)
+    texto_final = _texto_transcricao(linhas, metadados, duracao)
+    caminho_final = Path(pasta) / f"{base}.txt"
+    _escrever_texto_atomico(caminho_final, texto_final)
+
+    if diarizar and segmentos:
+        with tempfile.TemporaryDirectory(prefix="diarizacao_", dir=pasta) as tmp_dir:
+            temporario_txt = Path(tmp_dir) / f"{base}.txt"
+            temporario_wav = Path(tmp_dir) / f"{base}_audio.wav"
+            temporario_txt.write_text(texto_final, encoding="utf-8")
+            with wave.open(str(temporario_wav), "wb") as wav:
+                wav.setnchannels(1)
+                wav.setsampwidth(2)
+                wav.setframerate(SAMPLE_RATE)
+                wav.writeframes((audio * 32767).astype(np.int16).tobytes())
+            transcritor = Transcritor(
+                pasta_saida=tmp_dir,
+                diarizar_ao_final=True,
+                capturar_mic=False,
+                identificar_voz=identificar_voz,
+                usar_vozes_conhecidas=usar_vozes_conhecidas,
+                criptografar=False,
+                on_status=on_status,
+            )
+            transcritor._segmentos = segmentos
+            transcritor._caminho_wav_mic_salvo = caminho_mic
+            transcritor._preservar_audios = lambda *_caminhos: []
+            transcritor._rodar_diarizacao(str(temporario_txt), str(temporario_wav))
+            temporario_diar = Path(tmp_dir) / f"{base}_diarizado.txt"
+            if temporario_diar.is_file():
+                _escrever_texto_atomico(
+                    Path(pasta) / temporario_diar.name,
+                    temporario_diar.read_text(encoding="utf-8"),
+                )
+
+    if gerar_copia_tkpt:
         try:
-            os.remove(t._caminho_wav)
-        except OSError:
-            pass
-        t._caminho_wav = None
+            from crypto_storage import salvar_transcricao
 
-    bloco = int(SAMPLE_RATE * chunk)
-    if bloco < 1:
-        bloco = SAMPLE_RATE
-    n = audio.size
-    i = 0
-    while i < n:
-        fim = min(n, i + bloco)
-        t._transcrever_bloco(audio[i:fim], final=(fim >= n))
-        i = fim
+            salvar_transcricao(str(caminho_final.with_suffix(".tkpt")), texto_final)
+        except Exception as exc:  # o TXT principal nunca é removido por esta falha
+            logger.warning("Cópia TKPT indisponível (%s)", type(exc).__name__)
 
-    # fecha texto
-    t._finalizar_arquivo_texto()
-    caminho = t._caminho_saida
-    segmentos = list(t._segmentos)
-
-    if diarizar and segmentos and caminho:
-        # roda diarização de forma síncrona
-        t._segmentos = segmentos
-        # usa o áudio original para diarização via audio_utils.ler_trecho_wav — precisa de WAV temp
-        tmp = None
-        try:
-            fd, tmp = tempfile.mkstemp(suffix="_audio.wav")
-            os.close(fd)
-            with wave.open(tmp, "wb") as w:
-                w.setnchannels(1)
-                w.setsampwidth(2)
-                w.setframerate(SAMPLE_RATE)
-                w.writeframes((audio * 32767).astype(np.int16).tobytes())
-            t._rodar_diarizacao(caminho, tmp)
-        finally:
-            if tmp and os.path.isfile(tmp):
-                # _rodar_diarizacao agora move para PASTA_AUDIO — se ainda existir, limpa
-                try:
-                    if os.path.isfile(tmp):
-                        os.remove(tmp)
-                except OSError:
-                    pass
-
-    on_status(f"Retranscrição concluída: {os.path.basename(caminho) if caminho else '?'}")
-    return caminho
+    on_status(f"Retranscrição concluída: {caminho_final.name}")
+    return str(caminho_final)

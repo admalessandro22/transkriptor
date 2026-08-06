@@ -191,6 +191,27 @@ class FilaProcessamento:
                     claim.unlink(missing_ok=True)
         return None
 
+    def reivindicar(self, job_id: str) -> Job:
+        """Marca um job pending específico para o subprocesso solicitado."""
+        caminho = self.caminho_job(job_id)
+        claim = caminho.with_suffix(".claim")
+        try:
+            fd = os.open(str(claim), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.close(fd)
+        except FileExistsError as exc:
+            raise RuntimeError("job já reivindicado") from exc
+        try:
+            with self._lock:
+                dados = self._carregar(caminho)
+                if dados["estado"] != "pending":
+                    raise RuntimeError("job não está pendente")
+                dados["estado"] = "processing"
+                dados["atualizado_em"] = _agora_iso()
+                self._salvar(dados)
+                return self._para_job(dados)
+        finally:
+            claim.unlink(missing_ok=True)
+
     def _alterar_estado(self, job_id: str, estado: str, **campos) -> Job:
         with self._lock:
             caminho = self.caminho_job(job_id)
