@@ -18,7 +18,6 @@ import wave
 
 import numpy as np
 import soundcard as sc
-from faster_whisper import WhisperModel
 
 from config import (
     SAMPLE_RATE,
@@ -40,6 +39,13 @@ from config import (
 logger = logging.getLogger(__name__)
 
 
+def WhisperModel(*args, **kwargs):
+    """Factory lazy compatível com os testes sem importar IA na captura."""
+    from faster_whisper import WhisperModel as ModeloWhisper
+
+    return ModeloWhisper(*args, **kwargs)
+
+
 class Transcritor:
     """Captura o áudio do alto-falante, transcreve com Whisper e diariza ao final."""
 
@@ -59,6 +65,7 @@ class Transcritor:
         eventos_meet=None,
         usar_vozes_conhecidas=True,
         criptografar=None,
+        processar_ao_vivo=True,
     ):
         self.modelo_nome = modelo
         self.idioma = None if idioma == "auto" else idioma
@@ -73,6 +80,7 @@ class Transcritor:
         self.rotulo_usuario = rotulo_usuario
         self.eventos_meet = list(eventos_meet or [])
         self.usar_vozes_conhecidas = usar_vozes_conhecidas
+        self.processar_ao_vivo = bool(processar_ao_vivo)
         if criptografar is None:
             from crypto_storage import chave_disponivel, criptografia_ativa
 
@@ -95,6 +103,9 @@ class Transcritor:
         self.rodando = False
         self.diarizando = False
         self.finalizando = False
+        self._somente_audio = not self.processar_ao_vivo
+        self.audios_preservados: list[str] = []
+        self._thread_diar = None
 
         # dados para diarização (leves: só timestamps + texto, sem áudio)
         self._segmentos = []  # [(start_sec, end_sec, texto)]
@@ -186,16 +197,31 @@ class Transcritor:
                     if data.ndim > 1:
                         data = data.mean(axis=1)
                     data = data.astype(np.float32)
-                    try:
-                        self._q.put_nowait(data)
-                    except queue.Full:
-                        try:
-                            self._q.get_nowait()
-                            self._q.put_nowait(data)
-                        except queue.Empty:
-                            pass
+                    self._enfileirar_audio(data)
         except Exception as e:
             self.on_status(f"Erro na captura: {e}")
+
+    def _enfileirar_audio(self, data):
+        if self.processar_ao_vivo:
+            try:
+                self._q.put_nowait(data)
+            except queue.Full:
+                try:
+                    self._q.get_nowait()
+                    self._q.put_nowait(data)
+                except queue.Empty:
+                    pass
+            return
+        # Captura posterior: nunca remove o bloco mais antigo. O consumidor de
+        # disco é leve e deve liberar espaço; o timeout só permite reavaliar a
+        # saúde da thread sem transformar a captura em espera infinita opaca.
+        while True:
+            try:
+                self._q.put(data, timeout=1)
+                return
+            except queue.Full:
+                if self._thread_proc is None or not self._thread_proc.is_alive():
+                    raise RuntimeError("processador de áudio indisponível")
 
     def _capturar_mic(self):
         try:
@@ -240,18 +266,17 @@ class Transcritor:
             pass
 
     def _processar_somente_audio(self):
-        """FR-2.4: grava WAV sem Whisper quando o modelo falha."""
+        """Grava WAV sem IA e drena até a captura efetivamente terminar."""
         try:
-            while not self._stop.is_set():
+            while True:
                 try:
                     self._gravar_audio_bloco(self._q.get(timeout=0.5))
                 except queue.Empty:
-                    continue
-            while True:
-                try:
-                    self._gravar_audio_bloco(self._q.get_nowait())
-                except queue.Empty:
-                    break
+                    captura_viva = bool(
+                        self._thread_cap is not None and self._thread_cap.is_alive()
+                    )
+                    if self._stop.is_set() and not captura_viva and self._q.empty():
+                        break
         finally:
             self._fechar_arquivos_no_processar()
 
@@ -347,13 +372,24 @@ class Transcritor:
         self._segmentos = []
         self._offset_seg = 0.0
         self.diarizando = False
-        self._somente_audio = False
+        self._somente_audio = not self.processar_ao_vivo
+        self.audios_preservados = []
         self.rodando = True
+        if not self.processar_ao_vivo:
+            self._thread_proc = threading.Thread(
+                target=self._processar_somente_audio,
+                daemon=True,
+                name="Transkriptor-GravacaoWav",
+            )
+            self._thread_proc.start()
         self._thread_cap = threading.Thread(target=self._capturar, daemon=True)
         self._thread_cap.start()
         if self.capturar_mic:
             self._thread_mic = threading.Thread(target=self._capturar_mic, daemon=True)
             self._thread_mic.start()
+        if not self.processar_ao_vivo:
+            self.on_status("Gravação da reunião em andamento.")
+            return
         try:
             self._carregar_modelo()
         except Exception as e:
@@ -441,7 +477,9 @@ class Transcritor:
             )
             self._thread_diar.start()
         else:
-            self._preservar_audios(caminho_wav, self._caminho_wav_mic_salvo)
+            self.audios_preservados = self._preservar_audios(
+                caminho_wav, self._caminho_wav_mic_salvo
+            )
         self._caminho_saida = None
         self.finalizando = False
         self.on_status("Gravação descartada." if descartado else "Transcrição encerrada.")

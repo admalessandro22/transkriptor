@@ -10,7 +10,7 @@ Status inicial: ⬜ pendente. Cada tarefa termina com o teste listado e commit.
 | T-10.B2 | fim limitado sem fonte forte | FR-10.A2/A4 | detecção + integração | ✅ |
 | T-10.C1 | consentimento antes da captura e timeout negativo | FR-10.B1/B2/B3 | aviso de gravação | ✅ |
 | T-10.C2 | remover toast ao vivo e backend `plyer` | UX-10.B1/B2 | notificador + bandeja | ✅ |
-| T-10.D1 | modo de captura posterior sem Whisper | FR/NFR-10.C* | gravação posterior | ⬜ |
+| T-10.D1 | modo de captura posterior sem Whisper | FR/NFR-10.C* | gravação posterior | ✅ |
 | T-10.D2 | flush, métricas e watchdog do modo leve | FR-10.C2/C3 | gravação + watchdog | ⬜ |
 | T-10.E1 | fila durável atômica e retomada | FR-10.D1/D2/D4 | fila | ⬜ |
 | T-10.E2 | subprocesso posterior e `.txt` atômico | FR-10.D3, FR-10.E* | processador + retranscritor | ⬜ |
@@ -42,4 +42,7 @@ da linha, o commit e a evidência correspondente precisam existir.
 - **T-10.C2:** RED confirmou ausência de reutilização do ícone e dependência
   residual; GREEN no canal silencioso e gate integral da fase com `330 passed`.
   Startup não abre balão e notificação padrão não cria janela ou ícone.
+- **T-10.D1:** RED por ausência do modo posterior; GREEN com `18 passed` no gate
+  captura/WAV/stop e `20 passed` na regressão de seleção de modelo. O import do
+  núcleo de captura não importa bibliotecas de IA.
 
