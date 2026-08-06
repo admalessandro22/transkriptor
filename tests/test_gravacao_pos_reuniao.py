@@ -6,6 +6,7 @@ import subprocess
 import sys
 import wave
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
@@ -14,6 +15,19 @@ from transcricao_core import Transcritor
 
 
 REPO = Path(__file__).resolve().parent.parent
+
+
+@pytest.fixture
+def transcritor_posterior(tmp_path):
+    t = Transcritor(
+        pasta_saida=str(tmp_path),
+        processar_ao_vivo=False,
+        capturar_mic=False,
+        criptografar=False,
+    )
+    t._abrir_arquivo()
+    yield t
+    t._fechar_arquivos_abertos()
 
 
 def test_modo_posterior_nao_carrega_modelo(monkeypatch, tmp_path):
@@ -64,6 +78,9 @@ def test_stop_expoe_audio_preservado(tmp_path, monkeypatch):
 
     assert t.audios_preservados
     assert all(Path(path).is_file() for path in t.audios_preservados)
+    with wave.open(t.audios_preservados[0], "rb") as wav:
+        assert wav.getnchannels() == 1
+        assert wav.getframerate() == 16000
 
 
 def test_importar_captura_nao_importa_bibliotecas_de_ia():
@@ -81,3 +98,22 @@ def test_importar_captura_nao_importa_bibliotecas_de_ia():
         check=True,
     )
     assert resultado.stdout.strip() == "False"
+
+
+def test_metricas_modo_posterior_sem_descartes(transcritor_posterior):
+    metricas = transcritor_posterior.metricas_captura()
+    assert metricas["blocos_descartados"] == 0
+    assert metricas["falhas_gravacao"] == 0
+
+
+def test_flush_periodico_e_contagem_de_frames(monkeypatch, transcritor_posterior):
+    flush = MagicMock()
+    monkeypatch.setattr(transcritor_posterior, "_flush_audio", flush)
+    transcritor_posterior._segundos_desde_flush = 5
+
+    transcritor_posterior._gravar_audio_bloco(
+        np.zeros(16000, dtype=np.float32)
+    )
+
+    flush.assert_called_once()
+    assert transcritor_posterior.metricas_captura()["frames_gravados"] == 16000

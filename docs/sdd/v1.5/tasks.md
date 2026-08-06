@@ -11,7 +11,7 @@ Status inicial: ⬜ pendente. Cada tarefa termina com o teste listado e commit.
 | T-10.C1 | consentimento antes da captura e timeout negativo | FR-10.B1/B2/B3 | aviso de gravação | ✅ |
 | T-10.C2 | remover toast ao vivo e backend `plyer` | UX-10.B1/B2 | notificador + bandeja | ✅ |
 | T-10.D1 | modo de captura posterior sem Whisper | FR/NFR-10.C* | gravação posterior | ✅ |
-| T-10.D2 | flush, métricas e watchdog do modo leve | FR-10.C2/C3 | gravação + watchdog | ⬜ |
+| T-10.D2 | flush, métricas e watchdog do modo leve | FR-10.C2/C3 | gravação + watchdog | ✅ |
 | T-10.E1 | fila durável atômica e retomada | FR-10.D1/D2/D4 | fila | ⬜ |
 | T-10.E2 | subprocesso posterior e `.txt` atômico | FR-10.D3, FR-10.E* | processador + retranscritor | ⬜ |
 | T-10.F1 | integrar ciclo completo no app/menu | FR-10.A4, FR-10.E4 | fluxo v1.5 | ⬜ |
@@ -45,4 +45,9 @@ da linha, o commit e a evidência correspondente precisam existir.
 - **T-10.D1:** RED por ausência do modo posterior; GREEN com `18 passed` no gate
   captura/WAV/stop e `20 passed` na regressão de seleção de modelo. O import do
   núcleo de captura não importa bibliotecas de IA.
+- **T-10.D2:** quatro REDs para métricas, flush, watchdog e diagnóstico; GREEN
+  com `38 passed`. O primeiro gate integral encontrou apenas o limite estrutural
+  de linhas (`337 passed`); extração coesa para `captura_leve.py` corrigiu o
+  residual, com gate dirigido posterior de `39 passed` e integral de
+  `338 passed`.
 

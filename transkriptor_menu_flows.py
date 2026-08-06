@@ -27,6 +27,7 @@ def rodar_diagnostico_ui(app) -> None:
             modelo_whisper=getattr(app, "modelo_whisper", MODELO_WHISPER),
             capturar_mic=getattr(app, "capturar_mic", True),
             gravando=app._gravando(),
+            transcritor=getattr(app, "transcritor", None),
         )
         texto = diagnostico.formatar_texto(itens)
         caminho = diagnostico.salvar_relatorio(texto)

@@ -41,6 +41,18 @@ def test_watchdog_reinicia_processamento_morto():
     assert any("processamento" in m for m in status_msgs)
 
 
+def test_watchdog_reinicia_gravador_leve_sem_mencionar_whisper():
+    t = _TranscritorFake(cap_viva=True, proc_viva=False)
+    t.processar_ao_vivo = False
+    status_msgs = []
+    w = Watchdog(t, on_status=status_msgs.append, intervalo=0.05)
+
+    w._verificar()
+
+    assert any("gravação em disco" in m.lower() for m in status_msgs)
+    assert all("whisper" not in m.lower() for m in status_msgs)
+
+
 def test_watchdog_erro_critico_apos_limite_reinicios(monkeypatch):
     monkeypatch.setattr("watchdog.LIMITE_REINICIOS", 2)
     t = _TranscritorFake(cap_viva=False, proc_viva=True)

@@ -36,7 +36,8 @@ def preservar_audios(criptografar: bool, *caminhos, pasta_audio: str | None = No
                 if os.path.isfile(destino):
                     os.remove(destino)
                 shutil.move(caminho, destino)
-            destino = criptografar_wav(destino)
+            if criptografar:
+                destino = criptografar_wav(destino)
             destinos.append(destino)
         except Exception:
             logger.exception("Falha ao preservar áudio %s", caminho)

@@ -162,6 +162,23 @@ def checar_modelo_whisper(modelo_nome):
         return [_item("Modelo Whisper", AVISO, f"não foi possível resolver: {e}")]
 
 
+def checar_metricas_captura(transcritor):
+    """Expõe perda/falha da captura sem incluir nenhum conteúdo de áudio."""
+    try:
+        metricas = transcritor.metricas_captura()
+    except Exception as e:  # noqa: BLE001
+        return [_item("Integridade da captura", ERRO, f"métricas indisponíveis: {e}")]
+    falhas = int(metricas.get("falhas_captura", 0)) + int(
+        metricas.get("falhas_gravacao", 0)
+    )
+    descartes = int(metricas.get("blocos_descartados", 0))
+    detalhe = (
+        f"frames={int(metricas.get('frames_gravados', 0))}; "
+        f"falhas={falhas}; descartes={descartes}"
+    )
+    return [_item("Integridade da captura", ERRO if falhas or descartes else OK, detalhe)]
+
+
 def checar_ambiente():
     itens = [
         _item("Versão", OK, VERSAO),
@@ -180,7 +197,13 @@ def checar_ambiente():
     return itens
 
 
-def coletar(detector=None, modelo_whisper="auto", capturar_mic=True, gravando=False):
+def coletar(
+    detector=None,
+    modelo_whisper="auto",
+    capturar_mic=True,
+    gravando=False,
+    transcritor=None,
+):
     """Roda todas as checagens e devolve a lista de itens."""
     itens = []
     itens.append(
@@ -197,6 +220,8 @@ def coletar(detector=None, modelo_whisper="auto", capturar_mic=True, gravando=Fa
     except Exception as e:  # noqa: BLE001
         itens.append(_item("Áudio", ERRO, f"autoteste falhou: {e}"))
     itens += checar_deteccao(detector)
+    if transcritor is not None:
+        itens += checar_metricas_captura(transcritor)
     itens += checar_modelo_whisper(modelo_whisper)
     return itens
 

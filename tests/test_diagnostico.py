@@ -82,6 +82,22 @@ def test_checar_audio_reporta_erro_quando_captura_falha():
     assert "boom" in itens[0]["detalhe"]
 
 
+def test_metricas_de_captura_com_descarte_viram_erro():
+    class CapturaFake:
+        def metricas_captura(self):
+            return {
+                "frames_gravados": 16000,
+                "falhas_captura": 0,
+                "falhas_gravacao": 0,
+                "blocos_descartados": 1,
+            }
+
+    itens = diagnostico.checar_metricas_captura(CapturaFake())
+
+    assert itens[0]["estado"] == diagnostico.ERRO
+    assert "1" in itens[0]["detalhe"]
+
+
 def test_relatorio_tem_resumo_e_caminho_do_log():
     itens = [
         {"nome": "A", "estado": diagnostico.OK, "detalhe": "tudo certo"},

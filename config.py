@@ -28,6 +28,7 @@ TIMEOUT_AVISO_GRAVACAO_SEG = 30  # diálogo "continuar gravando?" (FR-2.9)
 # ---- Áudio / Whisper ----
 SAMPLE_RATE = 16000
 CHUNK_SEGUNDOS = 25.0
+FLUSH_AUDIO_SEG = 5
 MODELO_WHISPER = "auto"  # FR-6.3: resolve pelo hardware em runtime
 MODELOS_WHISPER_MENU = ("auto", "tiny", "base", "small", "medium", "large-v3")
 # Uma placa "de 4 GB" reporta 3.9997 GiB (a GTX 1650 do usuário reporta

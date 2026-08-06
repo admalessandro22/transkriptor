@@ -67,14 +67,27 @@ class Watchdog:
 
         # Verifica thread de processamento
         if t._thread_proc is None or not t._thread_proc.is_alive():
+            modo_posterior = not getattr(t, "processar_ao_vivo", True)
+            rotulo = "gravação em disco" if modo_posterior else "processamento"
             self._reinicios["processar"] += 1
             if self._reinicios["processar"] <= LIMITE_REINICIOS:
-                logger.warning("Thread de processamento morta. Reiniciando (%d/%d)...",
-                               self._reinicios["processar"], LIMITE_REINICIOS)
-                self.on_status(f"Watchdog: reiniciando processamento ({self._reinicios['processar']}/{LIMITE_REINICIOS})")
+                logger.warning(
+                    "Thread de %s morta. Reiniciando (%d/%d)...",
+                    rotulo,
+                    self._reinicios["processar"],
+                    LIMITE_REINICIOS,
+                )
+                self.on_status(
+                    f"Watchdog: reiniciando {rotulo} "
+                    f"({self._reinicios['processar']}/{LIMITE_REINICIOS})"
+                )
                 t._reiniciar_processar()
             else:
-                self.on_erro_critico("Processamento falhou múltiplas vezes. Transcrição comprometida.")
+                self.on_erro_critico(
+                    "Gravação em disco falhou múltiplas vezes. Áudio pode estar incompleto."
+                    if modo_posterior
+                    else "Processamento falhou múltiplas vezes. Transcrição comprometida."
+                )
                 self._reinicios["processar"] = 0
         else:
             self._reinicios["processar"] = 0
