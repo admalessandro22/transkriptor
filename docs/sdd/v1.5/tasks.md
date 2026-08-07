@@ -19,6 +19,7 @@ Status inicial: ⬜ pendente. Cada tarefa termina com o teste listado e commit.
 | T-10.G1 | extrator genérico e seguro de intervalos | FR-10.G1 | recuperação | ✅ |
 | T-10.G2 | recuperar e retranscrever as duas reuniões | FR-10.G2/G3 | auditoria de artefatos | ✅ |
 | T-10.H1 | auditoria final de qualidade/coerência/segurança | NFR-10.H* | suíte + Windows + diff | ✅ |
+| T-10.H2 | tornar o consentimento Zoom visível e foreground | FR-10.B1 | aviso + teste Windows | ✅ |
 
 Nenhuma tarefa pode ser marcada ✅ apenas porque o código existe. O teste final
 da linha, o commit e a evidência correspondente precisam existir.
@@ -90,4 +91,11 @@ da linha, o commit e a evidência correspondente precisam existir.
   fora de Meet não produziram áudio/job. Auditoria detalhada em
   `auditoria-final-2026-08-06.md`. A sessão humana de dez minutos e a escuta
   palavra por palavra permanecem limitações declaradas.
+- **T-10.H2:** diagnóstico de 2026-08-07 confirmou que o Zoom foi detectado,
+  mas a `MessageBoxTimeoutW` modal desabilitava a janela dona e podia ficar
+  invisível atrás dela. A caixa foi substituída por uma janela Win32 própria,
+  `TOPMOST`/`TOOLWINDOW`, sem owner modal: botões Sim/Não, X como Não e timeout
+  fail-closed. Teste dirigido `18 passed`, suíte integral `379 passed`; ensaio
+  Windows manteve o Chrome habilitado antes/depois de clicar fora, encontrou a
+  janela visível/topmost e fechou sem HWND órfão.
 

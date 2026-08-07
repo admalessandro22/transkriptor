@@ -40,6 +40,24 @@ def test_dialogo_nao_usa_icone_de_pergunta_com_som():
     assert "ICONQUESTION" not in fonte
 
 
+def test_dialogo_eh_reapresentado_acima_da_janela_do_zoom():
+    """FR-10.B1: consentimento não pode ficar atrás da janela da reunião."""
+    fonte = Path(consentimento_gravacao.__file__).read_text(encoding="utf-8")
+    assert "_criar_janela_consentimento" in fonte
+    assert "_WS_EX_TOPMOST" in fonte
+    assert "CreateWindowExW" in fonte
+    assert "SetWindowPos" in fonte
+    assert "SetForegroundWindow" in fonte
+
+
+def test_dialogo_nao_modal_mantem_zoom_interativo():
+    """UX-10.B1: decidir não pode desabilitar a janela da reunião."""
+    fonte = Path(consentimento_gravacao.__file__).read_text(encoding="utf-8")
+    assert "MessageBoxTimeoutW" not in fonte
+    assert "DisableWindow" not in fonte
+    assert "_WS_EX_TOOLWINDOW" in fonte
+
+
 def test_deve_iniciar_gravacao_auto():
     """FR-2.10: recusa ativa bloqueia novo início automático."""
     assert deve_iniciar_gravacao_auto(False) is True

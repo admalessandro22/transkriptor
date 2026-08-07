@@ -63,3 +63,14 @@ temporal, integridade e preservação de conteúdo entre versões. A correção
 palavra por palavra e a identidade nominal dos falantes não podem ser provadas
 sem escuta humana. A lacuna estimada de 285 s da segunda reunião permanece
 explicitamente sinalizada no texto.
+
+## Follow-up Zoom — 2026-08-07
+
+O log registrou `Reunião confirmada por fonte forte: titulo, microfone` às
+10:02:33. A `MessageBoxTimeoutW` expirou aproximadamente 30 s depois, sem criar
+áudio ou job, mas o owner modal deixou janelas do Chrome desabilitadas quando a
+caixa foi fechada fora de foco. Após T-10.H2, a confirmação usa uma janela Win32
+própria `TOPMOST`/`TOOLWINDOW`, sem owner: o ensaio encontrou `visível=True`,
+`exstyle` com `WS_EX_TOPMOST`, Chrome habilitado enquanto a caixa estava aberta,
+inclusive depois de clicar fora, e nenhum HWND restante após “Não”. A captura
+continua bloqueada até “Sim” explícito.
