@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+import io
 import logging
 import math
 import os
@@ -24,16 +25,15 @@ def _ler_audio_pcm(caminho: str) -> tuple[np.ndarray, int]:
     path = Path(caminho)
     if not path.is_file():
         raise FileNotFoundError(caminho)
-    tmp_wav = None
+    wav_stream = None
     try:
         if path.name.lower().endswith(".wav.enc"):
             from crypto_storage import ler_bytes_arquivo
 
-            plano = ler_bytes_arquivo(str(path))
-            fd, tmp_wav = tempfile.mkstemp(suffix=".wav")
-            os.close(fd)
-            Path(tmp_wav).write_bytes(plano)
-            wav_path = tmp_wav
+            # O áudio em claro fica somente em memória e nunca em TEMP. Isso
+            # evita que uma queda do worker deixe uma cópia persistente.
+            wav_stream = io.BytesIO(ler_bytes_arquivo(str(path)))
+            wav_path = wav_stream
         else:
             wav_path = str(path)
         with wave.open(wav_path, "rb") as w:
@@ -49,11 +49,8 @@ def _ler_audio_pcm(caminho: str) -> tuple[np.ndarray, int]:
             data = data.reshape(-1, nch).mean(axis=1)
         return data, sr
     finally:
-        if tmp_wav and os.path.isfile(tmp_wav):
-            try:
-                os.remove(tmp_wav)
-            except OSError:
-                pass
+        if wav_stream is not None:
+            wav_stream.close()
 
 
 def listar_audios(pasta_audio: str | None = None) -> list[dict]:

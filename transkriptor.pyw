@@ -193,6 +193,10 @@ class AppTranskriptor(ProcessamentoReuniaoMixin, MenuBandejaMixin):
 
     def _iniciar_transcricao(self):
         with self._lock:
+            # Pausar enquanto a caixa de consentimento estava aberta não pode
+            # abrir captura depois que o usuário clicar em Sim.
+            if not getattr(self, "deteccao_ativa", True):
+                return
             # Um único portão impede duas capturas simultâneas no loopback.
             if getattr(self, "_iniciando", False) or (
                 self.transcritor and self.transcritor.rodando
@@ -226,11 +230,19 @@ class AppTranskriptor(ProcessamentoReuniaoMixin, MenuBandejaMixin):
             processar_ao_vivo=False,
         )
         try:
-            self.transcritor.start()
-            self.watchdog = Watchdog(
-                self.transcritor, on_status=self._status, on_erro_critico=self._erro_critico
-            )
-            self.watchdog.start()
+            # O teste e o start ficam sob o mesmo lock da ação Pausar. Assim a
+            # pausa não pode passar entre a validação e a abertura do áudio.
+            with self._lock:
+                if not getattr(self, "deteccao_ativa", True):
+                    self.transcritor = None
+                    return
+                self.transcritor.start()
+                self.watchdog = Watchdog(
+                    self.transcritor,
+                    on_status=self._status,
+                    on_erro_critico=self._erro_critico,
+                )
+                self.watchdog.start()
             self._status("Transcricao em andamento.")
             notificar("Transkriptor", "Transcrição iniciada (reunião detectada)")
             self._atualizar_tooltip()
@@ -316,6 +328,9 @@ class AppTranskriptor(ProcessamentoReuniaoMixin, MenuBandejaMixin):
                     self._status("Esta reunião não será gravada.")
                 return
             if not reuniao_ainda_ativa:
+                return
+            if not getattr(self, "deteccao_ativa", True):
+                self._status("Detecção pausada; reunião não será gravada.")
                 return
             self._iniciar_transcricao()
         finally:

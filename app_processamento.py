@@ -100,7 +100,8 @@ class ProcessamentoReuniaoMixin:
                 "Não foi possível transcrever. O áudio foi preservado.",
                 visivel=True,
             )
-        if pronto:
+        deve_continuar = pronto or (job is not None and job.estado != "pending")
+        if deve_continuar:
             self._despachar_proximo_job()
 
     def _separar_audios(self, caminhos):

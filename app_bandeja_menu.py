@@ -114,8 +114,10 @@ class MenuBandejaMixin:
             confirmar = getattr(self, "_confirmar_pausa", None) or self._confirmar_pausa_padrao
             if not confirmar():
                 return
-        self.deteccao_ativa = not self.deteccao_ativa
-        if not self.deteccao_ativa:
+        with self._lock:
+            self.deteccao_ativa = not self.deteccao_ativa
+            pausada = not self.deteccao_ativa
+        if pausada:
             self._parar_transcricao()
             self._toast_pausa_reuniao = None
             self._status("Gravação automática pausada.")

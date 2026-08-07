@@ -259,7 +259,24 @@ def caminho_transcricao_novo(pasta: str, diarizado: bool = False, criptografar: 
         ext = extensao_transcricao()
     else:
         ext = ".tkpt" if criptografar and chave_disponivel() else ".txt"
-    return os.path.join(pasta, base + ext)
+    # O relógio tem precisão de minuto por compatibilidade visual. Nunca
+    # reutilizar, porém, o mesmo conjunto de TXT/WAV de uma reunião anterior.
+    indice = 1
+    while True:
+        sufixo = "" if indice == 1 else f"_{indice:02d}"
+        candidato = os.path.join(pasta, base + sufixo + ext)
+        relacionados = (
+            candidato,
+            os.path.join(pasta, base + sufixo + ".txt"),
+            os.path.join(pasta, base + sufixo + ".tkpt"),
+            os.path.join(pasta, base + sufixo + "_audio.wav"),
+            os.path.join(pasta, base + sufixo + "_audio.wav.enc"),
+            os.path.join(pasta, base + sufixo + "_mic.wav"),
+            os.path.join(pasta, base + sufixo + "_mic.wav.enc"),
+        )
+        if not any(os.path.exists(caminho) for caminho in relacionados):
+            return candidato
+        indice += 1
 
 
 def _backup_txt_na_migracao() -> bool:
@@ -375,6 +392,14 @@ def criptografar_wav(caminho: str) -> str:
         return caminho
     path = Path(caminho)
     destino = str(path) + ".enc"
+    if os.path.exists(destino):
+        indice = 2
+        while True:
+            alternativo = path.with_name(f"{path.stem}_{indice:02d}.wav.enc")
+            if not alternativo.exists():
+                destino = str(alternativo)
+                break
+            indice += 1
     try:
         plano = path.read_bytes()
         salvar_bytes_arquivo(destino, plano)

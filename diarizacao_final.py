@@ -8,6 +8,7 @@ import logging
 import math
 import os
 import shutil
+from pathlib import Path
 
 from audio_utils import ler_trecho_wav
 import config as _config
@@ -19,6 +20,19 @@ from config import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _destino_sem_colisao(pasta: str, nome: str) -> str:
+    """Escolhe destino livre sem apagar áudio de outra reunião."""
+    caminho = Path(pasta) / nome
+    if not caminho.exists():
+        return str(caminho)
+    indice = 2
+    while True:
+        candidato = caminho.with_name(f"{caminho.stem}_{indice:02d}{caminho.suffix}")
+        if not candidato.exists():
+            return str(candidato)
+        indice += 1
 
 
 def formatar_intervalo_diarizacao(start: float, end: float) -> str:
@@ -41,10 +55,8 @@ def preservar_audios(criptografar: bool, *caminhos, pasta_audio: str | None = No
         if not caminho or not os.path.isfile(caminho):
             continue
         try:
-            destino = os.path.join(pasta, os.path.basename(caminho))
+            destino = _destino_sem_colisao(pasta, os.path.basename(caminho))
             if os.path.abspath(caminho) != os.path.abspath(destino):
-                if os.path.isfile(destino):
-                    os.remove(destino)
                 shutil.move(caminho, destino)
             if criptografar:
                 destino = criptografar_wav(destino)

@@ -18,7 +18,7 @@ Status inicial: ⬜ pendente. Cada tarefa termina com o teste listado e commit.
 | T-10.F2 | versão, manual e gates de recursos | NFR-10.C*, H1 | versão/manual/recursos | ✅ |
 | T-10.G1 | extrator genérico e seguro de intervalos | FR-10.G1 | recuperação | ✅ |
 | T-10.G2 | recuperar e retranscrever as duas reuniões | FR-10.G2/G3 | auditoria de artefatos | ✅ |
-| T-10.H1 | auditoria final de qualidade/coerência/segurança | NFR-10.H* | suíte + Windows + diff | ⬜ |
+| T-10.H1 | auditoria final de qualidade/coerência/segurança | NFR-10.H* | suíte + Windows + diff | ✅ |
 
 Nenhuma tarefa pode ser marcada ✅ apenas porque o código existe. O teste final
 da linha, o commit e a evidência correspondente precisam existir.
@@ -67,7 +67,9 @@ da linha, o commit e a evidência correspondente precisam existir.
   integral com `359 passed`. O manual v1.5 foi extraído e renderizado em 7
   páginas sem páginas vazias ou defeitos visuais. O coletor Win32 de working set,
   CPU de um núcleo e classes pystray foi exercitado em processo controlado; o
-  gate real de 10 minutos permanece no fechamento Windows de T-10.H1.
+  gate real de 10 minutos foi repetido no fechamento Windows de T-10.H1 em
+  processo isolado, sem reunião: uma instância/ícone, crescimento de 0,145 MB
+  e CPU média de 0,044%.
 - **T-10.G1:** RED por ferramenta inexistente; GREEN com `10 passed` para
   duração/frames, limites finitos, WAV inválido, colisão, streaming limitado e
   SHA-256 imutável da origem. A publicação usa hard link exclusivo do temporário
@@ -80,4 +82,12 @@ da linha, o commit e a evidência correspondente precisam existir.
   JSON/log. Só depois disso os 979.463.830 bytes combinados/indevidos e o `.tkpt`
   ilegível foram movidos para a Lixeira. Evidência detalhada em
   `recuperacao-2026-08-06.md`.
+- **T-10.H1:** correções finais para pausa concorrente, leitura criptografada
+  sem WAV plaintext no TEMP, colisões de nomes/retenção e avanço da fila após
+  falha. Teste dirigido `41 passed`; suíte completa `377 passed`; verificador
+  de fases `all` exit 0; `compileall` exit 0; processo Windows controlado por
+  600 s com um ícone, 0,145 MB de crescimento e CPU média de 0,044%; bipes
+  fora de Meet não produziram áudio/job. Auditoria detalhada em
+  `auditoria-final-2026-08-06.md`. A sessão humana de dez minutos e a escuta
+  palavra por palavra permanecem limitações declaradas.
 
