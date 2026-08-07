@@ -1,16 +1,17 @@
 # -*- coding: utf-8 -*-
 """Reconhecimento de reunião pelo título da janela, com debounce.
 
-O Google Meet mudou o formato do título da aba: hoje ele é
-`Meet – abc-defg-hij` (travessão), e não mais `<sala> - Google Meet`.
-Este módulo aceita **os dois** formatos, além do link `meet.google.com/<codigo>`
-e das reuniões do Zoom, para que nenhuma reunião real passe despercebida.
+O Google Meet mudou o formato do título da aba: hoje ele pode ser
+`Meet: <nome da reunião>` ou `Meet – abc-defg-hij`, e não mais apenas
+`<sala> - Google Meet`. Este módulo aceita os formatos atuais e legado, além
+do link `meet.google.com/<codigo>` e das reuniões do Zoom, para que nenhuma
+reunião real passe despercebida.
 
 Duas classes de casamento (FR-9.2):
 
 * **forte** — código de reunião presente (`abc-defg-hij`) ou título que começa
-  com `Meet –`. Não passa pela lista de exclusão: uma sala pode se chamar
-  "Ajuda ao cliente" e nem por isso deixa de ser uma reunião.
+  com `Meet:`, `Meet –` ou `Meet -`. Não passa pela lista de exclusão: uma sala
+  pode se chamar "Ajuda ao cliente" e nem por isso deixa de ser uma reunião.
 * **nomeado** — formato legado `<sala> - Google Meet`. Passa pela exclusão para
   descartar resultados de busca, tutoriais e páginas de ajuda.
 """
@@ -31,6 +32,8 @@ _PADRAO_FORTE = re.compile(
     rf"(?:(?:^|[|\-–—]\s)Meet\s*[-–—]\s*{_CODIGO}\b)"
     # título começa com "Meet – <qualquer coisa>" (sala com nome do Calendar)
     rf"|(?:^Meet\s*[-–—]\s+\S)"
+    # Chrome atual: "Meet: <nome da reunião>" ou "Meet: <código>".
+    rf"|(?:^Meet\s*:\s*\S)"
     # link colado no título / barra de endereços
     rf"|(?:meet\.google\.com/{_CODIGO})"
     # formato legado com código: "abc-defg-hij - Google Meet"

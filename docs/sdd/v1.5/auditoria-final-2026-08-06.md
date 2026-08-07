@@ -74,3 +74,12 @@ própria `TOPMOST`/`TOOLWINDOW`, sem owner: o ensaio encontrou `visível=True`,
 `exstyle` com `WS_EX_TOPMOST`, Chrome habilitado enquanto a caixa estava aberta,
 inclusive depois de clicar fora, e nenhum HWND restante após “Não”. A captura
 continua bloqueada até “Sim” explícito.
+
+## Follow-up Meet — 2026-08-07
+
+O histórico local do Chrome registrou às 14:10 (horário de Brasília) o título
+`Meet: Reunião bolsistas PROINOVE - Projeto Sistema de Incubadoras`. O detector
+aceitava `Meet –`, `Meet -` e `<sala> - Google Meet`, mas não o separador `:`;
+como a extensão opcional não está instalada nesse perfil, nenhuma fonte forte
+chegou ao monitor e a confirmação não foi aberta. O padrão `Meet: <texto>` foi
+adicionado com teste de regressão.

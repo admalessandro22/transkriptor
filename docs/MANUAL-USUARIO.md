@@ -118,7 +118,7 @@ mantê-la indefinidamente:
 
 | Sinal | O que observa | Cobre |
 |-------|---------------|-------|
-| **Título da janela** | `Meet – abc-defg-hij`, `<sala> - Google Meet`, `Zoom Meeting` | O caso comum |
+| **Título da janela** | `Meet: <nome>`, `Meet – abc-defg-hij`, `<sala> - Google Meet`, `Zoom Meeting` | O caso comum |
 | **Microfone em uso** | Indicador auxiliar do Windows | Diagnóstico; nunca inicia nem mantém a gravação sozinho |
 | **Extensão do Meet** | A própria página da reunião (opcional — seção 6) | Certeza total |
 

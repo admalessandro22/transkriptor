@@ -38,6 +38,12 @@ def test_titulos_de_reuniao_sao_detectados(titulo):
     assert titulo_eh_meet(titulo) is True
 
 
+def test_titulo_atual_do_meet_com_dois_pontos_e_detectado():
+    """FR-10.A3: o Chrome atual usa `Meet: <nome da reunião>`."""
+    titulo = "Meet: Reunião bolsistas PROINOVE - Projeto Sistema de Incubadoras"
+    assert classificar_titulo(titulo) == "forte"
+
+
 @pytest.mark.parametrize(
     "titulo",
     [

@@ -20,6 +20,7 @@ Status inicial: ⬜ pendente. Cada tarefa termina com o teste listado e commit.
 | T-10.G2 | recuperar e retranscrever as duas reuniões | FR-10.G2/G3 | auditoria de artefatos | ✅ |
 | T-10.H1 | auditoria final de qualidade/coerência/segurança | NFR-10.H* | suíte + Windows + diff | ✅ |
 | T-10.H2 | tornar o consentimento Zoom visível e foreground | FR-10.B1 | aviso + teste Windows | ✅ |
+| T-10.H3 | reconhecer título atual `Meet: ...` do Chrome | FR-10.A3 | detecção multi-fonte | ✅ |
 
 Nenhuma tarefa pode ser marcada ✅ apenas porque o código existe. O teste final
 da linha, o commit e a evidência correspondente precisam existir.
@@ -98,4 +99,9 @@ da linha, o commit e a evidência correspondente precisam existir.
   fail-closed. Teste dirigido `18 passed`, suíte integral `379 passed`; ensaio
   Windows manteve o Chrome habilitado antes/depois de clicar fora, encontrou a
   janela visível/topmost e fechou sem HWND órfão.
+- **T-10.H3:** o histórico do Chrome registrou a reunião de 2026-08-07 como
+  `Meet: Reunião bolsistas PROINOVE - Projeto Sistema de Incubadoras`, formato
+  que o regex não reconhecia; a extensão opcional também não estava instalada
+  no perfil usado. O padrão forte agora aceita `Meet: <texto>` e o teste RED/GREEN
+  cobre o título exato.
 
