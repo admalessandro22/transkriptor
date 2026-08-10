@@ -2,6 +2,7 @@
 """Testes de resolução automática do modelo Whisper (FR-6.3, FR-6.4)."""
 from unittest.mock import MagicMock, patch
 
+import app_ciclo_reuniao
 from config import MODELO_WHISPER, resolver_modelo_whisper
 
 
@@ -156,11 +157,15 @@ def test_iniciar_transcricao_usa_modelo_da_config(monkeypatch, modulo_transkript
     class _FakeTranscritor:
         def __init__(self, **kwargs):
             capturados.update(kwargs)
+            self.on_status = kwargs["on_status"]
             self.rodando = False
             self.diarizando = False
 
         def start(self):
+            # O Transcritor real reporta status de dentro do start; o dublê
+            # precisa fazer o mesmo ou não exercita o caminho que travou o app.
             self.rodando = True
+            self.on_status("Gravação da reunião em andamento.")
 
     monkeypatch.setitem(
         __import__("sys").modules,
@@ -188,13 +193,9 @@ def test_iniciar_transcricao_usa_modelo_da_config(monkeypatch, modulo_transkript
     app._status = MagicMock()
     app._atualizar_tooltip = MagicMock()
     app._erro_critico = MagicMock()
-    monkeypatch.setattr(modulo_transkriptor, "notificar", lambda *a, **k: None)
-    monkeypatch.setattr(modulo_transkriptor, "Watchdog", MagicMock())
-    monkeypatch.setattr(
-        modulo_transkriptor,
-        "perfil_existe",
-        lambda *a, **k: False,
-    )
+    monkeypatch.setattr(app_ciclo_reuniao, "notificar", lambda *a, **k: None)
+    monkeypatch.setattr(app_ciclo_reuniao, "Watchdog", MagicMock())
+    monkeypatch.setattr(app_ciclo_reuniao, "perfil_existe", lambda *a, **k: False)
 
     # _iniciar_transcricao faz `from transcricao_core import Transcritor`
     app._iniciar_transcricao()

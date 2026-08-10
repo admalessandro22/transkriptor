@@ -246,20 +246,22 @@ class MenuBandejaMixin:
         logging.info("Transkriptor encerrado.")
 
     def _texto_status(self, _item=None):
-        with self._lock:
-            if self.transcritor and getattr(self.transcritor, "diarizando", False):
-                return "Separando vozes (pós-processamento)..."
-            if self.transcritor and self.transcritor.rodando:
-                fontes = ", ".join(
-                    getattr(getattr(self, "detector", None), "fontes_da_reuniao", None) or []
-                )
-                return f"Gravando reunião ({fontes})..." if fontes else "Gravando reunião..."
-            estado = getattr(self, "_estado_processamento", None)
-            if estado:
-                return f"Pós-processamento: {estado}"
-            if not self.deteccao_ativa:
-                return "PAUSADO — não está gravando"
-        # Fora do lock: consultar as fontes pode levar alguns milissegundos.
+        # Sem lock: o pystray monta o menu a partir daqui e só lê atributos.
+        # Esperar por `self._lock` no desenho do menu transformaria qualquer
+        # operação lenta em bandeja congelada.
+        transcritor = self.transcritor
+        if transcritor and getattr(transcritor, "diarizando", False):
+            return "Separando vozes (pós-processamento)..."
+        if transcritor and transcritor.rodando:
+            fontes = ", ".join(
+                getattr(getattr(self, "detector", None), "fontes_da_reuniao", None) or []
+            )
+            return f"Gravando reunião ({fontes})..." if fontes else "Gravando reunião..."
+        estado = getattr(self, "_estado_processamento", None)
+        if estado:
+            return f"Pós-processamento: {estado}"
+        if not self.deteccao_ativa:
+            return "PAUSADO — não está gravando"
         return f"Aguardando reunião — {self._resumo_fontes()}"
 
     def _resumo_fontes(self):

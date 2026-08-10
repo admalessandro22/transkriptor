@@ -15,13 +15,13 @@ from logging.handlers import RotatingFileHandler
 import pystray
 
 from app_bandeja_menu import MenuBandejaMixin
+from app_ciclo_reuniao import CicloReuniaoMixin
 from app_processamento import ProcessamentoReuniaoMixin
 from app_bootstrap import (
     atualizar_config_user as _atualizar_config_user,
     carregar_config_user as _carregar_config_user,
     resolver_identificar_minha_voz as _resolver_identificar_minha_voz,
 )
-from consentimento_gravacao import pedir_consentimento
 from bandeja_icone import criar_ico, criar_imagem, imagem_por_estado
 from crypto_storage import (
     chave_disponivel,
@@ -52,7 +52,7 @@ from config import (
     VERSAO,
 )
 from monitor_reuniao import autoteste_audio, construir_detector, texto_heartbeat
-from estado_icone import DURACAO_ERRO_ICONE, resolver_estado_icone
+from estado_icone import resolver_estado_icone
 from fila_processamento import fila_padrao
 from meet_bridge import MeetBridge, iniciar_bridge_em_thread, sincronizar_token_extensao
 from notificador import (
@@ -66,13 +66,8 @@ from startup_windows import (
     startup_ativo as _startup_ativo,
 )
 from status_seguro import sanitizar_para_log
-from transkriptor_acoes import (
-    deve_iniciar_gravacao_auto,
-    deve_parar_transcricao_por_meet,
-    deve_toast_meet_em_pausa,
-)
+from transkriptor_acoes import deve_toast_meet_em_pausa
 from transkriptor_lock import adquirir_lock, liberar_lock
-from watchdog import Watchdog
 
 os.makedirs(PASTA_TRANSCRICOES, exist_ok=True)
 LOCK_FILE = os.path.join(BASE_DIR, "transkriptor.lock")
@@ -85,7 +80,7 @@ logging.root.setLevel(logging.INFO)
 logging.root.addHandler(_log_handler)
 
 
-class AppTranskriptor(ProcessamentoReuniaoMixin, MenuBandejaMixin):
+class AppTranskriptor(CicloReuniaoMixin, ProcessamentoReuniaoMixin, MenuBandejaMixin):
     def __init__(self):
         self.icone = None
         self.transcritor = None
@@ -143,7 +138,10 @@ class AppTranskriptor(ProcessamentoReuniaoMixin, MenuBandejaMixin):
         self._inicio_transcricao_wall_ms = None
         self.ultimo_status = "Aguardando Google Meet..."
         self.ultimo_log = ""
-        self._lock = threading.Lock()
+        # Reentrante como cinto de segurança: a regra continua sendo não chamar
+        # callback nenhum sob o lock, mas um descuido futuro vira lentidão, e
+        # não um app congelado sem uma linha no log.
+        self._lock = threading.RLock()
         self._em_erro = False
         self._instante_erro = None
         self._iniciando = False
@@ -156,8 +154,12 @@ class AppTranskriptor(ProcessamentoReuniaoMixin, MenuBandejaMixin):
         return bool(self.transcritor and self.transcritor.rodando)
 
     def _status(self, msg):
-        with self._lock:
-            self.ultimo_log = msg
+        # Sem `self._lock` de propósito: atribuir um atributo já é atômico e
+        # `_status` é chamado pelas threads de áudio e do monitor. Pedir o lock
+        # aqui travou o app inteiro por três dias em 2026-08-07, quando quem
+        # iniciava a gravação segurava o mesmo lock (ver
+        # tests/test_ciclo_reuniao_sem_deadlock.py).
+        self.ultimo_log = msg
         logging.info(sanitizar_para_log(msg))
         self._atualizar_tooltip()
 
@@ -180,162 +182,6 @@ class AppTranskriptor(ProcessamentoReuniaoMixin, MenuBandejaMixin):
         except Exception:
             pass
         self.icone.update_menu()
-
-    def _eventos_meet_relativos(self):
-        if self._inicio_transcricao_wall_ms is None:
-            return []
-        inicio = self._inicio_transcricao_wall_ms
-        relativos = []
-        for ev in self.meet_bridge.drenar_eventos():
-            ts_ms = ev.get("ts_ms", int(ev.get("ts_sec", 0) * 1000))
-            relativos.append({**ev, "ts_sec": (ts_ms - inicio) / 1000.0})
-        return relativos
-
-    def _iniciar_transcricao(self):
-        with self._lock:
-            # Pausar enquanto a caixa de consentimento estava aberta não pode
-            # abrir captura depois que o usuário clicar em Sim.
-            if not getattr(self, "deteccao_ativa", True):
-                return
-            # Um único portão impede duas capturas simultâneas no loopback.
-            if getattr(self, "_iniciando", False) or (
-                self.transcritor and self.transcritor.rodando
-            ):
-                return
-            self._iniciando = True
-        try:
-            self._iniciar_transcricao_interno()
-        finally:
-            with self._lock:
-                self._iniciando = False
-
-    def _iniciar_transcricao_interno(self):
-        from transcricao_core import Transcritor
-
-        self._inicio_transcricao_wall_ms = int(time.time() * 1000)
-        detector = getattr(self, "detector", None)
-        fontes = ", ".join(getattr(detector, "fontes_da_reuniao", None) or []) or "?"
-        self._status(f"Reunião detectada ({fontes}). Iniciando gravação...")
-        self.transcritor = Transcritor(
-            modelo=getattr(self, "modelo_whisper", MODELO_WHISPER),
-            idioma=IDIOMA,
-            pasta_saida=PASTA_TRANSCRICOES,
-            diarizar_ao_final=self.diarizacao_ativa,
-            on_status=self._status,
-            capturar_mic=self.capturar_mic,
-            identificar_voz=self.identificar_minha_voz
-            and perfil_existe(ARQUIVO_PERFIL_VOZ, ARQUIVO_PERFIL_VOZ_ENC),
-            rotulo_usuario=self.rotulo_usuario,
-            criptografar=self.criptografar_transcricoes,
-            processar_ao_vivo=False,
-        )
-        try:
-            # O teste e o start ficam sob o mesmo lock da ação Pausar. Assim a
-            # pausa não pode passar entre a validação e a abertura do áudio.
-            with self._lock:
-                if not getattr(self, "deteccao_ativa", True):
-                    self.transcritor = None
-                    return
-                self.transcritor.start()
-                self.watchdog = Watchdog(
-                    self.transcritor,
-                    on_status=self._status,
-                    on_erro_critico=self._erro_critico,
-                )
-                self.watchdog.start()
-            self._status("Transcricao em andamento.")
-            notificar("Transkriptor", "Transcrição iniciada (reunião detectada)")
-            self._atualizar_tooltip()
-        except Exception as e:
-            self._status(f"Erro ao iniciar: {e}")
-            notificar("Transkriptor", f"Erro ao iniciar transcrição: {e}")
-
-    def _erro_critico(self, msg):
-        self._em_erro = True
-        self._instante_erro = time.monotonic()
-        logging.error(f"Erro critico: {msg}")
-        self._status(f"ERRO CRITICO: {msg}")
-        notificar("Transkriptor", f"Erro crítico: {msg}. Veja o log.")
-        self._atualizar_tooltip()
-
-        def _reverter_erro():
-            time.sleep(DURACAO_ERRO_ICONE)
-            self._em_erro = False
-            self._instante_erro = None
-            self._atualizar_tooltip()
-
-        threading.Thread(target=_reverter_erro, daemon=True).start()
-
-    def _parar_transcricao(self):
-        with self._lock:
-            t, w = self.transcritor, self.watchdog
-        if w:
-            w.stop()
-            self.watchdog = None
-        if t and t.rodando:
-            if self.usar_nomes_meet:
-                t.eventos_meet = self._eventos_meet_relativos()
-                if self.modo_legendas_meet and not t.eventos_meet:
-                    notificar(
-                        "Transkriptor",
-                        "Ative legendas no Meet para identificar participantes",
-                    )
-            caminho = t.stop()
-            with self._lock:
-                if self.transcritor is t:
-                    self.transcritor = None
-            if caminho:
-                self._enfileirar_reuniao(t, caminho)
-            self._atualizar_tooltip()
-
-    def _em_thread(self, alvo, nome):
-        """Executa fora da thread do monitor.
-
-        Carregar o Whisper e finalizar a diarização levam dezenas de segundos.
-        Rodando no monitor, a detecção ficava cega justamente durante o início e
-        o fim da reunião.
-        """
-        threading.Thread(target=alvo, daemon=True, name=nome).start()
-
-    def _processar_mudanca_meet(self, mudanca):
-        if mudanca == "iniciou":
-            if deve_iniciar_gravacao_auto(self._recusa_reuniao_ativa):
-                with self._lock:
-                    if self._consentimento_em_andamento:
-                        return
-                    self._consentimento_em_andamento = True
-                self._em_thread(self._pedir_e_iniciar, "Transkriptor-Consentimento")
-            return
-        if mudanca == "encerrou":
-            # FR-2.10: recusa vale só para a reunião que acabou
-            self._recusa_reuniao_ativa = False
-        if deve_parar_transcricao_por_meet(mudanca):
-            self._status("Reunião encerrada. Finalizando transcricao...")
-            self._em_thread(self._parar_transcricao, "Transkriptor-Fim")
-
-    def _pedir_e_iniciar(self):
-        """Solicita consentimento antes de abrir dispositivo ou arquivo de áudio."""
-        try:
-            perguntar = getattr(self, "_pedir_consentimento", None) or pedir_consentimento
-            autorizado = bool(perguntar())
-            detector = getattr(self, "detector", None)
-            reuniao_ainda_ativa = bool(
-                detector is not None and getattr(detector, "reuniao_ativa", False)
-            )
-            if not autorizado:
-                if reuniao_ainda_ativa:
-                    self._recusa_reuniao_ativa = True
-                    self._status("Esta reunião não será gravada.")
-                return
-            if not reuniao_ainda_ativa:
-                return
-            if not getattr(self, "deteccao_ativa", True):
-                self._status("Detecção pausada; reunião não será gravada.")
-                return
-            self._iniciar_transcricao()
-        finally:
-            with self._lock:
-                self._consentimento_em_andamento = False
 
     def _detectar_mudanca_meet(self):
         return self.detector.verificar()

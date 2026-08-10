@@ -133,6 +133,7 @@ def _isolar_estado_local(monkeypatch, tmp_path):
             (
                 "assistente",
                 "app_bandeja_menu",
+                "app_ciclo_reuniao",
                 "crypto_storage",
                 "diagnostico",
                 "retranscritor",

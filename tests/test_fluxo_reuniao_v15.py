@@ -11,6 +11,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
+import app_ciclo_reuniao
+
 from fila_processamento import FilaProcessamento
 
 
@@ -45,10 +47,10 @@ def app_v15(tmp_path, monkeypatch, modulo_transkriptor):
     modulo_falso = types.ModuleType("transcricao_core")
     modulo_falso.Transcritor = TranscritorFalso
     monkeypatch.setitem(sys.modules, "transcricao_core", modulo_falso)
-    monkeypatch.setattr(modulo_transkriptor, "PASTA_TRANSCRICOES", str(pasta))
-    monkeypatch.setattr(modulo_transkriptor, "notificar", lambda *a, **k: None)
+    monkeypatch.setattr(app_ciclo_reuniao, "PASTA_TRANSCRICOES", str(pasta))
+    monkeypatch.setattr(app_ciclo_reuniao, "notificar", lambda *a, **k: None)
     watchdog = MagicMock()
-    monkeypatch.setattr(modulo_transkriptor, "Watchdog", lambda *a, **k: watchdog)
+    monkeypatch.setattr(app_ciclo_reuniao, "Watchdog", lambda *a, **k: watchdog)
 
     app = modulo_transkriptor.AppTranskriptor.__new__(
         modulo_transkriptor.AppTranskriptor
