@@ -100,6 +100,42 @@ class FonteMicrofone:
         return Sinal(self.nome, False, detalhe="nenhum app de conferência com microfone")
 
 
+class FonteZoom:
+    """Chamada do Zoom por classe de janela ou microfone corroborado (FR-10.A3).
+
+    O título do Zoom muda com o idioma e com a versão; `FonteTitulo` sozinha
+    deixava reuniões inteiras passarem. Ver `detector_zoom`.
+    """
+
+    nome = "zoom"
+
+    def __init__(self, listar_janelas=None, consultar_microfone=None):
+        if listar_janelas is None:
+            from detector_zoom import listar_janelas_com_classe
+
+            listar_janelas = listar_janelas_com_classe
+        if consultar_microfone is None:
+            from monitor_microfone import microfone_em_uso_por_conferencia
+
+            consultar_microfone = microfone_em_uso_por_conferencia
+        self._listar_janelas = listar_janelas
+        self._consultar_microfone = consultar_microfone
+
+    def ler(self):
+        from detector_zoom import zoom_em_reuniao
+
+        try:
+            janelas = list(self._listar_janelas() or [])
+            microfones = list(self._consultar_microfone() or [])
+        except Exception:  # noqa: BLE001
+            logger.debug("Falha ao inspecionar janelas do Zoom", exc_info=True)
+            return Sinal(self.nome, False, detalhe="consulta indisponível")
+        ativo, motivo = zoom_em_reuniao(janelas, microfones)
+        if ativo:
+            return Sinal(self.nome, True, forte=True, detalhe=motivo)
+        return Sinal(self.nome, False, detalhe="nenhuma chamada do Zoom")
+
+
 class FontePonte:
     """Estado informado pela extensão do Meet — a fonte mais confiável."""
 

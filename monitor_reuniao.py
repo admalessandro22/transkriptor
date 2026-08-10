@@ -11,8 +11,14 @@ import logging
 
 import pygetwindow as gw
 
-from config import DETECTAR_POR_MICROFONE, EXIGIR_JANELA_VISIVEL
-from deteccao_reuniao import DetectorReuniao, FonteMicrofone, FontePonte, FonteTitulo
+from config import DETECTAR_POR_MICROFONE, DETECTAR_ZOOM, EXIGIR_JANELA_VISIVEL
+from deteccao_reuniao import (
+    DetectorReuniao,
+    FonteMicrofone,
+    FontePonte,
+    FonteTitulo,
+    FonteZoom,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +41,15 @@ def listar_janelas(exigir_visivel=EXIGIR_JANELA_VISIVEL):
     return janelas
 
 
-def construir_detector(bridge, usar_microfone=DETECTAR_POR_MICROFONE):
+def construir_detector(
+    bridge, usar_microfone=DETECTAR_POR_MICROFONE, usar_zoom=DETECTAR_ZOOM
+):
     """Monta o detector com as fontes disponíveis, na ordem de diagnóstico."""
     fontes = [FonteTitulo(listar_janelas, EXIGIR_JANELA_VISIVEL)]
+    if usar_zoom:
+        # O título do Zoom muda com o idioma; esta fonte olha a classe da
+        # janela e o microfone do zoom.exe (FR-10.A3).
+        fontes.append(FonteZoom())
     if usar_microfone:
         fontes.append(FonteMicrofone())
     fontes.append(FontePonte(bridge))

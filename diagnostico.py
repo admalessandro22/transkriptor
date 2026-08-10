@@ -179,6 +179,46 @@ def checar_metricas_captura(transcritor):
     return [_item("Integridade da captura", ERRO if falhas or descartes else OK, detalhe)]
 
 
+def checar_zoom(janelas=None):
+    """Mostra as janelas do Zoom com a classe — como validar FR-10.A3 na prática.
+
+    As classes em `detector_zoom.CLASSES_REUNIAO_ZOOM` valem para as versões
+    conhecidas do Zoom. Se uma versão nova mudar o nome, é aqui que aparece:
+    basta abrir o Diagnóstico durante uma chamada e comparar.
+    """
+    try:
+        from detector_zoom import CLASSES_REUNIAO_ZOOM, janelas_do_zoom
+
+        janelas = list(janelas_do_zoom() if janelas is None else janelas)
+    except Exception as e:  # noqa: BLE001
+        return [_item("Zoom", AVISO, f"não foi possível inspecionar: {e}")]
+    if not janelas:
+        return [_item("Zoom", OK, "nenhuma janela do Zoom aberta")]
+    itens = []
+    em_chamada = False
+    for janela in janelas:
+        chamada = janela.classe in CLASSES_REUNIAO_ZOOM
+        em_chamada = em_chamada or chamada
+        itens.append(
+            _item(
+                "Janela do Zoom",
+                OK if chamada else AVISO,
+                f"{janela.titulo or '(sem título)'} — classe {janela.classe or '?'}"
+                + (" (chamada)" if chamada else " (ociosa)"),
+            )
+        )
+    if not em_chamada:
+        itens.append(
+            _item(
+                "Zoom em chamada",
+                AVISO,
+                "nenhuma janela com classe de chamada. Se você ESTÁ em uma "
+                "reunião agora, anote as classes acima: o Zoom mudou de nome.",
+            )
+        )
+    return itens
+
+
 def checar_ambiente():
     itens = [
         _item("Versão", OK, VERSAO),
@@ -220,6 +260,7 @@ def coletar(
     except Exception as e:  # noqa: BLE001
         itens.append(_item("Áudio", ERRO, f"autoteste falhou: {e}"))
     itens += checar_deteccao(detector)
+    itens += checar_zoom()
     if transcritor is not None:
         itens += checar_metricas_captura(transcritor)
     itens += checar_modelo_whisper(modelo_whisper)

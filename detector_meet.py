@@ -26,12 +26,24 @@ logger = logging.getLogger(__name__)
 # Código de sala do Meet: 3 letras - 4 letras - 3 letras (ex.: abc-defg-hij).
 _CODIGO = r"[a-z]{3,4}-[a-z]{3,4}-[a-z]{3,4}"
 
+# Sufixo que o navegador acrescenta ao título da janela. Fora de uma chamada, a
+# aba do Meet se chama só "Meet", então a janela vira "Meet - Google Chrome" —
+# que não é reunião nenhuma. Numa chamada, entre "Meet – " e o navegador existe
+# o nome (ou o código) da sala.
+_NAVEGADOR = (
+    r"Google\s+Chrome|Chromium|Microsoft\s+Edge|Mozilla\s+Firefox|Firefox|"
+    r"Brave|Opera|Vivaldi|Safari"
+)
+# Aceita um segmento extra depois do navegador (perfil, contador de janelas).
+_SO_O_NAVEGADOR = rf"(?:{_NAVEGADOR})\b(?:\s*[-–—]\s*[^-–—]+)?\s*$"
+
 # Casamento forte: não sofre exclusão por palavra-chave.
 _PADRAO_FORTE = re.compile(
     # "Meet – abc-defg-hij", "Meet - abc-defg-hij" (título atual do Meet)
     rf"(?:(?:^|[|\-–—]\s)Meet\s*[-–—]\s*{_CODIGO}\b)"
-    # título começa com "Meet – <qualquer coisa>" (sala com nome do Calendar)
-    rf"|(?:^Meet\s*[-–—]\s+\S)"
+    # título começa com "Meet – <sala do Calendar>"; o que vem depois não pode
+    # ser apenas o nome do navegador, senão a aba fora de chamada viraria reunião
+    rf"|(?:^Meet\s*[-–—]\s+(?!{_SO_O_NAVEGADOR})\S)"
     # Chrome atual: "Meet: <nome da reunião>" ou "Meet: <código>".
     rf"|(?:^Meet\s*:\s*\S)"
     # link colado no título / barra de endereços
@@ -47,10 +59,13 @@ _PADRAO_NOMEADO = re.compile(
     re.IGNORECASE,
 )
 
-# Reunião do Zoom: a janela em chamada se chama "Zoom Meeting"/"Reunião Zoom".
-# A janela ociosa do app ("Zoom Workplace") de propósito não casa.
+# Reunião do Zoom pelo texto da janela. É só a rede de segurança: o caminho
+# confiável é `detector_zoom`, que não depende de idioma. A janela ociosa do app
+# ("Zoom Workplace") de propósito não casa.
 _PADRAO_ZOOM = re.compile(
-    r"\bZoom\s+(?:Meeting|Webinar|Reuni[aã]o)\b|\bReuni[aã]o\s+do\s+Zoom\b",
+    r"\bZoom\s+(?:Meeting|Webinar|Reuni[aã]o)\b"
+    r"|\bReuni[aã]o\s+(?:do\s+)?Zoom\b"
+    r"|\bZoom\s+(?:Meeting|Reuni[aã]o)\s+Webinar\b",
     re.IGNORECASE,
 )
 
