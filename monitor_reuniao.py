@@ -11,7 +11,13 @@ import logging
 
 import pygetwindow as gw
 
-from config import DETECTAR_POR_MICROFONE, DETECTAR_ZOOM, EXIGIR_JANELA_VISIVEL
+from config import (
+    DETECTAR_POR_MICROFONE,
+    DETECTAR_ZOOM,
+    EXIGIR_JANELA_VISIVEL,
+    FATOR_TRAVAMENTO_MONITOR,
+    INTERVALO_MONITOR_MEET,
+)
 from deteccao_reuniao import (
     DetectorReuniao,
     FonteMicrofone,
@@ -65,6 +71,55 @@ def texto_heartbeat(detector, gravando, ciclos):
         f"Monitor vivo: ciclo {ciclos}, reunião={getattr(detector, 'reuniao_ativa', False)}, "
         f"fortes=[{fortes}], auxiliares=[{auxiliares}], gravando={bool(gravando)}"
     )
+
+
+MSG_MONITOR_TRAVADO = (
+    "O monitor de reuniões parou de responder — nenhuma reunião será detectada. "
+    "Reinicie o Transkriptor e veja o log."
+)
+
+
+class VigiaMonitor:
+    """Alarma quando o loop do monitor para de bater (FR-9.C4).
+
+    O heartbeat no log só ajuda quem está lendo o log. Em 2026-08-07 o monitor
+    travou e o app passou três dias na bandeja com o ícone normal. O vigia roda
+    numa thread separada justamente para sobreviver ao travamento do monitor.
+    """
+
+    def __init__(
+        self,
+        on_travado,
+        intervalo=INTERVALO_MONITOR_MEET,
+        fator=FATOR_TRAVAMENTO_MONITOR,
+    ):
+        self._on_travado = on_travado
+        self.limite = intervalo * fator
+        self._ultimo_tick = None
+        self._alarmado = False
+
+    def bater(self, agora):
+        """Chamado a cada ciclo do monitor: prova de vida."""
+        self._ultimo_tick = agora
+        self._alarmado = False
+
+    def verificar(self, agora):
+        """True no ciclo em que o travamento é detectado. Não repete o alarme."""
+        if self._ultimo_tick is None or self._alarmado:
+            return False
+        if agora - self._ultimo_tick <= self.limite:
+            return False
+        self._alarmado = True
+        logger.error(
+            "Monitor sem sinal de vida há %.0fs (limite %.0fs).",
+            agora - self._ultimo_tick,
+            self.limite,
+        )
+        try:
+            self._on_travado(MSG_MONITOR_TRAVADO)
+        except Exception:  # noqa: BLE001 — o alarme falhar não pode calar o vigia
+            logger.exception("Falha ao avisar que o monitor travou")
+        return True
 
 
 def autoteste_audio(on_erro):

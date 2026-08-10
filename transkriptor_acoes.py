@@ -50,3 +50,17 @@ def deve_toast_meet_em_pausa(deteccao_ativa: bool, mudanca: str, ja_avisou: bool
 def deve_parar_transcricao_por_meet(mudanca: str) -> bool:
     """Toda captura pertence à reunião detectada e termina junto com ela."""
     return mudanca == "encerrou"
+
+
+def portao_consentimento_liberado(em_andamento, aberto_em, agora, limite) -> bool:
+    """FR-10.B3 com escape: uma pergunta por reunião, mas o portão não emperra.
+
+    Em 2026-08-07 a thread do consentimento travou e `_consentimento_em_andamento`
+    ficou `True` para sempre — dali em diante nenhuma reunião era nem perguntada.
+    O portão continua impedindo duas perguntas simultâneas, mas expira.
+    """
+    if not em_andamento:
+        return True
+    if aberto_em is None:
+        return False
+    return (agora - aberto_em) >= limite

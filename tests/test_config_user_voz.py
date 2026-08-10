@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
-"""Testes de sincronização identificar_minha_voz com perfil."""
-from transkriptor import _resolver_identificar_minha_voz
+"""Testes de sincronização identificar_minha_voz com perfil.
+
+Importa de `app_bootstrap`, onde a função mora. Importar de `transkriptor`
+carregava a bandeja inteira já na coleta — e com ela o handler de log apontando
+para o `transkriptor.log` de produção, antes de qualquer fixture rodar.
+"""
+from app_bootstrap import resolver_identificar_minha_voz as _resolver_identificar_minha_voz
 
 
 def test_desativa_quando_perfil_ausente():

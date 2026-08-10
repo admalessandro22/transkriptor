@@ -2,6 +2,15 @@
 """Sanitização de mensagens de status para logs (SEC-6)."""
 
 PREFIXOS_MENSAGEM_SISTEMA = (
+    # O ciclo de reunião fala por estas duas palavras. Sem elas, "Reunião
+    # detectada...", "Reunião encerrada..." e "Gravação em andamento" eram
+    # censuradas como se fossem fala — em 2026-08-07 o app travou e o log ficou
+    # com uma única linha inútil (ver tests/test_status_seguro.py).
+    "Reunião",
+    "Reuniao",
+    "Gravação",
+    "Gravacao",
+    "Esta reunião",
     "Carregando",
     "Modelo pronto",
     "Capturando",

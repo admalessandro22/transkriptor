@@ -125,6 +125,12 @@ DETECTAR_POR_MICROFONE = True       # usar o registro de microfone em uso do Win
 # idioma e com a versão, então regex sozinha deixava reuniões passarem.
 DETECTAR_ZOOM = True
 HEARTBEAT_MONITOR_CICLOS = 120      # log periódico do monitor (a cada ~10 min)
+# Ciclos de tolerância antes de declarar o monitor travado. O heartbeat só prova
+# vida para quem lê o log; o vigia transforma a ausência dele em erro visível.
+FATOR_TRAVAMENTO_MONITOR = 3        # 3 x INTERVALO_MONITOR_MEET = 15 s
+# Portão do consentimento: se a pergunta morrer sem responder, o portão precisa
+# reabrir sozinho — senão uma falha cega todas as reuniões seguintes.
+LIMITE_PORTAO_CONSENTIMENTO_SEG = TIMEOUT_AVISO_GRAVACAO_SEG + 30
 # ---- Aviso de gravação (FR-2.9 / FR-9.4) ----
 PERGUNTAR_ANTES_DE_GRAVAR = True    # diálogo Sim/Não ao detectar reunião
 

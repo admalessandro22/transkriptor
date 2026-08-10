@@ -82,6 +82,27 @@ def _snapshot_estado_real() -> dict:
     }
 
 
+@pytest.fixture(scope="session", autouse=True)
+def log_de_teste(tmp_path_factory):
+    """A suíte não pode escrever no `transkriptor.log` do usuário.
+
+    Ao carregar `transkriptor.pyw` os testes instalam um RotatingFileHandler na
+    raiz do logging. Sem isto ele aponta para o log de produção e a suíte enche
+    o arquivo com falhas simuladas ("CUDA OOM simulado", "falha controlada") —
+    foi o que contaminou a evidência do incidente de 2026-08-07.
+    """
+    import config
+
+    destino = tmp_path_factory.mktemp("log") / "transkriptor-teste.log"
+    mp = pytest.MonkeyPatch()
+    mp.setattr(config, "LOG_FILE", str(destino))
+    for modulo in tuple(sys.modules.values()):
+        if modulo is not None and hasattr(modulo, "LOG_FILE"):
+            mp.setattr(modulo, "LOG_FILE", str(destino), raising=False)
+    yield destino
+    mp.undo()
+
+
 @pytest.fixture
 def snapshot_estado_real():
     return _snapshot_estado_real
@@ -192,8 +213,12 @@ def tmp_transcricoes(tmp_path):
 
 
 @pytest.fixture(scope="session")
-def modulo_transkriptor():
-    """Carrega o app .pyw sem executar o bloco __main__."""
+def modulo_transkriptor(log_de_teste):
+    """Carrega o app .pyw sem executar o bloco __main__.
+
+    Depende de `log_de_teste` de propósito: o handler de log é instalado no
+    momento em que este módulo é executado, e precisa apontar para o temporário.
+    """
     caminho = Path(__file__).resolve().parent.parent / "transkriptor.pyw"
     loader = SourceFileLoader("transkriptor_app_test", str(caminho))
     spec = spec_from_loader(loader.name, loader)

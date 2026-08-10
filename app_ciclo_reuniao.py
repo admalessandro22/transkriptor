@@ -21,6 +21,7 @@ from config import (
     ARQUIVO_PERFIL_VOZ,
     ARQUIVO_PERFIL_VOZ_ENC,
     IDIOMA,
+    LIMITE_PORTAO_CONSENTIMENTO_SEG,
     MODELO_WHISPER,
     PASTA_TRANSCRICOES,
 )
@@ -31,6 +32,7 @@ from notificador import notificar
 from transkriptor_acoes import (
     deve_iniciar_gravacao_auto,
     deve_parar_transcricao_por_meet,
+    portao_consentimento_liberado,
 )
 from watchdog import Watchdog
 
@@ -173,9 +175,15 @@ class CicloReuniaoMixin:
         if mudanca == "iniciou":
             if deve_iniciar_gravacao_auto(self._recusa_reuniao_ativa):
                 with self._lock:
-                    if self._consentimento_em_andamento:
+                    if not portao_consentimento_liberado(
+                        self._consentimento_em_andamento,
+                        getattr(self, "_consentimento_aberto_em", None),
+                        time.monotonic(),
+                        LIMITE_PORTAO_CONSENTIMENTO_SEG,
+                    ):
                         return
                     self._consentimento_em_andamento = True
+                    self._consentimento_aberto_em = time.monotonic()
                 self._em_thread(self._pedir_e_iniciar, "Transkriptor-Consentimento")
             return
         if mudanca == "encerrou":
@@ -208,3 +216,4 @@ class CicloReuniaoMixin:
         finally:
             with self._lock:
                 self._consentimento_em_andamento = False
+                self._consentimento_aberto_em = None

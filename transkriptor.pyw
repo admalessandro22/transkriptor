@@ -51,7 +51,12 @@ from config import (
     USAR_NOMES_MEET,
     VERSAO,
 )
-from monitor_reuniao import autoteste_audio, construir_detector, texto_heartbeat
+from monitor_reuniao import (
+    VigiaMonitor,
+    autoteste_audio,
+    construir_detector,
+    texto_heartbeat,
+)
 from estado_icone import resolver_estado_icone
 from fila_processamento import fila_padrao
 from meet_bridge import MeetBridge, iniciar_bridge_em_thread, sincronizar_token_extensao
@@ -132,6 +137,9 @@ class AppTranskriptor(CicloReuniaoMixin, ProcessamentoReuniaoMixin, MenuBandejaM
         # FR-9.B1: fusão de fontes. Qualquer uma mantém a reunião viva; assim
         # trocar de aba no meio da chamada não encerra mais a gravação.
         self.detector = construir_detector(self.meet_bridge)
+        # FR-9.C4: heartbeat só prova vida para quem lê o log. O vigia
+        # transforma a ausência dele em erro visível na bandeja.
+        self.vigia_monitor = VigiaMonitor(on_travado=self._erro_critico)
         self._meet_bridge_thread = None
         self._monitor_thread = None
         self._bandeja_pronta = False
@@ -192,11 +200,21 @@ class AppTranskriptor(CicloReuniaoMixin, ProcessamentoReuniaoMixin, MenuBandejaM
             return
         logging.info("%s", texto_heartbeat(self.detector, self._gravando(), ciclos))
 
+    def _vigiar_monitor(self):
+        """Thread separada de propósito: ela precisa sobreviver ao travamento."""
+        while True:
+            try:
+                self.vigia_monitor.verificar(time.monotonic())
+            except Exception:
+                logging.exception("Erro no vigia do monitor")
+            time.sleep(INTERVALO_MONITOR_MEET)
+
     def _monitorar_meet(self):
         ciclos = 0
         while True:
             try:
                 ciclos += 1
+                self.vigia_monitor.bater(time.monotonic())
                 mudanca = self._detectar_mudanca_meet()
                 self._heartbeat_monitor(ciclos)
                 if self.deteccao_ativa:
@@ -283,6 +301,10 @@ class AppTranskriptor(CicloReuniaoMixin, ProcessamentoReuniaoMixin, MenuBandejaM
                 target=self._monitorar_meet, daemon=True, name="Transkriptor-MonitorMeet"
             )
             self._monitor_thread.start()
+
+            threading.Thread(
+                target=self._vigiar_monitor, daemon=True, name="Transkriptor-VigiaMonitor"
+            ).start()
             logging.info("Bandeja pronta.")
             logging.info("Monitor do Meet iniciado.")
         except Exception:
