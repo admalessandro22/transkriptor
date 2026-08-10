@@ -121,3 +121,16 @@ extensão. Regras que não podem regredir:
   classe, o Diagnóstico da bandeja mostra título+classe para atualizar a lista.
 - Antes de mexer em captura de áudio, rodar `tests/test_diagnostico.py` — o gate
   de compatibilidade `soundcard`×`numpy` mora lá.
+
+### COM e as threads de áudio (regressão 2026-08-10)
+
+`soundcard` inicializa COM **uma única vez**, num singleton de módulo
+(`_com = _COMLibrary()`), na thread que importar primeiro; o `__del__` dele
+chama `CoUninitialize()`. Num app com várias threads isso derruba o MTA do
+processo e a captura falha com `Error 0x800401f0` (`CO_E_NOTINITIALIZED`) —
+reunião gravada em branco, com o mesmo sintoma de um travamento.
+
+Toda thread que fala com `soundcard` **tem** de rodar dentro de
+`com_audio.com_inicializada()`. `tests/test_com_audio.py` reproduz a falha em
+subprocesso (derrubar o MTA contamina o processo inteiro) e cobra o contexto
+por AST em `_capturar` e `_capturar_mic`.
