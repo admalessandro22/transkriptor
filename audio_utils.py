@@ -8,6 +8,7 @@ import wave
 
 import numpy as np
 
+from com_audio import com_inicializada
 from config import SAMPLE_RATE
 
 logger = logging.getLogger(__name__)
@@ -62,12 +63,15 @@ def testar_loopback(segundos=0.5, sample_rate=SAMPLE_RATE):
     try:
         import soundcard as sc
 
-        alto_falante = sc.default_speaker()
-        dispositivo = str(getattr(alto_falante, "name", "") or "")
-        loop_id = getattr(alto_falante, "id", None) or dispositivo
-        mic = sc.get_microphone(id=str(loop_id), include_loopback=True)
-        with mic.recorder(samplerate=sample_rate, channels=1) as rec:
-            bloco = rec.record(numframes=int(sample_rate * segundos))
+        # Autoteste também roda em thread própria (FR-9.A4): sem COM viva ele
+        # acusaria falha de dispositivo onde só falta inicialização.
+        with com_inicializada():
+            alto_falante = sc.default_speaker()
+            dispositivo = str(getattr(alto_falante, "name", "") or "")
+            loop_id = getattr(alto_falante, "id", None) or dispositivo
+            mic = sc.get_microphone(id=str(loop_id), include_loopback=True)
+            with mic.recorder(samplerate=sample_rate, channels=1) as rec:
+                bloco = rec.record(numframes=int(sample_rate * segundos))
     except Exception as e:  # noqa: BLE001 — o diagnóstico precisa do motivo
         logger.warning("Autoteste de loopback falhou: %s", e)
         resultado = diagnosticar_captura(None, erro=e)
@@ -84,10 +88,11 @@ def testar_microfone(segundos=0.5, sample_rate=SAMPLE_RATE):
     try:
         import soundcard as sc
 
-        mic = sc.default_microphone()
-        dispositivo = str(getattr(mic, "name", "") or "")
-        with mic.recorder(samplerate=sample_rate, channels=1) as rec:
-            bloco = rec.record(numframes=int(sample_rate * segundos))
+        with com_inicializada():
+            mic = sc.default_microphone()
+            dispositivo = str(getattr(mic, "name", "") or "")
+            with mic.recorder(samplerate=sample_rate, channels=1) as rec:
+                bloco = rec.record(numframes=int(sample_rate * segundos))
     except Exception as e:  # noqa: BLE001
         logger.warning("Autoteste de microfone falhou: %s", e)
         resultado = diagnosticar_captura(None, erro=e)

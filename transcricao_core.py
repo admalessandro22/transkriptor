@@ -20,6 +20,7 @@ import numpy as np
 import soundcard as sc
 
 from captura_leve import CapturaLeveMixin
+from com_audio import com_inicializada
 
 from config import (
     SAMPLE_RATE,
@@ -187,6 +188,13 @@ class Transcritor(CapturaLeveMixin):
         return sc.get_microphone(id=loop_id, include_loopback=True)
 
     def _capturar(self):
+        # COM precisa continuar viva enquanto esta thread grava: o soundcard
+        # desinicializa a dela no __del__ e o loopback passa a falhar com
+        # 0x800401f0 (CO_E_NOTINITIALIZED). Ver com_audio.
+        with com_inicializada():
+            self._capturar_loopback()
+
+    def _capturar_loopback(self):
         try:
             mic = self._abrir_loopback()
         except Exception as e:

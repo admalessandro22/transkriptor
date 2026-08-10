@@ -9,6 +9,7 @@ import time
 import numpy as np
 import soundcard as sc
 
+from com_audio import com_inicializada
 from config import FLUSH_AUDIO_SEG, SAMPLE_RATE
 
 
@@ -39,6 +40,12 @@ class CapturaLeveMixin:
                     raise RuntimeError("processador de áudio indisponível")
 
     def _capturar_mic(self):
+        # Mesma razão de `_capturar`: sem COM viva nesta thread o microfone
+        # falha com 0x800401f0 e a gravação paralela sai vazia. Ver com_audio.
+        with com_inicializada():
+            self._capturar_mic_interno()
+
+    def _capturar_mic_interno(self):
         try:
             mic = sc.default_microphone()
         except Exception as e:
