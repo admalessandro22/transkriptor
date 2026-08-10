@@ -26,16 +26,21 @@ def app_v15(tmp_path, monkeypatch, modulo_transkriptor):
     class TranscritorFalso:
         def __init__(self, **kwargs):
             argumentos.update(kwargs)
+            self.on_status = kwargs["on_status"]
             self.rodando = False
             self.diarizando = False
             self.audios_preservados = []
             self.eventos_meet = []
 
         def start(self):
+            # O Transcritor real reporta status de dentro do start/stop; o dublê
+            # imita para exercitar o mesmo caminho (ver test_dubles_fieis.py).
             self.rodando = True
+            self.on_status("Gravação da reunião em andamento.")
 
         def stop(self):
             self.rodando = False
+            self.on_status("Transcrição encerrada.")
             base = pasta / "transcricao_2026-08-06_10h00"
             saida = base.with_suffix(".txt")
             saida.write_text("captura encerrada\n", encoding="utf-8")

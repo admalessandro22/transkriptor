@@ -57,6 +57,35 @@ python -m pytest tests/ -v --tb=short -x   # parar no primeiro erro
 
 Gate de fase: ver `docs/sdd/v1.3/plan.md` § "Gates de verificação".
 
+### Gate de reunião real (NFR-10.C2) — obrigatório ao mexer em captura
+
+```bash
+python scripts/gate_reuniao_real.py --segundos 25    # rápido
+python scripts/gate_reuniao_real.py --segundos 600   # gate longo
+```
+
+Toca fala pelo alto-falante, captura pelo loopback com o `Transcritor` real,
+encerra, enfileira e roda o Whisper de verdade até sair um `.txt` legível.
+**Suíte verde não substitui este gate:** em 2026-08-07 o produto ficou incapaz
+de gravar um único frame com 380 testes passando.
+
+### Travamento da bandeja (regressão 2026-08-07)
+
+O app ficou três dias vivo na bandeja sem gravar nada e sem uma linha no log:
+`Transcritor.start()` rodava sob `self._lock` e chama `on_status`, que é
+`_status`, que pedia o mesmo lock não reentrante. Regras que não podem regredir:
+
+- **Nada que dispare callback roda sob `self._lock`** — `tests/test_lock_sem_callback.py`
+  lê o código e reprova o padrão. `_status` nunca pede o lock.
+- **Dublê de `Transcritor` chama `on_status` no `start()`/`stop()`**, como o real
+  — `tests/test_dubles_fieis.py`. Dublê mudo não exercita o caminho que travou.
+- **Toda falha vira sinal visível**: `VigiaMonitor` alarma se o loop do monitor
+  parar de bater; o portão de consentimento expira; mensagens de `Reunião`/
+  `Gravação` não são censuradas pelo sanitizador.
+- **A suíte não escreve em `transkriptor.log`** (fixture `log_de_teste`). Nunca
+  fazer `import transkriptor` num teste: isso carrega a bandeja inteira na
+  coleta e reinstala o handler de produção.
+
 ### Identificação de voz (`VOCÊ`)
 
 Loopback sozinho **não** captura sua voz na maioria dos Meets. O produto usa:
@@ -84,5 +113,11 @@ extensão. Regras que não podem regredir:
   fonte mantém a reunião viva.
 - O formato do título do Meet **muda**: hoje é `Meet – abc-defg-hij`. Ao mexer no
   regex, manter os dois formatos e os testes parametrizados.
+- `Meet - Google Chrome` é a aba do Meet **fora** de chamada, não reunião. O que
+  vem depois de `Meet – ` não pode ser só o nome do navegador.
+- **Zoom não se detecta por texto.** O título muda com idioma e versão
+  (`Zoom Meeting`, `Reunião Zoom`, `Zoom Workplace`). `detector_zoom` usa classe
+  de janela e microfone do `zoom.exe` corroborado. Se uma versão nova mudar a
+  classe, o Diagnóstico da bandeja mostra título+classe para atualizar a lista.
 - Antes de mexer em captura de áudio, rodar `tests/test_diagnostico.py` — o gate
   de compatibilidade `soundcard`×`numpy` mora lá.
