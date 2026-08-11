@@ -15,6 +15,12 @@ presentes no checkout.
   momento da coleta). O coletor de recursos observou um ícone pystray em todas
   as amostras, crescimento de memória de `0,0 MB` e CPU média de `0,155%` de um
   núcleo em 10 s, dentro dos limites de NFR-10.C2.
+- **Reinício pós-commit:** como o PID 53676 ainda carregava o código anterior
+  em memória, ele foi encerrado somente quando o log confirmou
+  `reunião=False, gravando=False`. O PID 5996 foi iniciado com o commit atual,
+  registrou “Bandeja pronta” e “Monitor do Meet iniciado”, e passou uma nova
+  amostra de recursos com um ícone, CPU média de `0,471%` e crescimento de
+  memória de `0,008 MB`.
 - **Fila/saídas:** `transcricoes/` não contém áudio, JSON de job, `.txt` ou
   `.tkpt` no momento desta auditoria. Isso é estado vazio, não prova de que uma
   reunião aceita futura não produzirá resultado; o gate real é obrigatório para

@@ -119,5 +119,7 @@ da linha, o commit e a evidência correspondente precisam existir.
   longo capturou 9.584.000 frames, fechou WAV de 600 s e processou o job em 52 s.
   Uma fala externa do ambiente apareceu no resultado temporário do modo sem
   áudio, sem ser copiada para log ou documentação; isso fica registrado como
-  ressalva de loopback, não como detecção espontânea de reunião.
+  ressalva de loopback, não como detecção espontânea de reunião. Depois dos
+  commits, o PID antigo foi encerrado em estado ocioso e o PID 5996 iniciou o
+  código atual; a bandeja e o monitor confirmaram startup sem segunda instância.
 
