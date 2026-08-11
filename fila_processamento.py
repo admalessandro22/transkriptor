@@ -52,6 +52,10 @@ class Job:
     erro_seguro: str | None
     criado_em: str
     atualizado_em: str
+    worker_pid: int | None = None
+    worker_iniciado_em: str | None = None
+    worker_terminado_em: str | None = None
+    worker_codigo_saida: int | None = None
 
 
 class FilaProcessamento:
@@ -140,6 +144,10 @@ class FilaProcessamento:
             erro_seguro=dados.get("erro_seguro"),
             criado_em=dados["criado_em"],
             atualizado_em=dados["atualizado_em"],
+            worker_pid=dados.get("worker_pid"),
+            worker_iniciado_em=dados.get("worker_iniciado_em"),
+            worker_terminado_em=dados.get("worker_terminado_em"),
+            worker_codigo_saida=dados.get("worker_codigo_saida"),
         )
 
     def enfileirar(
@@ -257,6 +265,51 @@ class FilaProcessamento:
             codigo = "erro_processamento"
         return self._alterar_estado(
             job_id, "failed", erro_seguro=codigo, resultado=None
+        )
+
+    def _registrar_observabilidade(self, job_id: str, **campos) -> Job:
+        """Atualiza somente metadados do worker, sem mudar o estado do job."""
+        with self._lock:
+            caminho = self.caminho_job(job_id)
+            dados = self._carregar(caminho)
+            dados.update(campos)
+            dados["atualizado_em"] = _agora_iso()
+            self._salvar(dados)
+            return self._para_job(dados)
+
+    def registrar_worker(
+        self, job_id: str, pid: int, iniciado_em: str | None = None
+    ) -> Job:
+        """Persiste o PID e o instante de início sem registrar áudio ou texto."""
+        if isinstance(pid, bool) or not isinstance(pid, int) or pid <= 0:
+            raise ValueError("pid de worker inválido")
+        instante = iniciado_em or _agora_iso()
+        if not isinstance(instante, str) or not (1 <= len(instante) <= 80):
+            raise ValueError("instante de início inválido")
+        return self._registrar_observabilidade(
+            job_id,
+            worker_pid=pid,
+            worker_iniciado_em=instante,
+        )
+
+    def registrar_saida_worker(
+        self,
+        job_id: str,
+        codigo: int,
+        terminado_em: str | None = None,
+    ) -> Job:
+        """Persiste o código de saída, mantendo o estado funcional do job."""
+        if isinstance(codigo, bool) or not isinstance(codigo, int):
+            raise ValueError("código de saída inválido")
+        if not -(2**31) <= codigo <= 2**31 - 1:
+            raise ValueError("código de saída inválido")
+        instante = terminado_em or _agora_iso()
+        if not isinstance(instante, str) or not (1 <= len(instante) <= 80):
+            raise ValueError("instante de término inválido")
+        return self._registrar_observabilidade(
+            job_id,
+            worker_codigo_saida=codigo,
+            worker_terminado_em=instante,
         )
 
     def recuperar_interrompidos(self) -> int:

@@ -64,6 +64,23 @@ class ProcessamentoReuniaoMixin:
                 self._worker_processamento = worker
                 self._estado_processamento = "Processando"
                 self._ultimo_job_id = job_id
+        pid = getattr(worker, "pid", None)
+        if pid is not None:
+            try:
+                self.fila.registrar_worker(job_id, pid=pid)
+                logger.info(
+                    "Worker de pós-processamento iniciado: job=%s pid=%s",
+                    job_id,
+                    pid,
+                )
+            except Exception:
+                # A captura e o worker não podem falhar só porque a auditoria
+                # de metadados ficou indisponível.
+                logger.exception(
+                    "Falha ao registrar início do worker: job=%s pid=%s",
+                    job_id,
+                    pid,
+                )
         self._atualizar_tooltip()
         if falha_inicio:
             return
@@ -76,6 +93,22 @@ class ProcessamentoReuniaoMixin:
 
     def _aguardar_worker(self, job_id, worker):
         codigo = worker.wait()
+        pid = getattr(worker, "pid", None)
+        try:
+            self.fila.registrar_saida_worker(job_id, codigo=codigo)
+            logger.info(
+                "Worker de pós-processamento encerrado: job=%s pid=%s codigo=%s",
+                job_id,
+                pid,
+                codigo,
+            )
+        except Exception:
+            logger.exception(
+                "Falha ao registrar saída do worker: job=%s pid=%s codigo=%s",
+                job_id,
+                pid,
+                codigo,
+            )
         try:
             job = self.fila.obter(job_id)
             pronto = codigo == 0 and job.estado == "ready" and job.resultado
