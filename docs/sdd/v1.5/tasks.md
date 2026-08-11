@@ -21,6 +21,7 @@ Status inicial: ⬜ pendente. Cada tarefa termina com o teste listado e commit.
 | T-10.H1 | auditoria final de qualidade/coerência/segurança | NFR-10.H* | suíte + Windows + diff | ✅ |
 | T-10.H2 | tornar o consentimento Zoom visível e foreground | FR-10.B1 | aviso + teste Windows | ✅ |
 | T-10.H3 | reconhecer título atual `Meet: ...` do Chrome | FR-10.A3 | detecção multi-fonte | ✅ |
+| T-10.H4 | rastreabilidade segura do worker e fechamento operacional | NFR-10.H3/H4, SEC-10.F4 | observabilidade + gates Windows | ✅ |
 
 Nenhuma tarefa pode ser marcada ✅ apenas porque o código existe. O teste final
 da linha, o commit e a evidência correspondente precisam existir.
@@ -104,4 +105,19 @@ da linha, o commit e a evidência correspondente precisam existir.
   que o regex não reconhecia; a extensão opcional também não estava instalada
   no perfil usado. O padrão forte agora aceita `Meet: <texto>` e o teste RED/GREEN
   cobre o título exato.
+- **T-10.H4 (execução de 2026-08-10):** o processo da bandeja agora persiste
+  somente `worker_pid`, `worker_iniciado_em`, `worker_terminado_em` e
+  `worker_codigo_saida` no JSON atômico do job, e registra os mesmos metadados no
+  log sem áudio ou fala. O RED/GREEN de `tests/test_worker_observabilidade.py`
+  cobriu lançamento, saída não-zero, preservação do WAV e ausência de texto no
+  JSON; o gate dirigido de F10.E permaneceu verde. O atalho oficial do
+  Transkriptor foi criado na Startup e a preferência `iniciar_com_windows` foi
+  mesclada na configuração. `WhisperFlowLocal.lnk` e `Wispr Flow.lnk` foram
+  movidos, sem exclusão, para `Startup/disabled-transcription-apps-2026-08-10`;
+  os processos já ativos não foram interrompidos. O gate real de 25 s com fala
+  sintética e o gate de 600 s em `--sem-audio` passaram as 11 etapas; o gate
+  longo capturou 9.584.000 frames, fechou WAV de 600 s e processou o job em 52 s.
+  Uma fala externa do ambiente apareceu no resultado temporário do modo sem
+  áudio, sem ser copiada para log ou documentação; isso fica registrado como
+  ressalva de loopback, não como detecção espontânea de reunião.
 
