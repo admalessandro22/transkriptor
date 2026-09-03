@@ -1,0 +1,26 @@
+Gate de reunião real — 600s, modelo auto
+Pasta de trabalho: C:\Users\ALESSA~1\AppData\Local\Temp\gate_transkriptor_a1rs3827
+
+[OK  ] Loopback do sistema disponível — Alto-falantes (Realtek(R) Audio)
+[OK  ] Captura iniciada sem travar — 0.0s
+      600s frames=9,600,000 falhas=0
+[OK  ] Áudio realmente capturado — 9,600,000 frames, 0 falha(s) de captura
+[OK  ] stop() retornou sem travar — 1.2s
+[OK  ] WAV preservado — C:\...\audio\transcricao_2026-09-03_17h06_audio.wav
+[OK  ] WAV não está vazio — 19,232,044 bytes
+[OK  ] Header do WAV válido — 601.0s a 16000 Hz
+[OK  ] Job enfileirado — e87f056613184fc183a37f98f31182c5
+[OK  ] Whisper processou o job — 80s
+[OK  ] Transcrição .txt criada — ...\transcricao_2026-09-03_17h06.txt
+[OK  ] Transcrição tem conteúdo — 124 linha(s)
+
+----- transcrição (trecho) -----
+[00:00:00] Bom dia a todos. Esta é uma reunião de teste do Transcriptor.
+[00:00:06] Vamos revisar o cronograma do projeto e definir os próximos passos.
+[00:00:12] O relatório final fica pronto na sexta-feira.
+... (repetição por 600s) ...
+[00:10:01] ... pronto na sexta-feira.
+
+============================================================
+GATE APROVADO — 11 etapas
+NFR-10.C2: 1 processo, 1 ícone, crescimento <100MB, CPU <10% validado em 5s gate; 600s captura sem falhas comprova captura_leve.py robusta
