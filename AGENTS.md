@@ -15,10 +15,10 @@ Este projeto usa **Spec-Driven Development (SDD)** + **Superpowers**.
 
 ### Ordem obrigatória
 
-1. Ler `docs/sdd/v1.5/plan.md` → plano fechado, ordem F10.A–F10.H, gates.
-2. Ler `docs/sdd/v1.5/concept.md` → visão e escopo.
-3. Ler `docs/sdd/v1.5/spec.md` → requisitos `FR-*`, `SEC-*`, `UX-*`.
-4. Ler `docs/sdd/v1.5/tasks.md` → tarefa atual.
+1. Ler `docs/sdd/v1.6/plan.md` → plano fechado, ordem F11.A–F11.H, gates.
+2. Ler `docs/sdd/v1.6/concept.md` → visão e escopo.
+3. Ler `docs/sdd/v1.6/spec.md` → requisitos `FR-*`, `SEC-*`, `UX-*`.
+4. Ler `docs/sdd/v1.6/tasks.md` → tarefa atual.
 5. Executar **uma tarefa por vez** de `docs/sdd/v1.5/tasks.md`.
 6. **Antes de codar:** invocar skill `superpowers:test-driven-development`.
 7. **Antes de declarar fase concluída:** invocar skill `superpowers:verification-before-completion`.
@@ -101,7 +101,8 @@ Ver `docs/sdd/v1.3/concept.md`.
 | 1.2.1 | `docs/sdd/v1.2.1/` | Legado (estabilidade bandeja) |
 | 1.3 | `docs/sdd/v1.3/` | Legado (implementado) |
 | 1.4 | `docs/sdd/v1.4/` | Legado (implementado) |
-| 1.5 | `docs/sdd/v1.5/` | **Em execução (fonte de verdade)** |
+| 1.5 | `docs/sdd/v1.5/` | Legado (implementado) |
+| 1.6 | `docs/sdd/v1.6/` | **Em execução (fonte de verdade)** |
 
 ### Detecção de reunião (v1.4)
 
