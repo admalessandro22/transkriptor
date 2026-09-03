@@ -69,6 +69,7 @@ class Transcritor(CapturaLeveMixin):
         usar_vozes_conhecidas=True,
         criptografar=None,
         processar_ao_vivo=True,
+        titulo_reuniao: str | None = None,
     ):
         self.modelo_nome = modelo
         self.idioma = None if idioma == "auto" else idioma
@@ -89,6 +90,7 @@ class Transcritor(CapturaLeveMixin):
 
             criptografar = criptografia_ativa() and chave_disponivel()
         self.criptografar = criptografar
+        self.titulo_reuniao = titulo_reuniao
         self._centroides_por_rotulo_ultima: dict = {}
 
         self._modelo = None
@@ -155,9 +157,12 @@ class Transcritor(CapturaLeveMixin):
         from crypto_storage import caminho_transcricao_novo
 
         self._caminho_saida = caminho_transcricao_novo(
-            self.pasta_saida, criptografar=self.criptografar
+            self.pasta_saida, criptografar=self.criptografar, titulo_reuniao=self.titulo_reuniao
         )
-        cab = f"=== Transcricao iniciada em {datetime.datetime.now():%Y-%m-%d %H:%M:%S} ===\n\n"
+        if self.titulo_reuniao:
+            cab = f"=== Transcricao iniciada em {datetime.datetime.now():%Y-%m-%d %H:%M:%S} ===\nReuniao: {self.titulo_reuniao}\n\n"
+        else:
+            cab = f"=== Transcricao iniciada em {datetime.datetime.now():%Y-%m-%d %H:%M:%S} ===\n\n"
         if self.criptografar:
             self._arq = io.StringIO()
             self._arq.write(cab)

@@ -70,6 +70,17 @@ class CicloReuniaoMixin:
             with self._lock:
                 self._iniciando = False
 
+    def _obter_titulo_reuniao(self) -> str | None:
+        det = getattr(self, "detector", None)
+        if det is None:
+            return None
+        try:
+            if hasattr(det, "titulo_reuniao_atual"):
+                return det.titulo_reuniao_atual()
+        except Exception:
+            return None
+        return None
+
     def _construir_transcritor(self):
         from transcricao_core import Transcritor
 
@@ -85,13 +96,20 @@ class CicloReuniaoMixin:
             rotulo_usuario=self.rotulo_usuario,
             criptografar=self.criptografar_transcricoes,
             processar_ao_vivo=False,
+            titulo_reuniao=self._obter_titulo_reuniao(),
         )
 
     def _iniciar_transcricao_interno(self):
         self._inicio_transcricao_wall_ms = int(time.time() * 1000)
         detector = getattr(self, "detector", None)
         fontes = ", ".join(getattr(detector, "fontes_da_reuniao", None) or []) or "?"
-        self._status(f"Reunião detectada ({fontes}). Iniciando gravação...")
+        titulo = self._obter_titulo_reuniao()
+        self._titulo_reuniao_atual = titulo
+        if titulo:
+            # Slug já sanitizado (ex: Reuniao_Bolsistas_PROINOVE)
+            self._status(f"Reunião detectada ({fontes}) — {titulo}. Iniciando gravação...")
+        else:
+            self._status(f"Reunião detectada ({fontes}). Iniciando gravação...")
         self.transcritor = self._construir_transcritor()
         try:
             with self._lock:

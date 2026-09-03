@@ -30,6 +30,7 @@ CHAVES_METADADOS = {
     "modelo",
     "idioma",
     "lacuna_estimada_seg",
+    "titulo_reuniao",
 }
 PADRAO_ID = re.compile(r"^[a-f0-9]{32}$")
 PADRAO_BASE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$")

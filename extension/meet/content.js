@@ -50,7 +50,7 @@
   function enviarEstado() {
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     try {
-      ws.send(JSON.stringify({ tipo: "reuniao", ativa: emChamada(), ts_ms: Date.now() }));
+      ws.send(JSON.stringify({ tipo: "reuniao", ativa: emChamada(), ts_ms: Date.now(), titulo: (document.title || "").slice(0, 120) }));
     } catch (_e) {}
   }
 

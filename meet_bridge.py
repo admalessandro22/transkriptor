@@ -105,6 +105,7 @@ class MeetBridge:
         self._estado_lock = threading.Lock()
         self._reuniao_ativa = False
         self._visto_em: float = 0.0
+        self._titulo_meet: str | None = None
 
     def reuniao_ativa(self, agora: float | None = None, validade: float = 20.0) -> bool:
         """FR-9.3: a extensão reportou reunião ativa há menos de `validade` s.
@@ -120,17 +121,24 @@ class MeetBridge:
                 return False
             return (agora - self._visto_em) <= validade
 
-    def registrar_estado_reuniao(self, ativa: bool, agora: float | None = None) -> None:
+    def registrar_estado_reuniao(self, ativa: bool, agora: float | None = None, titulo: str | None = None) -> None:
         import time as _time
 
         agora = _time.monotonic() if agora is None else agora
         with self._estado_lock:
             self._reuniao_ativa = bool(ativa)
             self._visto_em = agora
+            if titulo and isinstance(titulo, str) and len(titulo.strip()) >= 3:
+                self._titulo_meet = titulo.strip()[:120]
+
+    def titulo_meet_atual(self) -> str | None:
+        with self._estado_lock:
+            return self._titulo_meet
 
     def registrar_evento(self, dados: Any) -> None:
         if eh_evento_estado(dados):
-            self.registrar_estado_reuniao(estado_reuniao_do_evento(dados))
+            titulo = dados.get("titulo") if isinstance(dados, dict) else None
+            self.registrar_estado_reuniao(estado_reuniao_do_evento(dados), titulo=titulo)
             return
         ev = normalizar_evento(dados)
         if ev is None:

@@ -244,15 +244,36 @@ def extensao_transcricao() -> str:
     return ".tkpt" if criptografia_ativa() and chave_disponivel() else ".txt"
 
 
-def nome_base_transcricao(timestamp: str | None = None) -> str:
+def _slug_para_base(titulo: str | None) -> str | None:
+    """Sanitiza slug/titulo para sufixo de arquivo (≤40, PADRAO_BASE)."""
+    if not titulo or not isinstance(titulo, str):
+        return None
+    import re
+    import unicodedata
+
+    # Se já parece slug, apenas normaliza
+    nfkd = unicodedata.normalize("NFKD", titulo)
+    ascii_only = nfkd.encode("ASCII", "ignore").decode("ASCII")
+    slug = re.sub(r"[^A-Za-z0-9]+", "_", ascii_only)
+    slug = re.sub(r"_+", "_", slug).strip("_")
+    if not slug or len(slug) < 2:
+        return None
+    return slug[:40].rstrip("_")
+
+
+def nome_base_transcricao(timestamp: str | None = None, titulo_reuniao: str | None = None) -> str:
     import datetime
 
     ts = timestamp or datetime.datetime.now().strftime("%Y-%m-%d_%Hh%M")
-    return f"transcricao_{ts}"
+    base = f"transcricao_{ts}"
+    slug = _slug_para_base(titulo_reuniao)
+    if slug:
+        base = f"{base}_{slug}"
+    return base
 
 
-def caminho_transcricao_novo(pasta: str, diarizado: bool = False, criptografar: bool | None = None) -> str:
-    base = nome_base_transcricao()
+def caminho_transcricao_novo(pasta: str, diarizado: bool = False, criptografar: bool | None = None, titulo_reuniao: str | None = None) -> str:
+    base = nome_base_transcricao(titulo_reuniao=titulo_reuniao)
     if diarizado:
         base += "_diarizado"
     if criptografar is None:

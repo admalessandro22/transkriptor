@@ -17,6 +17,8 @@ o sinal fraco permanece exposto apenas para diagnóstico.
 from __future__ import annotations
 
 import logging
+import re
+import unicodedata
 
 from config import (
     CONFIRMACAO_FIM_SEM_SINAL_FORTE,
@@ -154,8 +156,67 @@ class FontePonte:
             logger.debug("Falha ao ler estado da ponte", exc_info=True)
             return Sinal(self.nome, False, detalhe="ponte indisponível")
         if ativo:
-            return Sinal(self.nome, True, forte=True, detalhe="extensão reportou reunião")
+            titulo = None
+            try:
+                titulo = bridge.titulo_meet_atual() if hasattr(bridge, "titulo_meet_atual") else None
+            except Exception:
+                titulo = None
+            detalhe = titulo.strip() if isinstance(titulo, str) and titulo.strip() else "extensão reportou reunião"
+            return Sinal(self.nome, True, forte=True, detalhe=detalhe)
         return Sinal(self.nome, False, detalhe="sem sinal da extensão")
+
+
+_CODIGO_REUNIAO = re.compile(r"^[a-z]{3,4}-[a-z]{3,4}-[a-z]{3,4}$", re.IGNORECASE)
+_MAX_SLUG = 40
+_NAVEGADORES_RE = r"Google\s+Chrome|Chromium|Microsoft\s+Edge|Mozilla\s+Firefox|Firefox|Brave|Opera|Vivaldi|Safari"
+
+
+def extrair_titulo_meet(titulo: str | None) -> str | None:
+    """Extrai nome amigável de 'Meet: Nome - Google Chrome' (FR-12.A1)."""
+    if not titulo or not isinstance(titulo, str):
+        return None
+    t = titulo.strip()
+    if not t:
+        return None
+    # Tenta "Meet: <nome> [ - Navegador]"
+    m = re.match(rf"^Meet\s*:\s*(.+?)\s*(?:[-–—]\s*(?:{_NAVEGADORES_RE})\b.*)?\s*$", t, re.IGNORECASE)
+    if m:
+        cand = m.group(1).strip()
+        if _CODIGO_REUNIAO.match(cand):
+            return None
+        return cand if len(cand) >= 3 else None
+    # Tenta "Meet – <nome> [ - Navegador]" mas não código
+    m = re.match(rf"^Meet\s*[-–—]\s*(.+?)\s*(?:[-–—]\s*(?:{_NAVEGADORES_RE})\b.*)?\s*$", t, re.IGNORECASE)
+    if m:
+        cand = m.group(1).strip()
+        # Se for código, não é nome
+        if _CODIGO_REUNIAO.match(cand):
+            return None
+        # Evita "Meet - Google Chrome" que já é filtrado mas garante
+        if re.match(rf"^(?:{_NAVEGADORES_RE})$", cand, re.IGNORECASE):
+            return None
+        return cand if len(cand) >= 3 else None
+    return None
+
+
+def titulo_para_base(titulo: str | None) -> str | None:
+    """Sanitiza título do Meet para slug de arquivo (≤40, PADRAO_BASE)."""
+    nome = extrair_titulo_meet(titulo)
+    if not nome:
+        return None
+    # Normaliza acentos
+    nfkd = unicodedata.normalize("NFKD", nome)
+    ascii_only = nfkd.encode("ASCII", "ignore").decode("ASCII")
+    # Substitui sequências não alfanum por _
+    slug = re.sub(r"[^A-Za-z0-9]+", "_", ascii_only)
+    slug = re.sub(r"_+", "_", slug).strip("_")
+    if not slug or len(slug) < 2:
+        return None
+    slug = slug[:_MAX_SLUG].rstrip("_")
+    # Código não deve virar slug (ex: abc-defg-hij)
+    if _CODIGO_REUNIAO.match(slug.replace("_", "-")):
+        return None
+    return slug or None
 
 
 def fundir(sinais):
@@ -213,6 +274,24 @@ class DetectorReuniao:
                 logger.debug("Fonte %s falhou", getattr(fonte, "nome", "?"), exc_info=True)
                 sinais.append(Sinal(getattr(fonte, "nome", "?"), False, detalhe="erro na fonte"))
         return sinais
+
+    def titulo_reuniao_atual(self) -> str | None:
+        """Retorna slug do título do Meet se houver fonte forte com nome amigável (FR-12.A1)."""
+        sinais = self.ultimos_sinais or self.instantaneo()
+        # Prioridade: extensão (titulo mais limpo, sem sufixo navegador) > titulo da janela
+        for fonte_nome in ("extensao", "titulo"):
+            for sinal in sinais:
+                if sinal.forte and sinal.fonte == fonte_nome and sinal.detalhe:
+                    slug = titulo_para_base(sinal.detalhe)
+                    if slug:
+                        return slug
+        # Fallback: qualquer forte com detalhe que pareça título
+        for sinal in sinais:
+            if sinal.forte and sinal.detalhe:
+                slug = titulo_para_base(sinal.detalhe)
+                if slug:
+                    return slug
+        return None
 
     def verificar(self):
         """Um ciclo do monitor. Retorna "iniciou" | "encerrou" | None."""

@@ -71,7 +71,7 @@ def test_nova_reuniao_no_mesmo_minuto_recebe_nome_livre(tmp_path, monkeypatch):
     monkeypatch.setattr(
         crypto_storage,
         "nome_base_transcricao",
-        lambda: "transcricao_2026-08-06_10h00",
+        lambda *_, **__: "transcricao_2026-08-06_10h00",
     )
     (tmp_path / "transcricao_2026-08-06_10h00.txt").write_text("anterior")
     (tmp_path / "transcricao_2026-08-06_10h00_audio.wav").write_bytes(b"RIFF")

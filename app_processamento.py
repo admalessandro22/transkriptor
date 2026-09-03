@@ -159,6 +159,7 @@ class ProcessamentoReuniaoMixin:
         inicio_ms = self._inicio_transcricao_wall_ms or fim_ms
         inicio = datetime.datetime.fromtimestamp(inicio_ms / 1000).astimezone()
         fim = datetime.datetime.fromtimestamp(fim_ms / 1000).astimezone()
+        titulo = getattr(transcritor, "titulo_reuniao", None) or getattr(self, "_titulo_reuniao_atual", None)
         metadados = {
             "origem": "reuniao_detectada",
             "inicio_iso": inicio.isoformat(),
@@ -176,6 +177,8 @@ class ProcessamentoReuniaoMixin:
             "modelo": getattr(transcritor, "modelo_nome", self.modelo_whisper),
             "idioma": getattr(transcritor, "idioma", None) or "pt",
         }
+        if titulo:
+            metadados["titulo_reuniao"] = str(titulo)[:80]
         base_saida = Path(caminho_saida).stem
         job_id = self.fila.enfileirar(audio, mic, base_saida, metadados)
         self._definir_estado_processamento("Em fila", job_id)
