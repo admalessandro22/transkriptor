@@ -105,14 +105,25 @@ def test_nome_base_com_titulo_preserva_timestamp_e_sanitiza():
     from deteccao_reuniao import titulo_para_base
     from crypto_storage import nome_base_transcricao
 
-    # nome_base_transcricao com titulo deve gerar timestamp + slug
-    base = nome_base_transcricao(titulo_reuniao="Reuniao_Teste", timestamp="2026-09-03_16h39")
-    assert base == "transcricao_2026-09-03_16h39_Reuniao_Teste"
-    base2 = nome_base_transcricao(titulo_reuniao=None, timestamp="2026-09-03_16h39")
-    assert base2 == "transcricao_2026-09-03_16h39"
+    # nome_base_transcricao com titulo deve gerar timestamp + slug (dd-mm-aa)
+    base = nome_base_transcricao(titulo_reuniao="Reuniao_Teste", timestamp="03-09-26_16h39")
+    assert base == "transcricao_03-09-26_16h39_Reuniao_Teste"
+    base2 = nome_base_transcricao(titulo_reuniao=None, timestamp="03-09-26_16h39")
+    assert base2 == "transcricao_03-09-26_16h39"
     # titulo sujo deve ser sanitizado
-    base3 = nome_base_transcricao(titulo_reuniao="Reunião com acentos @!", timestamp="2026-09-03_16h39")
-    assert base3 == "transcricao_2026-09-03_16h39_Reuniao_com_acentos"
+    base3 = nome_base_transcricao(titulo_reuniao="Reunião com acentos @!", timestamp="03-09-26_16h39")
+    assert base3 == "transcricao_03-09-26_16h39_Reuniao_com_acentos"
+
+
+def test_nome_base_timestamp_padrao_e_dd_mm_aa():
+    import re
+    from crypto_storage import nome_base_transcricao
+
+    base = nome_base_transcricao(titulo_reuniao="Reuniao_Teste")
+    # dd-mm-aa_HhM
+    assert re.match(r"^transcricao_\d{2}-\d{2}-\d{2}_\d{2}h\d{2}_Reuniao_Teste$", base), f"formato inesperado: {base}"
+    base2 = nome_base_transcricao()
+    assert re.match(r"^transcricao_\d{2}-\d{2}-\d{2}_\d{2}h\d{2}$", base2), f"formato inesperado: {base2}"
 
 
 def test_extensao_titulo_tem_prioridade_sobre_janela():

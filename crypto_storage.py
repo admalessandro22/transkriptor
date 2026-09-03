@@ -264,7 +264,7 @@ def _slug_para_base(titulo: str | None) -> str | None:
 def nome_base_transcricao(timestamp: str | None = None, titulo_reuniao: str | None = None) -> str:
     import datetime
 
-    ts = timestamp or datetime.datetime.now().strftime("%Y-%m-%d_%Hh%M")
+    ts = timestamp or datetime.datetime.now().strftime("%d-%m-%y_%Hh%M")
     base = f"transcricao_{ts}"
     slug = _slug_para_base(titulo_reuniao)
     if slug:
