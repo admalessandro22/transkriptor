@@ -44,6 +44,17 @@ FASES = {
         "tests/test_limite_linhas.py",
         "tests/test_fluxo_reuniao_v15.py",
     ],
+    "v1.6-estatico": [
+        "tests/test_v16_a_tokens.py",
+        "tests/test_v16_b_assistente.py",
+        "tests/test_v16_c_a11y.py",
+        "tests/test_v16_d_bandeja.py",
+        "tests/test_v16_e_dialogs.py",
+        "tests/test_v16_f_consentimento.py",
+        "tests/test_v16_g_qualidade.py",
+        "tests/test_limite_linhas.py",
+        "tests/test_versao.py",
+    ],
 }
 
 
