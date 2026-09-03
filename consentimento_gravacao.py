@@ -20,6 +20,7 @@ _MENSAGEM_DIALOGO = (
     "A captura só começa depois de escolher Sim.\r\n"
     "Não ou ausência de resposta não gravam esta reunião."
 )
+_ID_COUNTDOWN = 1003
 
 _WM_CLOSE = 0x0010
 _WM_DESTROY = 0x0002
@@ -156,54 +157,124 @@ def _configurar_user32(user32):
     user32.DispatchMessageW.restype = _LRESULT
     user32.PostQuitMessage.argtypes = [ctypes.c_int]
     user32.PostQuitMessage.restype = None
+    try:
+        user32.SetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPCWSTR]
+        user32.SetWindowTextW.restype = wintypes.BOOL
+    except Exception:
+        pass
+    try:
+        user32.SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+        user32.SendMessageW.restype = wintypes.LPARAM
+    except Exception:
+        pass
 
 
-def _criar_controles(user32, hwnd, hinstance):
+def _criar_controles(user32, hwnd, hinstance, timeout_seg: int = 30):
+    from ctypes import wintypes as _wt
+    # Tipografia Segoe UI para o diálogo (melhor legibilidade em HiDPI)
+    try:
+        gdi32 = ctypes.windll.gdi32
+        gdi32.CreateFontW.argtypes = [
+            ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+            wintypes.DWORD, wintypes.DWORD, wintypes.DWORD, wintypes.DWORD, wintypes.DWORD,
+            wintypes.DWORD, wintypes.DWORD, wintypes.DWORD, wintypes.LPCWSTR,
+        ]
+        gdi32.CreateFontW.restype = wintypes.HFONT
+        hfont = gdi32.CreateFontW(-15, 0, 0, 0, 400, 0, 0, 0, 0, 0, 0, 0, 0, "Segoe UI")
+        hfont_small = gdi32.CreateFontW(-12, 0, 0, 0, 400, 0, 0, 0, 0, 0, 0, 0, 0, "Segoe UI")
+    except Exception:
+        hfont = None
+        hfont_small = None
+
     estilo_texto = _WS_CHILD | _WS_VISIBLE | _SS_LEFT
     estilo_botao = _WS_CHILD | _WS_VISIBLE | _WS_TABSTOP
-    user32.CreateWindowExW(
+    # Mensagem principal — janela maior para respiro
+    hstatic = user32.CreateWindowExW(
         0,
         "STATIC",
         _MENSAGEM_DIALOGO,
         estilo_texto,
-        24,
         22,
-        452,
-        115,
+        18,
+        472,
+        118,
         hwnd,
         None,
         hinstance,
         None,
     )
+    # Countdown — atualização a cada segundo
+    hcount = user32.CreateWindowExW(
+        0,
+        "STATIC",
+        f"Esta janela fecha automaticamente em {int(timeout_seg)}s (Não gravar).",
+        estilo_texto | 0x00000002,  # SS_CENTERIMAGE-like align left with muted hint
+        22,
+        138,
+        472,
+        18,
+        hwnd,
+        ctypes.c_void_p(_ID_COUNTDOWN),
+        hinstance,
+        None,
+    )
+    if hfont and hstatic:
+        user32.SendMessageW(hstatic, 0x0030, hfont, 1)  # WM_SETFONT
+    if hfont_small and hcount:
+        user32.SendMessageW(hcount, 0x0030, hfont_small, 1)
+    # Botões — Sim primário maior, Não secundário
     sim = user32.CreateWindowExW(
         0,
         "BUTTON",
-        "Sim, gravar reunião",
+        "●  Sim, gravar reunião",
         estilo_botao | _BS_DEFPUSHBUTTON,
-        24,
-        155,
-        210,
-        34,
+        22,
+        166,
+        224,
+        36,
         hwnd,
         ctypes.c_void_p(_ID_SIM),
         hinstance,
         None,
     )
-    user32.CreateWindowExW(
+    nao = user32.CreateWindowExW(
         0,
         "BUTTON",
-        "Não",
+        "Não gravar",
         estilo_botao,
-        246,
-        155,
-        100,
-        34,
+        258,
+        166,
+        132,
+        36,
         hwnd,
         ctypes.c_void_p(_ID_NAO),
         hinstance,
         None,
     )
-    user32.SetFocus(sim)
+    if hfont and sim:
+        user32.SendMessageW(sim, 0x0030, hfont, 1)
+    if hfont and nao:
+        user32.SendMessageW(nao, 0x0030, hfont, 1)
+    # Dica de privacidade
+    hhint = user32.CreateWindowExW(
+        0,
+        "STATIC",
+        "Nada é gravado antes do Sim. O áudio fica local em transcrições/audio.",
+        estilo_texto,
+        22,
+        210,
+        472,
+        16,
+        hwnd,
+        None,
+        hinstance,
+        None,
+    )
+    if hfont_small and hhint:
+        user32.SendMessageW(hhint, 0x0030, hfont_small, 1)
+    if sim:
+        user32.SetFocus(sim)
+    return hcount
 
 
 def _criar_janela_consentimento(timeout_seg: int, resultado: dict, concluido, parar) -> None:
@@ -226,6 +297,10 @@ def _criar_janela_consentimento(timeout_seg: int, resultado: dict, concluido, pa
         if hwnd:
             user32.DestroyWindow(hwnd)
 
+    import time as _time
+    inicio = _time.monotonic()
+    contexto["hcount"] = None
+
     @_WNDPROC
     def proc(hwnd, mensagem, wparam, lparam):
         if mensagem == _WM_COMMAND:
@@ -247,6 +322,17 @@ def _criar_janela_consentimento(timeout_seg: int, resultado: dict, concluido, pa
                 return 0
             if timer_id == _ID_TIMER_TIMEOUT:
                 finalizar(MB_TIMEDOUT)
+                return 0
+            if timer_id == _ID_TIMER_CANCELAR:
+                # Atualizar countdown a cada ~50ms, mas só mudar texto quando o segundo virar
+                hcount = contexto.get("hcount")
+                if hcount:
+                    restante = max(0, int(timeout_seg) - int(_time.monotonic() - inicio))
+                    try:
+                        txt = f"Esta janela fecha automaticamente em {restante}s (Não gravar)."
+                        user32.SetWindowTextW(hcount, txt)
+                    except Exception:
+                        pass
                 return 0
         elif mensagem == _WM_DESTROY:
             user32.KillTimer(hwnd, _ID_TIMER_CANCELAR)
@@ -271,7 +357,7 @@ def _criar_janela_consentimento(timeout_seg: int, resultado: dict, concluido, pa
     if not user32.RegisterClassW(ctypes.byref(classe_registro)):
         raise ctypes.WinError()
     try:
-        largura, altura = 500, 235
+        largura, altura = 520, 272
         x = max(0, (user32.GetSystemMetrics(0) - largura) // 2)
         y = max(0, (user32.GetSystemMetrics(1) - altura) // 2)
         hwnd = user32.CreateWindowExW(
@@ -291,7 +377,7 @@ def _criar_janela_consentimento(timeout_seg: int, resultado: dict, concluido, pa
         if not hwnd:
             raise ctypes.WinError()
         contexto["hwnd"] = hwnd
-        _criar_controles(user32, hwnd, hinstance)
+        contexto["hcount"] = _criar_controles(user32, hwnd, hinstance, timeout_seg)
         user32.ShowWindow(hwnd, _SW_SHOW)
         user32.UpdateWindow(hwnd)
         user32.SetWindowPos(
