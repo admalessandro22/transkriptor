@@ -1,0 +1,40 @@
+Gate de reuniÒo real ù 25s, modelo auto
+Pasta de trabalho: C:\Users\ALESSA~1\AppData\Local\Temp\gate_transkriptor_7pyst1ye
+
+[OK  ] Loopback do sistema disponÝvel ù Alto-falantes (Realtek(R) Audio)
+[OK  ] Captura iniciada sem travar ù 0.0s
+        5s frames=64,000 falhas=0
+       10s frames=144,000 falhas=0
+       15s frames=240,000 falhas=0
+       20s frames=320,000 falhas=0
+       25s frames=400,000 falhas=0
+[OK  ] ┴udio realmente capturado ù 400,000 frames, 0 falha(s) de captura
+[OK  ] stop() retornou sem travar ù 1.5s
+[OK  ] WAV preservado ù C:\Users\ALESSA~1\AppData\Local\Temp\gate_transkriptor_7pyst1ye\audio\transcricao_2026-09-03_17h03_audio.wav
+[OK  ] WAV nÒo estß vazio ù 832,044 bytes
+[OK  ] Header do WAV vßlido ù 26.0s a 16000 Hz
+[OK  ] Job enfileirado ù 4334fadbada84aed82afaca0dcadfad0
+[OK  ] Whisper processou o job ù 13s
+[OK  ] TranscriþÒo .txt criada ù C:\Users\Alessandro Souza\AppData\Local\Temp\gate_transkriptor_7pyst1ye\transcricao_2026-09-03_17h03.txt
+[OK  ] TranscriþÒo tem conte·do ù 11 linha(s)
+
+----- transcriþÒo -----
+=== Transcricao da reuniao ===
+Inicio: 2026-09-03T17:04:39.197212-03:00
+Fim: nÒo informado
+Duracao: 00:00:26
+Origem: gate
+
+[00:00:00] Bom dia a todos.
+[00:00:03] Esta Ú uma reuniÒo de teste do Transcriptor.
+[00:00:07] Vamos revisar o cronograma do projeto e definir os pr¾ximos passos.
+[00:00:13] O relat¾rio final fica pronto na sexta-feira.
+[00:00:17] Bom dia a todos.
+[00:00:20] Esta Ú uma reuniÒo de teste do Transcriptor.
+[00:00:24] O relat¾rio final estß pronto na sexta-feira.
+
+=== Fim ===
+-----------------------
+
+============================================================
+GATE APROVADO ù 11 etapas
