@@ -1,0 +1,16 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0
+rootdir: C:\Projetos\transkriptor
+configfile: pyproject.toml
+plugins: anyio-4.14.1, cov-7.1.0
+collected 39 items
+
+tests\test_v16_a_tokens.py ....                                          [ 10%]
+tests\test_v16_b_assistente.py .....                                     [ 23%]
+tests\test_v16_c_a11y.py .......                                         [ 41%]
+tests\test_v16_d_bandeja.py ....                                         [ 51%]
+tests\test_v16_e_dialogs.py .....                                        [ 64%]
+tests\test_v16_f_consentimento.py .......                                [ 82%]
+tests\test_v16_g_qualidade.py .......                                    [100%]
+
+============================= 39 passed in 4.71s ==============================
