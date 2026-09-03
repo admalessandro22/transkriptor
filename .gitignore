@@ -19,3 +19,4 @@ terminals/
 agent-tools/
 .worktrees/
 _*.txt
+diagnostico_*.txt
