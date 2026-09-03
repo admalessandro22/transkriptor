@@ -8,6 +8,11 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
+
+from config import VERSAO
+
 MD_PATH = REPO / "docs" / "MANUAL-USUARIO.md"
 PDF_PATH = REPO / "docs" / "MANUAL-USUARIO.pdf"
 
@@ -21,10 +26,23 @@ def _ascii_safe(text: str) -> str:
         "«": '"',
         "»": '"',
         "→": "->",
+        "↔": "<->",
+        "≥": ">=",
+        "≤": "<=",
+        "├──": "+--",
+        "└──": "`--",
+        "│": "|",
     }
     for k, v in substituicoes.items():
         text = text.replace(k, v)
     return text.encode("latin-1", errors="replace").decode("latin-1")
+
+
+def _limpar_markdown(text: str) -> str:
+    text = re.sub(r"\[([^]]+)]\(([^)]+)\)", r"\1 (\2)", text)
+    text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
+    text = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)", r"\1", text)
+    return re.sub(r"`(.+?)`", r"\1", text)
 
 
 def md_para_linhas(md: str) -> list[tuple[str, str]]:
@@ -110,7 +128,7 @@ def gerar_pdf(md_path: Path = MD_PATH, pdf_path: Path = PDF_PATH) -> Path:
             self.cell(
                 0,
                 8,
-                f"Transkriptor v1.2 - Manual do Usuario - Pagina {self.page_no()}/{{nb}}",
+                f"Transkriptor v{VERSAO} - Manual do Usuario - Pagina {self.page_no()}/{{nb}}",
                 align="C",
                 new_x=XPos.LMARGIN,
                 new_y=YPos.NEXT,
@@ -135,6 +153,8 @@ def gerar_pdf(md_path: Path = MD_PATH, pdf_path: Path = PDF_PATH) -> Path:
         )
 
     for estilo, texto in itens:
+        if estilo != "code":
+            texto = _limpar_markdown(texto)
         texto = _ascii_safe(texto)
         if estilo == "h1":
             pdf.ln(4)
@@ -166,8 +186,6 @@ def gerar_pdf(md_path: Path = MD_PATH, pdf_path: Path = PDF_PATH) -> Path:
             pdf.set_x(pdf.l_margin)
             pdf.ln(3)
         else:
-            texto = re.sub(r"\*\*(.+?)\*\*", r"\1", texto)
-            texto = re.sub(r"`(.+?)`", r"\1", texto)
             escrever(texto, 5)
 
     pdf_path.parent.mkdir(parents=True, exist_ok=True)

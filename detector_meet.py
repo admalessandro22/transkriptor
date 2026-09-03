@@ -1,9 +1,19 @@
 # -*- coding: utf-8 -*-
-"""Detecção robusta de Google Meet com debounce.
+"""Reconhecimento de reunião pelo título da janela, com debounce.
 
-Regex específico evita falso-positivos (buscas, páginas de ajuda).
-Debounce de N ciclos consecutivos evita oscilação start/stop quando
-o título da aba pisca durante o carregamento.
+O Google Meet mudou o formato do título da aba: hoje ele pode ser
+`Meet: <nome da reunião>` ou `Meet – abc-defg-hij`, e não mais apenas
+`<sala> - Google Meet`. Este módulo aceita os formatos atuais e legado, além
+do link `meet.google.com/<codigo>` e das reuniões do Zoom, para que nenhuma
+reunião real passe despercebida.
+
+Duas classes de casamento (FR-9.2):
+
+* **forte** — código de reunião presente (`abc-defg-hij`) ou título que começa
+  com `Meet:`, `Meet –` ou `Meet -`. Não passa pela lista de exclusão: uma sala
+  pode se chamar "Ajuda ao cliente" e nem por isso deixa de ser uma reunião.
+* **nomeado** — formato legado `<sala> - Google Meet`. Passa pela exclusão para
+  descartar resultados de busca, tutoriais e páginas de ajuda.
 """
 
 import logging
@@ -13,15 +23,53 @@ from config import CONFIRMACAO_INICIO_MEET, CONFIRMACAO_FIM_MEET
 
 logger = logging.getLogger(__name__)
 
-# Título do Meet ativo: "<nome da sala> - Google Meet"
-# Também aceita "meet.google.com/<codigo>" enquanto carrega.
-_PADRAO_MEET = re.compile(
-    r"(?:.+\s-\sGoogle\sMeet(?=$|\s[-—]\s))"
-    r"|(?:meet\.google\.com/[a-z0-9]+(?:-[a-z0-9]+)+)",
+# Código de sala do Meet: 3 letras - 4 letras - 3 letras (ex.: abc-defg-hij).
+_CODIGO = r"[a-z]{3,4}-[a-z]{3,4}-[a-z]{3,4}"
+
+# Sufixo que o navegador acrescenta ao título da janela. Fora de uma chamada, a
+# aba do Meet se chama só "Meet", então a janela vira "Meet - Google Chrome" —
+# que não é reunião nenhuma. Numa chamada, entre "Meet – " e o navegador existe
+# o nome (ou o código) da sala.
+_NAVEGADOR = (
+    r"Google\s+Chrome|Chromium|Microsoft\s+Edge|Mozilla\s+Firefox|Firefox|"
+    r"Brave|Opera|Vivaldi|Safari"
+)
+# Aceita um segmento extra depois do navegador (perfil, contador de janelas).
+_SO_O_NAVEGADOR = rf"(?:{_NAVEGADOR})\b(?:\s*[-–—]\s*[^-–—]+)?\s*$"
+
+# Casamento forte: não sofre exclusão por palavra-chave.
+_PADRAO_FORTE = re.compile(
+    # "Meet – abc-defg-hij", "Meet - abc-defg-hij" (título atual do Meet)
+    rf"(?:(?:^|[|\-–—]\s)Meet\s*[-–—]\s*{_CODIGO}\b)"
+    # título começa com "Meet – <sala do Calendar>"; o que vem depois não pode
+    # ser apenas o nome do navegador, senão a aba fora de chamada viraria reunião
+    rf"|(?:^Meet\s*[-–—]\s+(?!{_SO_O_NAVEGADOR})\S)"
+    # Chrome atual: "Meet: <nome da reunião>" ou "Meet: <código>".
+    rf"|(?:^Meet\s*:\s*\S)"
+    # link colado no título / barra de endereços
+    rf"|(?:meet\.google\.com/{_CODIGO})"
+    # formato legado com código: "abc-defg-hij - Google Meet"
+    rf"|(?:{_CODIGO}\s*[-–—]\s*Google\s*Meet\b)",
     re.IGNORECASE,
 )
 
-# Palavras que indicam que NÃO é uma reunião ativa (buscas, tutoriais, ajuda)
+# Casamento nomeado (legado): "<sala> - Google Meet [- Navegador]"
+_PADRAO_NOMEADO = re.compile(
+    r".+\s-\sGoogle\sMeet(?=$|\s[-—–]\s)",
+    re.IGNORECASE,
+)
+
+# Reunião do Zoom pelo texto da janela. É só a rede de segurança: o caminho
+# confiável é `detector_zoom`, que não depende de idioma. A janela ociosa do app
+# ("Zoom Workplace") de propósito não casa.
+_PADRAO_ZOOM = re.compile(
+    r"\bZoom\s+(?:Meeting|Webinar|Reuni[aã]o)\b"
+    r"|\bReuni[aã]o\s+(?:do\s+)?Zoom\b"
+    r"|\bZoom\s+(?:Meeting|Reuni[aã]o)\s+Webinar\b",
+    re.IGNORECASE,
+)
+
+# Palavras que indicam que NÃO é uma reunião ativa (buscas, tutoriais, ajuda).
 _EXCLUIR = re.compile(
     r"(pesquisa|search|como\s+(?:usar|configurar)|tutorial|ajuda|help|"
     r"sign\s?in|login|account|novidades)",
@@ -29,15 +77,27 @@ _EXCLUIR = re.compile(
 )
 
 
+def classificar_titulo(titulo):
+    """Retorna "forte", "nomeado" ou "" para o título recebido.
+
+    Exposta para o diagnóstico da bandeja: permite mostrar ao usuário por que
+    uma janela foi (ou não foi) considerada reunião.
+    """
+    if not titulo or not str(titulo).strip():
+        return ""
+    texto = str(titulo).strip()
+    if _PADRAO_FORTE.search(texto) or _PADRAO_ZOOM.search(texto):
+        return "forte"
+    if _PADRAO_NOMEADO.search(texto) and not _EXCLUIR.search(texto):
+        return "nomeado"
+    return ""
+
+
 def titulo_eh_meet(titulo, *, visivel=True, exigir_janela_visivel=False):
-    """Retorna True apenas se o título parece uma reunião ativa do Meet."""
+    """Retorna True apenas se o título parece uma reunião ativa."""
     if exigir_janela_visivel and not visivel:
         return False
-    if not titulo or not titulo.strip():
-        return False
-    if _EXCLUIR.search(titulo):
-        return False
-    return bool(_PADRAO_MEET.search(titulo.strip()))
+    return bool(classificar_titulo(titulo))
 
 
 class DetectorMeet:

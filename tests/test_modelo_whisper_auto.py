@@ -2,6 +2,7 @@
 """Testes de resolução automática do modelo Whisper (FR-6.3, FR-6.4)."""
 from unittest.mock import MagicMock, patch
 
+import app_ciclo_reuniao
 from config import MODELO_WHISPER, resolver_modelo_whisper
 
 
@@ -16,14 +17,23 @@ def test_resolver_cuda_vram_4gb_medium():
     assert resolver_modelo_whisper(True, 6.0) == ("medium", "cuda", "int8_float16")
 
 
+def test_placa_de_4gb_reporta_menos_de_4_e_ainda_usa_gpu():
+    """Regressão v1.4: a GTX 1650 reporta 3.99969 GiB — não pode cair para CPU."""
+    assert resolver_modelo_whisper(True, 4294639616 / 1024**3) == (
+        "medium",
+        "cuda",
+        "int8_float16",
+    )
+
+
 def test_resolver_sem_cuda_small_cpu():
     """FR-6.3: sem CUDA → small/cpu/int8."""
     assert resolver_modelo_whisper(False, 8.0) == ("small", "cpu", "int8")
 
 
 def test_resolver_cuda_vram_baixa_small_cpu():
-    """FR-6.3: CUDA com VRAM < 4 GB → small/cpu/int8."""
-    assert resolver_modelo_whisper(True, 3.9) == ("small", "cpu", "int8")
+    """FR-6.3: CUDA com VRAM abaixo do limiar → small/cpu/int8."""
+    assert resolver_modelo_whisper(True, 3.5) == ("small", "cpu", "int8")
     assert resolver_modelo_whisper(True, 2.0) == ("small", "cpu", "int8")
 
 
@@ -147,11 +157,15 @@ def test_iniciar_transcricao_usa_modelo_da_config(monkeypatch, modulo_transkript
     class _FakeTranscritor:
         def __init__(self, **kwargs):
             capturados.update(kwargs)
+            self.on_status = kwargs["on_status"]
             self.rodando = False
             self.diarizando = False
 
         def start(self):
+            # O Transcritor real reporta status de dentro do start; o dublê
+            # precisa fazer o mesmo ou não exercita o caminho que travou o app.
             self.rodando = True
+            self.on_status("Gravação da reunião em andamento.")
 
     monkeypatch.setitem(
         __import__("sys").modules,
@@ -174,20 +188,15 @@ def test_iniciar_transcricao_usa_modelo_da_config(monkeypatch, modulo_transkript
     app.identificar_minha_voz = False
     app.rotulo_usuario = "VOCÊ"
     app.criptografar_transcricoes = False
-    app._modo_manual = False
     app._inicio_transcricao_wall_ms = None
     app._lock = __import__("threading").Lock()
     app._status = MagicMock()
     app._atualizar_tooltip = MagicMock()
     app._erro_critico = MagicMock()
-    monkeypatch.setattr(modulo_transkriptor, "notificar", lambda *a, **k: None)
-    monkeypatch.setattr(modulo_transkriptor, "Watchdog", MagicMock())
-    monkeypatch.setattr(
-        modulo_transkriptor,
-        "perfil_existe",
-        lambda *a, **k: False,
-    )
+    monkeypatch.setattr(app_ciclo_reuniao, "notificar", lambda *a, **k: None)
+    monkeypatch.setattr(app_ciclo_reuniao, "Watchdog", MagicMock())
+    monkeypatch.setattr(app_ciclo_reuniao, "perfil_existe", lambda *a, **k: False)
 
     # _iniciar_transcricao faz `from transcricao_core import Transcritor`
-    app._iniciar_transcricao(manual=True)
+    app._iniciar_transcricao()
     assert capturados.get("modelo") == "small"

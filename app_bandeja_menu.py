@@ -16,14 +16,13 @@ from config import (
     ARQUIVO_VOZES_CONHECIDAS,
     ARQUIVO_VOZES_CONHECIDAS_ENC,
     BASE_DIR,
-    TIMEOUT_AVISO_GRAVACAO_SEG,
     LOG_FILE,
     MODELO_WHISPER,
     MODELOS_WHISPER_MENU,
     PASTA_TRANSCRICOES,
     PORTA_MEET_BRIDGE,
 )
-from crypto_storage import chave_disponivel, migrar_txt_legacy, migrar_vozes_legacy, perfil_existe
+from crypto_storage import chave_disponivel, migrar_vozes_legacy, perfil_existe
 from meet_bridge import iniciar_bridge_em_thread
 from notificador import notificar
 from perfil_voz_flow import (
@@ -37,19 +36,17 @@ from startup_windows import (
     remover_atalho_startup as _remover_atalho_startup,
 )
 from transkriptor_acoes import (
-    IDYES,
     confirmacao_saida_necessaria,
     deve_confirmar_pausa,
-    resposta_continuar_gravacao,
     saida_permitida,
     texto_deteccao_menu,
-    texto_transcricao_manual,
 )
 from transkriptor_lock import liberar_lock
 from transkriptor_menu_flows import (
     iniciar_assistente_ui,
     iniciar_renomear_falante_ui,
     iniciar_retranscricao_ui,
+    rodar_diagnostico_ui,
 )
 
 
@@ -71,17 +68,6 @@ class MenuBandejaMixin:
     def retranscrever_audio_menu(self, _icone=None, _item=None):
         iniciar_retranscricao_ui(self)
 
-    def alternar_transcricao_manual(self, _icone=None, _item=None):
-        if self._gravando() and self._modo_manual:
-            self._parar_transcricao()
-            self._modo_manual = False
-            self._status("Transcricao manual encerrada.")
-            return
-        if self._gravando():
-            self._status("Ja transcrevendo (Meet ou manual).")
-            return
-        self._iniciar_transcricao(manual=True)
-
     def _confirmar_saida(self):
         try:
             import ctypes
@@ -101,55 +87,11 @@ class MenuBandejaMixin:
     def abrir_assistente(self, _icone=None, _item=None):
         threading.Thread(target=iniciar_assistente_ui, args=(self,), daemon=True).start()
 
-    def _perguntar_continuar_gravacao_padrao(self) -> int:
-        """FR-2.9: Sim/Não com timeout — sem resposta, a gravação continua."""
-        try:
-            import ctypes
+    def _texto_pergunta_gravacao(self, _item=None):
+        return "✓ Confirmar antes de gravar (obrigatório)"
 
-            # YESNO | ICONQUESTION | SETFOREGROUND | TOPMOST
-            return int(
-                ctypes.windll.user32.MessageBoxTimeoutW(
-                    0,
-                    "O Transkriptor está gravando esta reunião.\n"
-                    "Deseja continuar gravando?\n\n"
-                    f"(Sem resposta em {TIMEOUT_AVISO_GRAVACAO_SEG}s, continua gravando.)",
-                    "Transkriptor — reunião detectada",
-                    0x4 | 0x20 | 0x10000 | 0x40000,
-                    0,
-                    TIMEOUT_AVISO_GRAVACAO_SEG * 1000,
-                )
-            )
-        except Exception:
-            logging.exception("Diálogo de gravação indisponível")
-            return IDYES
-
-    def _avisar_gravacao_iniciada(self):
-        """FR-2.9: aviso pós-início com opção de recusar; a gravação já roda."""
-        perguntar = (
-            getattr(self, "_perguntar_continuar_gravacao", None)
-            or self._perguntar_continuar_gravacao_padrao
-        )
-        if resposta_continuar_gravacao(perguntar()):
-            return
-        self._recusa_reuniao_ativa = True
-        self._cancelar_gravacao_reuniao()
-
-    def _cancelar_gravacao_reuniao(self):
-        """Para e descarta a gravação atual (recusa do usuário)."""
-        with self._lock:
-            t, w = self.transcritor, self.watchdog
-        if w:
-            w.stop()
-            self.watchdog = None
-        if t and t.rodando:
-            t.descartar()
-        self._modo_manual = False
-        self._status("Gravação desta reunião cancelada e descartada.")
-        notificar(
-            "Transkriptor",
-            "Ok — esta reunião NÃO será gravada. A próxima pergunta de novo.",
-        )
-        self._atualizar_tooltip()
+    def abrir_diagnostico(self, _icone=None, _item=None):
+        threading.Thread(target=rodar_diagnostico_ui, args=(self,), daemon=True).start()
 
     def _confirmar_pausa_padrao(self) -> bool:
         try:
@@ -172,8 +114,10 @@ class MenuBandejaMixin:
             confirmar = getattr(self, "_confirmar_pausa", None) or self._confirmar_pausa_padrao
             if not confirmar():
                 return
-        self.deteccao_ativa = not self.deteccao_ativa
-        if not self.deteccao_ativa:
+        with self._lock:
+            self.deteccao_ativa = not self.deteccao_ativa
+            pausada = not self.deteccao_ativa
+        if pausada:
             self._parar_transcricao()
             self._toast_pausa_reuniao = None
             self._status("Gravação automática pausada.")
@@ -261,7 +205,6 @@ class MenuBandejaMixin:
         cfg["criptografar_transcricoes"] = self.criptografar_transcricoes
         config_user.salvar(cfg)
         if self.criptografar_transcricoes and chave_disponivel():
-            migrar_txt_legacy(PASTA_TRANSCRICOES)
             migrar_vozes_legacy(
                 ARQUIVO_PERFIL_VOZ,
                 ARQUIVO_PERFIL_VOZ_ENC,
@@ -269,7 +212,7 @@ class MenuBandejaMixin:
                 ARQUIVO_VOZES_CONHECIDAS_ENC,
             )
         estado = "ativada" if self.criptografar_transcricoes else "desativada"
-        self._status(f"Criptografia de transcricoes {estado}.")
+        self._status(f"Cópia criptografada {estado}.")
         self._atualizar_tooltip()
 
     def alternar_startup(self, _icone=None, _item=None):
@@ -297,21 +240,40 @@ class MenuBandejaMixin:
             if not saida_permitida(gravando, self._confirmar_saida()):
                 return
         self._parar_transcricao()
-        self._modo_manual = False
         if self.icone is not None:
             self.icone.stop()
         liberar_lock()
         logging.info("Transkriptor encerrado.")
 
     def _texto_status(self, _item=None):
-        with self._lock:
-            if self.transcritor and getattr(self.transcritor, "diarizando", False):
-                return "Separando vozes (pós-processamento)..."
-            if self.transcritor and self.transcritor.rodando:
-                return "Transcrevendo reuniao..."
-            if self.deteccao_ativa:
-                return "Aguardando Google Meet..."
+        # Sem lock: o pystray monta o menu a partir daqui e só lê atributos.
+        # Esperar por `self._lock` no desenho do menu transformaria qualquer
+        # operação lenta em bandeja congelada.
+        transcritor = self.transcritor
+        if transcritor and getattr(transcritor, "diarizando", False):
+            return "Separando vozes (pós-processamento)..."
+        if transcritor and transcritor.rodando:
+            fontes = ", ".join(
+                getattr(getattr(self, "detector", None), "fontes_da_reuniao", None) or []
+            )
+            return f"Gravando reunião ({fontes})..." if fontes else "Gravando reunião..."
+        estado = getattr(self, "_estado_processamento", None)
+        if estado:
+            return f"Pós-processamento: {estado}"
+        if not self.deteccao_ativa:
             return "PAUSADO — não está gravando"
+        return f"Aguardando reunião — {self._resumo_fontes()}"
+
+    def _resumo_fontes(self):
+        """UX-9.1: o menu diz o que o detector está enxergando agora."""
+        detector = getattr(self, "detector", None)
+        if detector is None:
+            return "detector indisponível"
+        try:
+            ativos = [s.fonte for s in detector.instantaneo() if s.ativo]
+        except Exception:
+            return "falha ao consultar fontes"
+        return f"sinal de: {', '.join(ativos)}" if ativos else "nenhuma reunião à vista"
 
     def _texto_deteccao(self, _item=None):
         return texto_deteccao_menu(self.deteccao_ativa)
@@ -325,9 +287,9 @@ class MenuBandejaMixin:
 
     def _texto_criptografia(self, _item=None):
         return (
-            "✓ Criptografar transcrições"
+            "✓ Criar cópia criptografada (.tkpt)"
             if self.criptografar_transcricoes
-            else "Criptografar transcrições"
+            else "Criar cópia criptografada (.tkpt)"
         )
 
     def _texto_startup(self, _item=None):
@@ -336,9 +298,6 @@ class MenuBandejaMixin:
             if self.iniciar_com_windows
             else "Iniciar com o Windows"
         )
-
-    def _texto_transcricao_manual(self, _item=None):
-        return texto_transcricao_manual(self._gravando() and self._modo_manual)
 
     def _texto_identificar_voz(self, _item=None):
         if self.identificar_minha_voz:
@@ -411,23 +370,39 @@ class MenuBandejaMixin:
         return pystray.Menu(
             pystray.MenuItem(self._texto_status, None, enabled=False),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Abrir pasta de transcricoes", self.abrir_pasta),
+            pystray.MenuItem(
+                "Transcrições",
+                pystray.Menu(
+                    pystray.MenuItem("Abrir pasta de transcrições", self.abrir_pasta),
+                    pystray.MenuItem("Abrir assistente (IA local)", self.abrir_assistente),
+                    pystray.MenuItem("Retranscrever áudio…", self.retranscrever_audio_menu),
+                    pystray.MenuItem("Abrir pasta vozes conhecidas", self.abrir_vozes_conhecidas),
+                ),
+            ),
+            pystray.MenuItem("Diagnóstico (por que não está gravando?)", self.abrir_diagnostico),
             pystray.MenuItem("Abrir log", self.abrir_log),
-            pystray.MenuItem("Retranscrever áudio…", self.retranscrever_audio_menu),
-            pystray.MenuItem(self._texto_transcricao_manual, self.alternar_transcricao_manual),
-            pystray.MenuItem("Abrir assistente (resumo, perguntas)", self.abrir_assistente),
+            pystray.Menu.SEPARATOR,
             pystray.MenuItem(self._texto_deteccao, self.alternar_deteccao),
+            pystray.MenuItem(self._texto_pergunta_gravacao, None, enabled=False),
             pystray.MenuItem(self._texto_diarizacao, self.alternar_diarizacao),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Cadastrar minha voz (20s)", self.cadastrar_minha_voz),
-            pystray.MenuItem(self._texto_identificar_voz, self.alternar_identificar_voz),
-            pystray.MenuItem("Apagar perfil de voz", self.apagar_perfil_voz),
-            pystray.Menu.SEPARATOR,
-            pystray.MenuItem(self._texto_nomes_meet, self.alternar_nomes_meet),
-            pystray.MenuItem(self._texto_legendas_meet, self.alternar_legendas_meet),
-            pystray.MenuItem("Instalar extensão Meet (pasta)", self.abrir_extensao_meet),
-            pystray.MenuItem("Renomear falante (última diarização)", self.renomear_falante_menu),
-            pystray.MenuItem("Abrir pasta vozes conhecidas", self.abrir_vozes_conhecidas),
+            pystray.MenuItem(
+                "Minha voz",
+                pystray.Menu(
+                    pystray.MenuItem("Cadastrar minha voz (20s)", self.cadastrar_minha_voz),
+                    pystray.MenuItem(self._texto_identificar_voz, self.alternar_identificar_voz),
+                    pystray.MenuItem("Apagar perfil de voz", self.apagar_perfil_voz),
+                ),
+            ),
+            pystray.MenuItem(
+                "Google Meet",
+                pystray.Menu(
+                    pystray.MenuItem(self._texto_nomes_meet, self.alternar_nomes_meet),
+                    pystray.MenuItem(self._texto_legendas_meet, self.alternar_legendas_meet),
+                    pystray.MenuItem("Instalar extensão Meet (pasta)", self.abrir_extensao_meet),
+                    pystray.MenuItem("Renomear falante (última diarização)", self.renomear_falante_menu),
+                ),
+            ),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem(self._texto_criptografia, self.alternar_criptografia),
             pystray.MenuItem("Modelo Whisper", self._submenu_modelo_whisper()),

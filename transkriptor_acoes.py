@@ -6,9 +6,9 @@ IDNO = 7
 MB_TIMEDOUT = 32000  # retorno de MessageBoxTimeoutW quando o tempo expira
 
 
-def resposta_continuar_gravacao(retorno) -> bool:
-    """FR-2.9: só recusa a gravação com 'Não' explícito; timeout ou erro continuam."""
-    return retorno != IDNO
+def resposta_autoriza_gravacao(retorno) -> bool:
+    """FR-10.B2: somente Sim explícito autoriza abrir a captura."""
+    return retorno == IDYES
 
 
 def deve_iniciar_gravacao_auto(recusa_reuniao_ativa: bool) -> bool:
@@ -24,10 +24,6 @@ def saida_permitida(gravando: bool, usuario_confirmou: bool) -> bool:
     if not gravando:
         return True
     return usuario_confirmou
-
-
-def texto_transcricao_manual(rodando: bool) -> str:
-    return "Parar transcrição manual" if rodando else "Iniciar transcrição manual"
 
 
 def texto_deteccao_menu(deteccao_ativa: bool) -> str:
@@ -51,8 +47,20 @@ def deve_toast_meet_em_pausa(deteccao_ativa: bool, mudanca: str, ja_avisou: bool
     return not ja_avisou
 
 
-def deve_parar_transcricao_por_meet(mudanca: str, modo_manual: bool) -> bool:
-    """Transcrição manual não deve ser encerrada quando o detector vê Meet fechar."""
-    if mudanca != "encerrou":
+def deve_parar_transcricao_por_meet(mudanca: str) -> bool:
+    """Toda captura pertence à reunião detectada e termina junto com ela."""
+    return mudanca == "encerrou"
+
+
+def portao_consentimento_liberado(em_andamento, aberto_em, agora, limite) -> bool:
+    """FR-10.B3 com escape: uma pergunta por reunião, mas o portão não emperra.
+
+    Em 2026-08-07 a thread do consentimento travou e `_consentimento_em_andamento`
+    ficou `True` para sempre — dali em diante nenhuma reunião era nem perguntada.
+    O portão continua impedindo duas perguntas simultâneas, mas expira.
+    """
+    if not em_andamento:
+        return True
+    if aberto_em is None:
         return False
-    return not modo_manual
+    return (agora - aberto_em) >= limite

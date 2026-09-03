@@ -12,14 +12,19 @@ import threading
 import time
 from logging.handlers import RotatingFileHandler
 
-import pygetwindow as gw
 import pystray
 
 from app_bandeja_menu import MenuBandejaMixin
+from app_ciclo_reuniao import CicloReuniaoMixin
+from app_processamento import ProcessamentoReuniaoMixin
+from app_bootstrap import (
+    atualizar_config_user as _atualizar_config_user,
+    carregar_config_user as _carregar_config_user,
+    resolver_identificar_minha_voz as _resolver_identificar_minha_voz,
+)
 from bandeja_icone import criar_ico, criar_imagem, imagem_por_estado
 from crypto_storage import (
     chave_disponivel,
-    migrar_txt_legacy,
     migrar_vozes_legacy,
     perfil_existe,
     recuperar_orfaos_wav,
@@ -31,7 +36,7 @@ from config import (
     ARQUIVO_VOZES_CONHECIDAS_ENC,
     BASE_DIR,
     CAPTURAR_MIC,
-    EXIGIR_JANELA_VISIVEL,
+    HEARTBEAT_MONITOR_CICLOS,
     IDIOMA,
     INTERVALO_MONITOR_MEET,
     LOG_FILE,
@@ -46,13 +51,17 @@ from config import (
     USAR_NOMES_MEET,
     VERSAO,
 )
-from detector_meet import DetectorMeet, titulo_eh_meet
-from estado_icone import DURACAO_ERRO_ICONE, resolver_estado_icone
+from monitor_reuniao import (
+    VigiaMonitor,
+    autoteste_audio,
+    construir_detector,
+    texto_heartbeat,
+)
+from estado_icone import resolver_estado_icone
+from fila_processamento import fila_padrao
 from meet_bridge import MeetBridge, iniciar_bridge_em_thread, sincronizar_token_extensao
 from notificador import (
-    deve_toast_ao_vivo,
-    formatar_mensagem_toast,
-    meet_em_foco,
+    configurar_icone,
     notificar,
 )
 from retencao_audio import limpar_audios_vencidos
@@ -62,13 +71,8 @@ from startup_windows import (
     startup_ativo as _startup_ativo,
 )
 from status_seguro import sanitizar_para_log
-from transkriptor_acoes import (
-    deve_iniciar_gravacao_auto,
-    deve_parar_transcricao_por_meet,
-    deve_toast_meet_em_pausa,
-)
+from transkriptor_acoes import deve_toast_meet_em_pausa
 from transkriptor_lock import adquirir_lock, liberar_lock
-from watchdog import Watchdog
 
 os.makedirs(PASTA_TRANSCRICOES, exist_ok=True)
 LOCK_FILE = os.path.join(BASE_DIR, "transkriptor.lock")
@@ -81,39 +85,17 @@ logging.root.setLevel(logging.INFO)
 logging.root.addHandler(_log_handler)
 
 
-def _carregar_config_user():
-    import config_user
-
-    return config_user.carregar()
-
-
-def _salvar_config_user(cfg):
-    import config_user
-
-    try:
-        config_user.salvar(cfg)
-    except Exception as e:
-        logging.error(f"Erro ao salvar config_user: {e}")
-
-
-def _resolver_identificar_minha_voz(cfg, tem_perfil):
-    ativo = cfg.get("identificar_minha_voz", tem_perfil) and tem_perfil
-    if cfg.get("identificar_minha_voz") and not tem_perfil:
-        cfg["identificar_minha_voz"] = False
-    return ativo, cfg
-
-
-class AppTranskriptor(MenuBandejaMixin):
+class AppTranskriptor(CicloReuniaoMixin, ProcessamentoReuniaoMixin, MenuBandejaMixin):
     def __init__(self):
         self.icone = None
         self.transcritor = None
         self.watchdog = None
-        self.detector = DetectorMeet(exigir_janela_visivel=EXIGIR_JANELA_VISIVEL)
         self.deteccao_ativa = True
         self.diarizacao_ativa = True
         self._toast_pausa_reuniao = None
         self._confirmar_pausa = self._confirmar_pausa_padrao
         self._recusa_reuniao_ativa = False
+        self._consentimento_em_andamento = False
         cfg = _carregar_config_user()
         self.modelo_whisper = cfg.get("modelo_whisper", MODELO_WHISPER)
         if self.modelo_whisper not in MODELOS_WHISPER_MENU:
@@ -121,9 +103,6 @@ class AppTranskriptor(MenuBandejaMixin):
         self.iniciar_com_windows = cfg.get("iniciar_com_windows", _startup_ativo())
         self.criptografar_transcricoes = cfg.get("criptografar_transcricoes", True)
         if self.criptografar_transcricoes and chave_disponivel():
-            migrados = migrar_txt_legacy(PASTA_TRANSCRICOES)
-            if migrados:
-                logging.info("Migradas %d transcricoes .txt para .tkpt", migrados)
             vozes = migrar_vozes_legacy(
                 ARQUIVO_PERFIL_VOZ,
                 ARQUIVO_PERFIL_VOZ_ENC,
@@ -136,13 +115,14 @@ class AppTranskriptor(MenuBandejaMixin):
             if orfaos_enc:
                 logging.info("Criptografados %d audios orfaos em PASTA_AUDIO", orfaos_enc)
         if "criptografar_transcricoes" not in cfg:
-            cfg["criptografar_transcricoes"] = self.criptografar_transcricoes
-            _salvar_config_user(cfg)
+            _atualizar_config_user(
+                criptografar_transcricoes=self.criptografar_transcricoes
+            )
         tem_perfil = perfil_existe(ARQUIVO_PERFIL_VOZ, ARQUIVO_PERFIL_VOZ_ENC)
         antes = cfg.get("identificar_minha_voz")
         self.identificar_minha_voz, cfg = _resolver_identificar_minha_voz(cfg, tem_perfil)
         if antes and not tem_perfil:
-            _salvar_config_user(cfg)
+            _atualizar_config_user(identificar_minha_voz=False)
         self.rotulo_usuario = cfg.get("rotulo_usuario", ROTULO_USUARIO)
         self.capturar_mic = cfg.get("capturar_mic", CAPTURAR_MIC)
         self.usar_nomes_meet = cfg.get("usar_nomes_meet", USAR_NOMES_MEET)
@@ -151,40 +131,44 @@ class AppTranskriptor(MenuBandejaMixin):
         meet_token = cfg_meet.get("meet_bridge_token")
         if not meet_token:
             meet_token = secrets.token_urlsafe(24)
-            cfg_meet["meet_bridge_token"] = meet_token
-            _salvar_config_user(cfg_meet)
+            _atualizar_config_user(meet_bridge_token=meet_token)
         self.meet_bridge = MeetBridge(token=meet_token)
         sincronizar_token_extensao(meet_token, BASE_DIR)
+        # FR-9.B1: fusão de fontes. Qualquer uma mantém a reunião viva; assim
+        # trocar de aba no meio da chamada não encerra mais a gravação.
+        self.detector = construir_detector(self.meet_bridge)
+        # FR-9.C4: heartbeat só prova vida para quem lê o log. O vigia
+        # transforma a ausência dele em erro visível na bandeja.
+        self.vigia_monitor = VigiaMonitor(on_travado=self._erro_critico)
         self._meet_bridge_thread = None
         self._monitor_thread = None
         self._bandeja_pronta = False
         self._inicio_transcricao_wall_ms = None
         self.ultimo_status = "Aguardando Google Meet..."
         self.ultimo_log = ""
-        self._lock = threading.Lock()
+        # Reentrante como cinto de segurança: a regra continua sendo não chamar
+        # callback nenhum sob o lock, mas um descuido futuro vira lentidão, e
+        # não um app congelado sem uma linha no log.
+        self._lock = threading.RLock()
         self._em_erro = False
         self._instante_erro = None
-        self._modo_manual = False
+        self._iniciando = False
+        self.fila = fila_padrao()
+        self._worker_processamento = None
+        self._estado_processamento = None
+        self._ultimo_job_id = None
 
     def _gravando(self):
         return bool(self.transcritor and self.transcritor.rodando)
 
-    def _meet_em_foco(self):
-        try:
-            ativa = gw.getActiveWindow()
-            titulo = ativa.title if ativa else ""
-            return meet_em_foco(titulo, titulo_eh_meet)
-        except Exception:
-            return False
-
     def _status(self, msg):
-        with self._lock:
-            self.ultimo_log = msg
+        # Sem `self._lock` de propósito: atribuir um atributo já é atômico e
+        # `_status` é chamado pelas threads de áudio e do monitor. Pedir o lock
+        # aqui travou o app inteiro por três dias em 2026-08-07, quando quem
+        # iniciava a gravação segurava o mesmo lock (ver
+        # tests/test_ciclo_reuniao_sem_deadlock.py).
+        self.ultimo_log = msg
         logging.info(sanitizar_para_log(msg))
-        if deve_toast_ao_vivo(msg, self._meet_em_foco(), self._gravando()):
-            notificar("Transkriptor", formatar_mensagem_toast(msg))
-        if msg.startswith("Diarização concluída"):
-            notificar("Transkriptor", f"Vozes separadas: {msg.split(':')[-1].strip()}")
         self._atualizar_tooltip()
 
     def _atualizar_tooltip(self):
@@ -195,6 +179,7 @@ class AppTranskriptor(MenuBandejaMixin):
             self.deteccao_ativa,
             em_erro=self._em_erro,
             instante_erro=self._instante_erro,
+            processando=self._processamento_em_execucao(),
         )
         if self._em_erro and estado_icone != "erro":
             self._em_erro = False
@@ -206,126 +191,32 @@ class AppTranskriptor(MenuBandejaMixin):
             pass
         self.icone.update_menu()
 
-    def _eventos_meet_relativos(self):
-        if self._inicio_transcricao_wall_ms is None:
-            return []
-        inicio = self._inicio_transcricao_wall_ms
-        relativos = []
-        for ev in self.meet_bridge.drenar_eventos():
-            ts_ms = ev.get("ts_ms", int(ev.get("ts_sec", 0) * 1000))
-            relativos.append({**ev, "ts_sec": (ts_ms - inicio) / 1000.0})
-        return relativos
-
-    def _iniciar_transcricao(self, manual=False):
-        from transcricao_core import Transcritor
-
-        with self._lock:
-            if self.transcritor and self.transcritor.rodando:
-                return
-        self._inicio_transcricao_wall_ms = int(time.time() * 1000)
-        self._modo_manual = bool(manual)
-        self._status(
-            "Iniciando transcricao manual..."
-            if manual
-            else "Meet confirmado. Iniciando transcricao..."
-        )
-        self.transcritor = Transcritor(
-            modelo=getattr(self, "modelo_whisper", MODELO_WHISPER),
-            idioma=IDIOMA,
-            pasta_saida=PASTA_TRANSCRICOES,
-            diarizar_ao_final=self.diarizacao_ativa,
-            on_status=self._status,
-            capturar_mic=self.capturar_mic,
-            identificar_voz=self.identificar_minha_voz
-            and perfil_existe(ARQUIVO_PERFIL_VOZ, ARQUIVO_PERFIL_VOZ_ENC),
-            rotulo_usuario=self.rotulo_usuario,
-            criptografar=self.criptografar_transcricoes,
-        )
-        try:
-            self.transcritor.start()
-            self.watchdog = Watchdog(
-                self.transcritor, on_status=self._status, on_erro_critico=self._erro_critico
-            )
-            self.watchdog.start()
-            self._status("Transcricao em andamento.")
-            notificar("Transkriptor", "Transcrição iniciada (reunião detectada)")
-            if not manual:
-                # FR-2.9: aviso com opção de recusar; a gravação já está rodando
-                threading.Thread(
-                    target=self._avisar_gravacao_iniciada, daemon=True
-                ).start()
-            self._atualizar_tooltip()
-        except Exception as e:
-            self._status(f"Erro ao iniciar: {e}")
-            notificar("Transkriptor", f"Erro ao iniciar transcrição: {e}")
-
-    def _erro_critico(self, msg):
-        self._em_erro = True
-        self._instante_erro = time.monotonic()
-        logging.error(f"Erro critico: {msg}")
-        self._status(f"ERRO CRITICO: {msg}")
-        notificar("Transkriptor", f"Erro crítico: {msg}. Veja o log.")
-        self._atualizar_tooltip()
-
-        def _reverter_erro():
-            time.sleep(DURACAO_ERRO_ICONE)
-            self._em_erro = False
-            self._instante_erro = None
-            self._atualizar_tooltip()
-
-        threading.Thread(target=_reverter_erro, daemon=True).start()
-
-    def _parar_transcricao(self):
-        with self._lock:
-            t, w = self.transcritor, self.watchdog
-        if w:
-            w.stop()
-            self.watchdog = None
-        if t and t.rodando:
-            if self.usar_nomes_meet:
-                t.eventos_meet = self._eventos_meet_relativos()
-                if self.modo_legendas_meet and not t.eventos_meet:
-                    notificar(
-                        "Transkriptor",
-                        "Ative legendas no Meet para identificar participantes",
-                    )
-            caminho = t.stop()
-            if caminho:
-                self._status(f"Salvo: {os.path.basename(caminho)}")
-                notificar(
-                    "Transkriptor", f"Transcrição salva: {os.path.basename(caminho)}"
-                )
-            self._atualizar_tooltip()
-
-    def _processar_mudanca_meet(self, mudanca):
-        if mudanca == "iniciou":
-            if not self._modo_manual and deve_iniciar_gravacao_auto(
-                self._recusa_reuniao_ativa
-            ):
-                self._iniciar_transcricao()
-            return
-        if mudanca == "encerrou":
-            # FR-2.10: recusa vale só para a reunião que acabou
-            self._recusa_reuniao_ativa = False
-        if deve_parar_transcricao_por_meet(mudanca, self._modo_manual):
-            self._status("Meet encerrado. Finalizando transcricao...")
-            self._parar_transcricao()
-
     def _detectar_mudanca_meet(self):
-        if EXIGIR_JANELA_VISIVEL:
-            janelas = []
-            for w in gw.getAllWindows():
-                try:
-                    janelas.append({"titulo": w.title, "visivel": not w.isMinimized})
-                except Exception:
-                    continue
-            return self.detector.verificar_janelas(janelas)
-        return self.detector.verificar(gw.getAllTitles())
+        return self.detector.verificar()
 
-    def _monitorar_meet(self):
+    def _heartbeat_monitor(self, ciclos):
+        """FR-9.C4: prova periódica no log de que o monitor continua vivo."""
+        if ciclos % HEARTBEAT_MONITOR_CICLOS:
+            return
+        logging.info("%s", texto_heartbeat(self.detector, self._gravando(), ciclos))
+
+    def _vigiar_monitor(self):
+        """Thread separada de propósito: ela precisa sobreviver ao travamento."""
         while True:
             try:
+                self.vigia_monitor.verificar(time.monotonic())
+            except Exception:
+                logging.exception("Erro no vigia do monitor")
+            time.sleep(INTERVALO_MONITOR_MEET)
+
+    def _monitorar_meet(self):
+        ciclos = 0
+        while True:
+            try:
+                ciclos += 1
+                self.vigia_monitor.bater(time.monotonic())
                 mudanca = self._detectar_mudanca_meet()
+                self._heartbeat_monitor(ciclos)
                 if self.deteccao_ativa:
                     self._processar_mudanca_meet(mudanca)
                 else:
@@ -335,13 +226,17 @@ class AppTranskriptor(MenuBandejaMixin):
                         self._toast_pausa_reuniao = mudanca
                         notificar(
                             "Transkriptor",
-                            "Meet detectado, mas a gravação está pausada",
+                            "Reunião detectada, mas a gravação está pausada",
                         )
                     if mudanca == "encerrou":
                         self._toast_pausa_reuniao = None
             except Exception:
-                logging.exception("Erro no monitor do Meet")
+                logging.exception("Erro no monitor de reunião")
             time.sleep(INTERVALO_MONITOR_MEET)
+
+    def _autoteste_audio(self):
+        """FR-9.A4: falha de captura vira aviso visível, nunca silêncio no log."""
+        autoteste_audio(self._erro_critico)
 
     def _rodar_retencao_audio(self):
         try:
@@ -371,34 +266,47 @@ class AppTranskriptor(MenuBandejaMixin):
                 self._bandeja_pronta = True
 
             threading.Thread(
+                target=self._preparar_processamento,
+                daemon=True,
+                name="Transkriptor-FilaProcessamento",
+            ).start()
+
+            threading.Thread(
                 target=self._loop_retencao_audio,
                 daemon=True,
                 name="Transkriptor-RetencaoAudio",
             ).start()
 
-            if self.usar_nomes_meet:
-                self._meet_bridge_thread = iniciar_bridge_em_thread(
-                    self.meet_bridge, "127.0.0.1", PORTA_MEET_BRIDGE
-                )
-                logging.info("Ponte Meet iniciada em 127.0.0.1:%s", PORTA_MEET_BRIDGE)
+            # FR-9.3: a ponte agora também é fonte de detecção, então sobe
+            # sempre — não só quando "Identificar nomes do Meet" está ligado.
+            # Se ela falhar (porta ocupada), a bandeja continua: título e
+            # microfone seguem detectando reuniões sem a extensão.
+            bridge = getattr(self, "meet_bridge", None)
+            if bridge is not None:
+                try:
+                    self._meet_bridge_thread = iniciar_bridge_em_thread(
+                        bridge, "127.0.0.1", PORTA_MEET_BRIDGE
+                    )
+                    logging.info(
+                        "Ponte Meet iniciada em 127.0.0.1:%s", PORTA_MEET_BRIDGE
+                    )
+                except Exception:
+                    logging.exception("Ponte Meet indisponível; detecção segue sem ela")
+
+            threading.Thread(
+                target=self._autoteste_audio, daemon=True, name="Transkriptor-AutoTeste"
+            ).start()
 
             self._monitor_thread = threading.Thread(
                 target=self._monitorar_meet, daemon=True, name="Transkriptor-MonitorMeet"
             )
             self._monitor_thread.start()
+
+            threading.Thread(
+                target=self._vigiar_monitor, daemon=True, name="Transkriptor-VigiaMonitor"
+            ).start()
             logging.info("Bandeja pronta.")
             logging.info("Monitor do Meet iniciado.")
-            notificar(
-                "Transkriptor",
-                "Ativo na bandeja. Se o ícone não aparecer, clique em ^ na barra de tarefas.",
-            )
-            try:
-                icon.notify(
-                    "Ícone na bandeja do sistema. Use ^ se estiver oculto.",
-                    "Transkriptor ativo",
-                )
-            except Exception:
-                logging.warning("Notificação nativa da bandeja indisponível.")
         except Exception:
             logging.exception("Falha ao preparar bandeja")
             with self._lock:
@@ -418,6 +326,7 @@ class AppTranskriptor(MenuBandejaMixin):
             title=f"Transkriptor {VERSAO} - Aguardando Meet",
             menu=self._menu(),
         )
+        configurar_icone(self.icone)
         try:
             self.icone.run(setup=self._ao_bandeja_pronta)
         finally:
@@ -440,7 +349,7 @@ def _mostrar_erro_fatal(msg):
 
 
 if __name__ == "__main__":
-    if not adquirir_lock(LOCK_FILE):
+    if not adquirir_lock(LOCK_FILE, usar_mutex_nomeado=True):
         logging.info("Segunda instancia bloqueada pelo mutex.")
         for _h in logging.root.handlers:
             try:

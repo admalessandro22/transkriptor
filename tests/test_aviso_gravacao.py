@@ -1,24 +1,61 @@
 # -*- coding: utf-8 -*-
-"""FR-2.9/FR-2.10 — aviso pós-início com opção de recusar a gravação."""
+"""FR-10.B — consentimento obrigatório antes de qualquer captura."""
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import pytest
+
+import consentimento_gravacao
 from transcricao_core import Transcritor
 from transkriptor_acoes import (
     IDNO,
     IDYES,
     MB_TIMEDOUT,
     deve_iniciar_gravacao_auto,
-    resposta_continuar_gravacao,
+    resposta_autoriza_gravacao,
 )
 
 
-def test_resposta_continuar_gravacao():
-    """FR-2.9: só o 'Não' explícito recusa; timeout/erro continuam gravando."""
-    assert resposta_continuar_gravacao(IDYES) is True
-    assert resposta_continuar_gravacao(MB_TIMEDOUT) is True
-    assert resposta_continuar_gravacao(0) is True
-    assert resposta_continuar_gravacao(IDNO) is False
+@pytest.mark.parametrize(
+    ("retorno", "esperado"),
+    [(IDYES, True), (IDNO, False), (MB_TIMEDOUT, False), (0, False)],
+)
+def test_so_sim_explicito_autoriza(retorno, esperado):
+    """FR-10.B2: timeout, erro e Não são sempre fail-closed."""
+    assert resposta_autoriza_gravacao(retorno) is esperado
+
+
+def test_dialogo_de_consentimento_falha_fechado(monkeypatch):
+    monkeypatch.setattr(
+        consentimento_gravacao,
+        "_mostrar_dialogo",
+        lambda _timeout: (_ for _ in ()).throw(OSError("indisponível")),
+    )
+    assert consentimento_gravacao.pedir_consentimento(timeout_seg=1) is False
+
+
+def test_dialogo_nao_usa_icone_de_pergunta_com_som():
+    fonte = Path(consentimento_gravacao.__file__).read_text(encoding="utf-8")
+    assert "ICONQUESTION" not in fonte
+
+
+def test_dialogo_eh_reapresentado_acima_da_janela_do_zoom():
+    """FR-10.B1: consentimento não pode ficar atrás da janela da reunião."""
+    fonte = Path(consentimento_gravacao.__file__).read_text(encoding="utf-8")
+    assert "_criar_janela_consentimento" in fonte
+    assert "_WS_EX_TOPMOST" in fonte
+    assert "CreateWindowExW" in fonte
+    assert "SetWindowPos" in fonte
+    assert "SetForegroundWindow" in fonte
+
+
+def test_dialogo_nao_modal_mantem_zoom_interativo():
+    """UX-10.B1: decidir não pode desabilitar a janela da reunião."""
+    fonte = Path(consentimento_gravacao.__file__).read_text(encoding="utf-8")
+    assert "MessageBoxTimeoutW" not in fonte
+    assert "DisableWindow" not in fonte
+    assert "_WS_EX_TOOLWINDOW" in fonte
 
 
 def test_deve_iniciar_gravacao_auto():
@@ -59,78 +96,72 @@ def _app(modulo, monkeypatch):
     monkeypatch.setattr(modulo, "chave_disponivel", lambda: False)
     monkeypatch.setattr(modulo, "perfil_existe", lambda *a, **k: False)
     monkeypatch.setattr(modulo, "_carregar_config_user", lambda: {})
-    monkeypatch.setattr(modulo, "_salvar_config_user", lambda cfg: None)
+    monkeypatch.setattr(modulo, "_atualizar_config_user", lambda **kv: None)
     monkeypatch.setattr(modulo, "sincronizar_token_extensao", lambda *a, **k: None)
     monkeypatch.setattr(modulo, "notificar", lambda *a, **k: None)
     monkeypatch.setattr(app_bandeja_menu, "notificar", lambda *a, **k: None)
     return modulo.AppTranskriptor()
 
 
-def test_recusa_descarta_e_bloqueia_ate_fim_da_reuniao(modulo_transkriptor, monkeypatch):
-    """FR-2.9/2.10: 'Não' descarta a gravação e impede reinício até o Meet acabar."""
+def test_captura_nao_comeca_antes_de_resposta_positiva(modulo_transkriptor, monkeypatch):
+    """FR-10.B1: responder Não não cria Transcritor nem arquivo."""
     app = _app(modulo_transkriptor, monkeypatch)
-    t = MagicMock()
-    t.rodando = True
-    t.descartar.side_effect = lambda: setattr(t, "rodando", False)
-    app.transcritor = t
-    app.watchdog = None
-    app._perguntar_continuar_gravacao = lambda: IDNO
+    app.detector = SimpleNamespace(reuniao_ativa=True)
+    app._pedir_consentimento = lambda: False
+    app._iniciar_transcricao = MagicMock()
 
-    app._avisar_gravacao_iniciada()
+    app._pedir_e_iniciar()
 
     assert app._recusa_reuniao_ativa is True
-    t.descartar.assert_called_once()
-    assert app._modo_manual is False
+    app._iniciar_transcricao.assert_not_called()
 
-    iniciou = []
-    app._iniciar_transcricao = lambda manual=False: iniciou.append(1)
+    app._em_thread = lambda alvo, _nome: alvo()
     app._processar_mudanca_meet("iniciou")
-    assert iniciou == []
+    app._iniciar_transcricao.assert_not_called()
 
     app._processar_mudanca_meet("encerrou")
     assert app._recusa_reuniao_ativa is False
+
+
+def test_sim_inicia_somente_depois_da_resposta(modulo_transkriptor, monkeypatch):
+    app = _app(modulo_transkriptor, monkeypatch)
+    app.detector = SimpleNamespace(reuniao_ativa=True)
+    ordem = []
+    app._pedir_consentimento = lambda: ordem.append("resposta") or True
+    app._iniciar_transcricao = lambda: ordem.append("captura")
+
+    app._pedir_e_iniciar()
+
+    assert ordem == ["resposta", "captura"]
+    assert app._recusa_reuniao_ativa is False
+
+
+def test_resposta_tardia_apos_fim_nao_bloqueia_proxima_reuniao(
+    modulo_transkriptor, monkeypatch
+):
+    app = _app(modulo_transkriptor, monkeypatch)
+    app.detector = SimpleNamespace(reuniao_ativa=False)
+    app._pedir_consentimento = lambda: False
+    app._iniciar_transcricao = MagicMock()
+
+    app._pedir_e_iniciar()
+
+    assert app._recusa_reuniao_ativa is False
+    app._iniciar_transcricao.assert_not_called()
+
+
+def test_reuniao_gera_no_maximo_uma_pergunta(modulo_transkriptor, monkeypatch):
+    """FR-10.B3: eventos duplicados não abrem duas caixas de consentimento."""
+    app = _app(modulo_transkriptor, monkeypatch)
+    app.detector = SimpleNamespace(reuniao_ativa=True)
+    perguntas = []
+    pendentes = []
+    app._pedir_consentimento = lambda: perguntas.append(1) or False
+    app._em_thread = lambda alvo, _nome: pendentes.append(alvo)
+
     app._processar_mudanca_meet("iniciou")
-    assert iniciou == [1]
+    app._processar_mudanca_meet("iniciou")
+    assert len(pendentes) == 1
 
-
-def test_sim_ou_timeout_mantem_gravacao(modulo_transkriptor, monkeypatch):
-    """FR-2.9: Sim ou timeout não descartam nada."""
-    app = _app(modulo_transkriptor, monkeypatch)
-    t = MagicMock()
-    t.rodando = True
-    app.transcritor = t
-    for resposta in (IDYES, MB_TIMEDOUT):
-        app._perguntar_continuar_gravacao = lambda r=resposta: r
-        app._avisar_gravacao_iniciada()
-        assert app._recusa_reuniao_ativa is False
-        t.descartar.assert_not_called()
-
-
-def test_aviso_so_para_gravacao_automatica(modulo_transkriptor, monkeypatch):
-    """FR-2.9: início manual não dispara o diálogo; automático dispara."""
-    import transcricao_core
-
-    app = _app(modulo_transkriptor, monkeypatch)
-    fake = MagicMock()
-    fake.rodando = False
-    monkeypatch.setattr(transcricao_core, "Transcritor", MagicMock(return_value=fake))
-    monkeypatch.setattr(modulo_transkriptor, "Watchdog", MagicMock())
-
-    alvos = []
-
-    class ThreadFalsa:
-        def __init__(self, target=None, daemon=None, args=(), name=None):
-            alvos.append(target)
-
-        def start(self):
-            pass
-
-    monkeypatch.setattr(modulo_transkriptor.threading, "Thread", ThreadFalsa)
-
-    app._iniciar_transcricao(manual=True)
-    assert app._avisar_gravacao_iniciada not in alvos
-
-    app.transcritor = None
-    app._modo_manual = False
-    app._iniciar_transcricao(manual=False)
-    assert app._avisar_gravacao_iniciada in alvos
+    pendentes[0]()
+    assert perguntas == [1]

@@ -25,3 +25,29 @@ def test_progresso_a_cada_10_segmentos(monkeypatch):
     assert "10/25 segmentos..." in progresso
     assert "20/25 segmentos..." in progresso
     assert "25/25 segmentos..." in progresso
+
+
+def test_diarizacao_automatica_limita_explosao_de_falantes(monkeypatch):
+    """Ruido entre segmentos nao pode criar centenas de falantes falsos."""
+    from config import MAX_FALANTES_AUTO_DIARIZACAO
+
+    total = MAX_FALANTES_AUTO_DIARIZACAO + 8
+    embeddings = [np.eye(total, dtype=np.float32)[i] for i in range(total)]
+    monkeypatch.setattr("diarizador._carregar_encoder", lambda: MagicMock())
+    monkeypatch.setattr(
+        "diarizador._extrair_embedding",
+        MagicMock(side_effect=embeddings),
+    )
+
+    trechos = [np.ones(16000, dtype=np.float32) for _ in range(total)]
+    segmentos = [(float(i), float(i + 1), f"seg{i}") for i in range(total)]
+
+    resultado = diarizar(trechos, segmentos)
+
+    assert len({rotulo for rotulo, *_ in resultado}) <= MAX_FALANTES_AUTO_DIARIZACAO
+
+
+def test_intervalo_diarizado_curto_nao_vira_zero_segundos():
+    from diarizacao_final import formatar_intervalo_diarizacao
+
+    assert formatar_intervalo_diarizacao(10.2, 10.4) == "00:10-00:11"

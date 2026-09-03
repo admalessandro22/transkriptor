@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Gate de verificação por fase — Transkriptor v1.2/v1.2.1 SDD."""
+"""Gate de verificação por fase — Transkriptor SDD."""
 import argparse
 import subprocess
 import sys
@@ -38,6 +38,23 @@ FASES = {
         "tests/test_integracao_monitor_meet.py",
         "tests/test_atalho_desktop.py",
     ],
+    "v1.5-estatico": [
+        "tests/test_versao.py",
+        "tests/test_manual_usuario.py",
+        "tests/test_limite_linhas.py",
+        "tests/test_fluxo_reuniao_v15.py",
+    ],
+    "v1.6-estatico": [
+        "tests/test_v16_a_tokens.py",
+        "tests/test_v16_b_assistente.py",
+        "tests/test_v16_c_a11y.py",
+        "tests/test_v16_d_bandeja.py",
+        "tests/test_v16_e_dialogs.py",
+        "tests/test_v16_f_consentimento.py",
+        "tests/test_v16_g_qualidade.py",
+        "tests/test_limite_linhas.py",
+        "tests/test_versao.py",
+    ],
 }
 
 
@@ -46,14 +63,14 @@ def main():
     parser.add_argument(
         "--fase",
         required=True,
-        help="Número da fase (0-8), 'estabilidade' ou 'all'",
+        help="Número da fase (0-8), 'estabilidade', 'v1.5-estatico' ou 'all'",
     )
     args = parser.parse_args()
 
     if args.fase == "all":
         files = sorted({f for fl in FASES.values() for f in fl})
-    elif args.fase == "estabilidade":
-        files = FASES["estabilidade"]
+    elif args.fase in FASES:
+        files = FASES[args.fase]
     else:
         try:
             fase = int(args.fase)

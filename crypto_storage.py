@@ -6,10 +6,12 @@ import base64
 import logging
 import os
 import secrets
+import tempfile
 from pathlib import Path
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
+import config as _config
 from config import PASTA_TRANSCRICOES
 import config_user
 
@@ -27,12 +29,35 @@ class ErroDescriptografia(Exception):
     """Falha de decrypt sem vazar detalhes do ciphertext (SEC-9)."""
 
 
+def caminho_chave_dpapi() -> Path:
+    """Resolve em runtime para permitir isolamento seguro nos testes."""
+    return Path(_config.ARQUIVO_CHAVE_DPAPI)
+
+
 def _carregar_config() -> dict:
     return config_user.carregar()
 
 
-def _salvar_config(cfg: dict) -> None:
-    config_user.salvar(cfg)
+def _salvar_blob_dpapi(protegido: bytes) -> None:
+    """Persiste o blob DPAPI de forma atômica fora do JSON de preferências."""
+    caminho = caminho_chave_dpapi()
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporario = tempfile.mkstemp(
+        prefix="transkriptor_key_", suffix=".tmp", dir=str(caminho.parent)
+    )
+    try:
+        with os.fdopen(fd, "wb") as arquivo:
+            arquivo.write(protegido)
+            arquivo.flush()
+            os.fsync(arquivo.fileno())
+        os.replace(temporario, caminho)
+        temporario = None
+    finally:
+        if temporario and os.path.isfile(temporario):
+            try:
+                os.remove(temporario)
+            except OSError:
+                pass
 
 
 def _dpapi_protect(data: bytes) -> bytes:
@@ -96,6 +121,22 @@ def garantir_chave_mestra() -> bool:
     global _chave_mestra
     if _chave_mestra is not None:
         return True
+    caminho_chave = caminho_chave_dpapi()
+    if caminho_chave.is_file():
+        try:
+            _chave_mestra = _dpapi_unprotect(caminho_chave.read_bytes())
+            if len(_chave_mestra) == KEY_SIZE:
+                return True
+            logger.error("Chave DPAPI dedicada com tamanho inválido; criptografia indisponível.")
+        except Exception:
+            logger.error(
+                "Não foi possível abrir chave DPAPI dedicada; dados antigos permanecem intactos.",
+                exc_info=True,
+            )
+        _chave_mestra = None
+        return False
+
+    # Migração única: versões até 1.4 mantinham o blob no JSON de preferências.
     cfg = _carregar_config()
     blob_b64 = cfg.get("chave_dpapi")
     if blob_b64:
@@ -103,6 +144,7 @@ def garantir_chave_mestra() -> bool:
             protegido = base64.b64decode(blob_b64.encode("ascii"))
             _chave_mestra = _dpapi_unprotect(protegido)
             if len(_chave_mestra) == KEY_SIZE:
+                _salvar_blob_dpapi(protegido)
                 return True
             logger.error("Chave DPAPI com tamanho inválido; criptografia indisponível.")
         except Exception:
@@ -115,8 +157,7 @@ def garantir_chave_mestra() -> bool:
     try:
         _chave_mestra = secrets.token_bytes(KEY_SIZE)
         protegido = _dpapi_protect(_chave_mestra)
-        cfg["chave_dpapi"] = base64.b64encode(protegido).decode("ascii")
-        _salvar_config(cfg)
+        _salvar_blob_dpapi(protegido)
         return True
     except Exception:
         logger.error("DPAPI indisponível; criptografia desativada.", exc_info=True)
@@ -158,7 +199,23 @@ def descriptografar_bytes(cifrado: bytes) -> bytes:
 def salvar_bytes_arquivo(caminho: str, plano: bytes) -> None:
     path = Path(caminho)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(criptografar_bytes(plano))
+    cifrado = criptografar_bytes(plano)
+    fd, temporario = tempfile.mkstemp(
+        prefix=f"{path.stem}_", suffix=".tmp", dir=str(path.parent)
+    )
+    try:
+        with os.fdopen(fd, "wb") as arquivo:
+            arquivo.write(cifrado)
+            arquivo.flush()
+            os.fsync(arquivo.fileno())
+        os.replace(temporario, path)
+        temporario = None
+    finally:
+        if temporario and os.path.isfile(temporario):
+            try:
+                os.remove(temporario)
+            except OSError:
+                pass
 
 
 def ler_bytes_arquivo(caminho: str) -> bytes:
@@ -202,7 +259,24 @@ def caminho_transcricao_novo(pasta: str, diarizado: bool = False, criptografar: 
         ext = extensao_transcricao()
     else:
         ext = ".tkpt" if criptografar and chave_disponivel() else ".txt"
-    return os.path.join(pasta, base + ext)
+    # O relógio tem precisão de minuto por compatibilidade visual. Nunca
+    # reutilizar, porém, o mesmo conjunto de TXT/WAV de uma reunião anterior.
+    indice = 1
+    while True:
+        sufixo = "" if indice == 1 else f"_{indice:02d}"
+        candidato = os.path.join(pasta, base + sufixo + ext)
+        relacionados = (
+            candidato,
+            os.path.join(pasta, base + sufixo + ".txt"),
+            os.path.join(pasta, base + sufixo + ".tkpt"),
+            os.path.join(pasta, base + sufixo + "_audio.wav"),
+            os.path.join(pasta, base + sufixo + "_audio.wav.enc"),
+            os.path.join(pasta, base + sufixo + "_mic.wav"),
+            os.path.join(pasta, base + sufixo + "_mic.wav.enc"),
+        )
+        if not any(os.path.exists(caminho) for caminho in relacionados):
+            return candidato
+        indice += 1
 
 
 def _backup_txt_na_migracao() -> bool:
@@ -318,6 +392,14 @@ def criptografar_wav(caminho: str) -> str:
         return caminho
     path = Path(caminho)
     destino = str(path) + ".enc"
+    if os.path.exists(destino):
+        indice = 2
+        while True:
+            alternativo = path.with_name(f"{path.stem}_{indice:02d}.wav.enc")
+            if not alternativo.exists():
+                destino = str(alternativo)
+                break
+            indice += 1
     try:
         plano = path.read_bytes()
         salvar_bytes_arquivo(destino, plano)

@@ -1,0 +1,58 @@
+Executando: C:\Users\Alessandro Souza\AppData\Local\Programs\Python\Python312\python.exe -m pytest tests/test_v16_a_tokens.py tests/test_v16_b_assistente.py tests/test_v16_c_a11y.py tests/test_v16_d_bandeja.py tests/test_v16_e_dialogs.py tests/test_v16_f_consentimento.py tests/test_v16_g_qualidade.py tests/test_limite_linhas.py tests/test_versao.py -v --tb=short
+============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\Alessandro Souza\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Projetos\transkriptor
+configfile: pyproject.toml
+plugins: anyio-4.14.1, cov-7.1.0
+collecting ... collected 47 items
+
+tests/test_v16_a_tokens.py::test_tokens_em_root_sem_hex_solto PASSED     [  2%]
+tests/test_v16_a_tokens.py::test_sem_bounce_ou_elastic PASSED            [  4%]
+tests/test_v16_a_tokens.py::test_prefers_reduced_motion_presente PASSED  [  6%]
+tests/test_v16_a_tokens.py::test_detect_zero_warnings PASSED             [  8%]
+tests/test_v16_b_assistente.py::test_html_tem_busca_e_context_bar PASSED [ 10%]
+tests/test_v16_b_assistente.py::test_html_markdown_e_copiar PASSED       [ 12%]
+tests/test_v16_b_assistente.py::test_html_action_cards_hierarquia PASSED [ 14%]
+tests/test_v16_b_assistente.py::test_html_tem_search_wrap_e_header_meta PASSED [ 17%]
+tests/test_v16_b_assistente.py::test_js_busca_preserva_selecao PASSED    [ 19%]
+tests/test_v16_c_a11y.py::test_color_scheme_dark PASSED                  [ 21%]
+tests/test_v16_c_a11y.py::test_focus_visible_gold PASSED                 [ 23%]
+tests/test_v16_c_a11y.py::test_aria_labels_drawer PASSED                 [ 25%]
+tests/test_v16_c_a11y.py::test_drawer_860_e_375 PASSED                   [ 27%]
+tests/test_v16_c_a11y.py::test_keyboard_nav_cards PASSED                 [ 29%]
+tests/test_v16_c_a11y.py::test_esc_fecha_drawer_e_abort PASSED           [ 31%]
+tests/test_v16_c_a11y.py::test_forced_colors_e_scrollbar PASSED          [ 34%]
+tests/test_v16_d_bandeja.py::test_menu_tem_3_submenus_e_9_raiz PASSED    [ 36%]
+tests/test_v16_d_bandeja.py::test_menu_raiz_tem_9_ou_menos_itens PASSED  [ 38%]
+tests/test_v16_d_bandeja.py::test_menu_preserva_status_no_topo PASSED    [ 40%]
+tests/test_v16_d_bandeja.py::test_submenus_tem_separators_corretos PASSED [ 42%]
+tests/test_v16_e_dialogs.py::test_dialog_retranscrever_listbox PASSED    [ 44%]
+tests/test_v16_e_dialogs.py::test_dialog_renomear_combobox PASSED        [ 46%]
+tests/test_v16_e_dialogs.py::test_dialogs_sao_topmost_e_grab PASSED      [ 48%]
+tests/test_v16_e_dialogs.py::test_dialogs_tem_fallback PASSED            [ 51%]
+tests/test_v16_e_dialogs.py::test_retranscrever_nao_usa_escolha_numerica_direta PASSED [ 53%]
+tests/test_v16_f_consentimento.py::test_consentimento_tem_countdown PASSED [ 55%]
+tests/test_v16_f_consentimento.py::test_consentimento_tem_segoe_ui PASSED [ 57%]
+tests/test_v16_f_consentimento.py::test_consentimento_janela_520x272 PASSED [ 59%]
+tests/test_v16_f_consentimento.py::test_consentimento_botoes_novo_tamanho PASSED [ 61%]
+tests/test_v16_f_consentimento.py::test_consentimento_configura_user32 PASSED [ 63%]
+tests/test_v16_f_consentimento.py::test_consentimento_tem_hint_privacidade PASSED [ 65%]
+tests/test_v16_f_consentimento.py::test_consentimento_nao_usa_messageboxtimeout PASSED [ 68%]
+tests/test_v16_g_qualidade.py::test_limite_500_linhas PASSED             [ 70%]
+tests/test_v16_g_qualidade.py::test_py_compile_tres_editados PASSED      [ 72%]
+tests/test_v16_g_qualidade.py::test_compileall_raiz PASSED               [ 74%]
+tests/test_v16_g_qualidade.py::test_tmp_path_isolation_existe PASSED     [ 76%]
+tests/test_v16_g_qualidade.py::test_sem_plyer PASSED                     [ 78%]
+tests/test_v16_g_qualidade.py::test_assistente_host_local PASSED         [ 80%]
+tests/test_v16_g_qualidade.py::test_detect_zero_warnings_css_js PASSED   [ 82%]
+tests/test_limite_linhas.py::test_nenhum_arquivo_de_producao_passa_de_500_linhas PASSED [ 85%]
+tests/test_limite_linhas.py::test_verificador_recursos_aplica_limites_da_v15 PASSED [ 87%]
+tests/test_limite_linhas.py::test_gate_estatico_v15_inclui_recursos_e_fluxo PASSED [ 89%]
+tests/test_versao.py::test_versao_config_bate_com_pyproject PASSED       [ 91%]
+tests/test_versao.py::test_transkriptor_pyw_sem_versao_hardcoded PASSED  [ 93%]
+tests/test_versao.py::test_instalar_bat_le_versao_de_config PASSED       [ 95%]
+tests/test_versao.py::test_agents_md_aponta_sdd_v15 PASSED               [ 97%]
+tests/test_versao.py::test_v15_preserva_txt_principal_ao_criar_copia_criptografada PASSED [100%]
+
+============================= 47 passed in 4.10s ==============================

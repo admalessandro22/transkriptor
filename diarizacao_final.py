@@ -5,8 +5,10 @@ from __future__ import annotations
 
 import datetime
 import logging
+import math
 import os
 import shutil
+from pathlib import Path
 
 from audio_utils import ler_trecho_wav
 import config as _config
@@ -20,6 +22,28 @@ from config import (
 logger = logging.getLogger(__name__)
 
 
+def _destino_sem_colisao(pasta: str, nome: str) -> str:
+    """Escolhe destino livre sem apagar áudio de outra reunião."""
+    caminho = Path(pasta) / nome
+    if not caminho.exists():
+        return str(caminho)
+    indice = 2
+    while True:
+        candidato = caminho.with_name(f"{caminho.stem}_{indice:02d}{caminho.suffix}")
+        if not candidato.exists():
+            return str(candidato)
+        indice += 1
+
+
+def formatar_intervalo_diarizacao(start: float, end: float) -> str:
+    """Formata um intervalo legivel sem produzir duracao visual igual a zero."""
+    inicio = max(0, math.floor(float(start)))
+    fim = max(inicio + 1, math.ceil(float(end)))
+    inicio_fmt = f"{inicio // 60:02d}:{inicio % 60:02d}"
+    fim_fmt = f"{fim // 60:02d}:{fim % 60:02d}"
+    return f"{inicio_fmt}-{fim_fmt}"
+
+
 def preservar_audios(criptografar: bool, *caminhos, pasta_audio: str | None = None) -> list:
     """Move WAVs finalizados para PASTA_AUDIO e criptografa se ativo (FR-2.1/2.2)."""
     destinos = []
@@ -31,12 +55,11 @@ def preservar_audios(criptografar: bool, *caminhos, pasta_audio: str | None = No
         if not caminho or not os.path.isfile(caminho):
             continue
         try:
-            destino = os.path.join(pasta, os.path.basename(caminho))
+            destino = _destino_sem_colisao(pasta, os.path.basename(caminho))
             if os.path.abspath(caminho) != os.path.abspath(destino):
-                if os.path.isfile(destino):
-                    os.remove(destino)
                 shutil.move(caminho, destino)
-            destino = criptografar_wav(destino)
+            if criptografar:
+                destino = criptografar_wav(destino)
             destinos.append(destino)
         except Exception:
             logger.exception("Falha ao preservar áudio %s", caminho)
@@ -105,9 +128,8 @@ def rodar_diarizacao(transcritor, caminho_saida, caminho_wav) -> None:
             f"=== Transcricao diarizada em {datetime.datetime.now():%Y-%m-%d %H:%M:%S} ===\n\n"
         ]
         for rotulo, start, end, texto in resultado:
-            mm_ss_start = f"{int(start // 60):02d}:{int(start % 60):02d}"
-            mm_ss_end = f"{int(end // 60):02d}:{int(end % 60):02d}"
-            linhas.append(f"[{rotulo} {mm_ss_start}-{mm_ss_end}] {texto}\n")
+            intervalo = formatar_intervalo_diarizacao(start, end)
+            linhas.append(f"[{rotulo} {intervalo}] {texto}\n")
         linhas.append("\n=== Fim ===\n")
         texto_diar = "".join(linhas)
         if transcritor.criptografar:

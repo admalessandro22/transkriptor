@@ -17,15 +17,49 @@
   const DEBOUNCE_MS = 400;
   const MAX_TEXTO = 500;
 
+  const HEARTBEAT_MS = 5000;
+
   let ws = null;
   let ultimoNome = "";
   let ultimoTexto = "";
   let ultimoEnvio = 0;
   let timerReconectar = null;
 
+  /**
+   * Estamos dentro de uma chamada (e não na tela inicial / sala de espera)?
+   * Sinais, em ordem de confiança: URL com código de sala + presença dos
+   * controles da chamada (botão de sair / microfone).
+   */
+  function emChamada() {
+    if (!/^\/[a-z]{3,4}-[a-z]{3,4}-[a-z]{3,4}/i.test(location.pathname)) return false;
+    const seletores = [
+      '[aria-label*="Sair da chamada" i]',
+      '[aria-label*="Leave call" i]',
+      '[data-tooltip*="Sair da chamada" i]',
+      '[data-tooltip*="Leave call" i]',
+      '[aria-label*="Desativar microfone" i]',
+      '[aria-label*="Turn off microphone" i]',
+      '[data-is-muted]',
+    ];
+    return seletores.some(function (s) {
+      return document.querySelector(s) !== null;
+    });
+  }
+
+  /** FR-9.3: heartbeat de estado — a fonte mais confiável de detecção. */
+  function enviarEstado() {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    try {
+      ws.send(JSON.stringify({ tipo: "reuniao", ativa: emChamada(), ts_ms: Date.now() }));
+    } catch (_e) {}
+  }
+
   function conectar() {
     try {
       ws = new WebSocket(WS_URL);
+      ws.onopen = function () {
+        enviarEstado();
+      };
       ws.onclose = function () {
         timerReconectar = setTimeout(conectar, 3000);
       };
@@ -213,7 +247,16 @@
       characterData: true,
     });
     setInterval(detectar, 1500);
+    setInterval(enviarEstado, HEARTBEAT_MS);
   }
+
+  window.addEventListener("beforeunload", function () {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(JSON.stringify({ tipo: "reuniao", ativa: false, ts_ms: Date.now() }));
+      } catch (_e) {}
+    }
+  });
 
   conectar();
   if (document.readyState === "loading") {

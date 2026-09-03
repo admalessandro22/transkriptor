@@ -1,0 +1,5 @@
+tests\test_vigia_monitor.py .........                                    [ 97%]
+tests\test_watchdog.py ........                                          [ 99%]
+tests\test_worker_observabilidade.py ...                                 [100%]
+
+======================= 513 passed in 74.23s (0:01:14) ========================

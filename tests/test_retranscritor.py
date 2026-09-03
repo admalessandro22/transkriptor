@@ -97,3 +97,58 @@ def test_listar_audios_inclui_data_e_duracao(tmp_path, monkeypatch):
     assert items[0]["caminho"] == str(wav)
     assert items[0]["duracao_seg"] >= 1.9
     assert "rotulo" in items[0]
+
+
+def test_retranscrever_nome_deterministico_txt_e_escrita_atomica(
+    tmp_path, monkeypatch
+):
+    import retranscritor
+
+    pasta_tr = tmp_path / "tr"
+    pasta_audio = tmp_path / "audio"
+    pasta_tr.mkdir()
+    pasta_audio.mkdir()
+    wav = _escrever_wav(pasta_audio / "reuniao.wav", segundos=0.2)
+    modelo = MagicMock()
+    modelo.transcribe.return_value = ([_Seg("texto final", 0.0, 0.15)], MagicMock())
+    replaces = []
+    original = retranscritor.os.replace
+
+    def substituir(origem, destino):
+        replaces.append((Path(origem), Path(destino)))
+        return original(origem, destino)
+
+    monkeypatch.setattr(retranscritor.os, "replace", substituir)
+    saida = retranscrever(
+        str(wav),
+        pasta_saida=str(pasta_tr),
+        nome_base_saida="reuniao_cliente",
+        modelo_whisper=modelo,
+        diarizar=False,
+        gerar_copia_tkpt=False,
+        metadados={"duracao_seg": 0.2},
+    )
+
+    assert Path(saida).name == "reuniao_cliente.txt"
+    assert replaces and replaces[-1][1] == Path(saida)
+    assert not list(pasta_tr.glob("*.tmp"))
+
+
+def test_retranscricao_sinaliza_lacuna_estimada(tmp_path):
+    pasta = tmp_path / "tr"
+    pasta.mkdir()
+    wav = _escrever_wav(tmp_path / "reuniao-2.wav", segundos=0.2)
+    modelo = MagicMock()
+    modelo.transcribe.return_value = ([_Seg("trecho recuperado", 0, 0.1)], MagicMock())
+
+    saida = retranscrever(
+        str(wav),
+        pasta_saida=str(pasta),
+        nome_base_saida="reuniao-2-recuperada",
+        modelo_whisper=modelo,
+        diarizar=False,
+        metadados={"lacuna_estimada_seg": 285},
+    )
+
+    texto = Path(saida).read_text(encoding="utf-8")
+    assert "AVISO DE INTEGRIDADE: lacuna estimada de 285 s" in texto

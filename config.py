@@ -8,7 +8,7 @@ Isso evita magic numbers espalhados e facilita ajustes.
 import os
 
 # ---- Versão do produto (fonte única) ----
-VERSAO = "1.3.0"
+VERSAO = "1.6.0"
 
 # ---- Caminhos ----
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -17,6 +17,7 @@ PASTA_AUDIO = os.path.join(PASTA_TRANSCRICOES, "audio")
 LOG_FILE = os.path.join(BASE_DIR, "transkriptor.log")
 ICONE_FILE = os.path.join(BASE_DIR, "transkriptor.ico")
 DIR_MODELO_VOZ = os.path.join(BASE_DIR, "_modelo_voz")
+ARQUIVO_CHAVE_DPAPI = os.path.join(DIR_MODELO_VOZ, "transkriptor_key.dpapi")
 ARQUIVO_PERFIL_VOZ = os.path.join(DIR_MODELO_VOZ, "perfil_usuario.npz")
 ARQUIVO_PERFIL_VOZ_ENC = os.path.join(DIR_MODELO_VOZ, "perfil_usuario.enc")
 CONFIG_USER_FILE = os.path.join(BASE_DIR, "config_user.json")
@@ -27,9 +28,13 @@ TIMEOUT_AVISO_GRAVACAO_SEG = 30  # diálogo "continuar gravando?" (FR-2.9)
 # ---- Áudio / Whisper ----
 SAMPLE_RATE = 16000
 CHUNK_SEGUNDOS = 25.0
+FLUSH_AUDIO_SEG = 5
 MODELO_WHISPER = "auto"  # FR-6.3: resolve pelo hardware em runtime
 MODELOS_WHISPER_MENU = ("auto", "tiny", "base", "small", "medium", "large-v3")
-VRAM_MIN_MEDIUM_GB = 4.0
+# Uma placa "de 4 GB" reporta 3.9997 GiB (a GTX 1650 do usuário reporta
+# 4294639616 bytes). Com o limiar em 4.0 exato, o hardware de referência caía
+# sempre em small/CPU — mais lento e menos preciso. 3.8 cobre a folga.
+VRAM_MIN_MEDIUM_GB = 3.8
 IDIOMA = "pt"
 COMPUTE_TYPE = "int8"
 DEVICE_WHISPER = "auto"
@@ -82,6 +87,9 @@ def detectar_cuda_e_vram() -> tuple[bool, float]:
 MODELO_VOZ_FONTE = "speechbrain/spkrec-ecapa-voxceleb"
 LIMIAR_COSSENO_DIARIZACAO = 0.25
 DURACAO_MIN_SEGMENTO = 0.5
+# Guarda operacional para o modo automatico. Reunioes maiores podem informar
+# explicitamente ``num_falantes`` sem passar por este limite.
+MAX_FALANTES_AUTO_DIARIZACAO = 12
 
 # ---- Identificação de voz (VOCÊ) ----
 LIMIAR_IDENTIFICACAO_VOZ = 0.72
@@ -107,8 +115,24 @@ MAX_CORPO_CHAT_BYTES = 256 * 1024
 # ---- Monitor de Meet ----
 EXIGIR_JANELA_VISIVEL = False
 INTERVALO_MONITOR_MEET = 5          # segundos entre verificações
-CONFIRMACAO_INICIO_MEET = 2         # ciclos consecutivos para confirmar início
-CONFIRMACAO_FIM_MEET = 3            # ciclos consecutivos para confirmar fim
+CONFIRMACAO_INICIO_MEET = 2         # ciclos com sinal forte para confirmar início (10 s)
+CONFIRMACAO_FIM_MEET = 3            # legado: debounce do DetectorMeet por título
+# Fusão multi-fonte: apenas título/ponte fortes podem iniciar uma reunião.
+# Microfone permanece somente como sinal diagnóstico na v1.5.
+CONFIRMACAO_FIM_SEM_SINAL_FORTE = 6 # ciclos sem título/extensão para encerrar (30 s)
+DETECTAR_POR_MICROFONE = True       # usar o registro de microfone em uso do Windows
+# Zoom por classe de janela + microfone do zoom.exe. O título do Zoom muda com o
+# idioma e com a versão, então regex sozinha deixava reuniões passarem.
+DETECTAR_ZOOM = True
+HEARTBEAT_MONITOR_CICLOS = 120      # log periódico do monitor (a cada ~10 min)
+# Ciclos de tolerância antes de declarar o monitor travado. O heartbeat só prova
+# vida para quem lê o log; o vigia transforma a ausência dele em erro visível.
+FATOR_TRAVAMENTO_MONITOR = 3        # 3 x INTERVALO_MONITOR_MEET = 15 s
+# Portão do consentimento: se a pergunta morrer sem responder, o portão precisa
+# reabrir sozinho — senão uma falha cega todas as reuniões seguintes.
+LIMITE_PORTAO_CONSENTIMENTO_SEG = TIMEOUT_AVISO_GRAVACAO_SEG + 30
+# ---- Aviso de gravação (FR-2.9 / FR-9.4) ----
+PERGUNTAR_ANTES_DE_GRAVAR = True    # diálogo Sim/Não ao detectar reunião
 
 # ---- Nomes no Meet (Fase 8) ----
 PORTA_MEET_BRIDGE = 5051

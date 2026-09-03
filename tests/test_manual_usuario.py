@@ -40,6 +40,19 @@ def test_manual_md_existe_e_tem_secoes():
         assert secao.lower() in texto.lower(), f"Secao ausente: {secao}"
 
 
+def test_manual_descreve_fluxo_seguro_da_v15():
+    texto = MANUAL_MD.read_text(encoding="utf-8")
+    minusculo = texto.lower()
+    assert "transkriptor v1.5" in minusculo
+    assert "processamento após a reunião" in minusculo
+    assert "somente **sim**" in minusculo
+    assert "antes de abrir" in minusculo
+    assert ".txt" in minusculo and "arquivo principal" in minusculo
+    assert "| transcrição manual |" not in minusculo
+    assert "a gravação começa **antes** da pergunta" not in minusculo
+    assert "trechos aparecem em notificação" not in minusculo
+
+
 def test_gerar_pdf_produz_texto_legivel_na_pagina(tmp_path):
     """Regenera PDF via script real e valida texto extraível on-page."""
     mod = _carregar_gerador()
@@ -69,3 +82,6 @@ def test_manual_pdf_commitado_legivel():
         f"docs/MANUAL-USUARIO.pdf ilegível — regenere com scripts/gerar_manual_pdf.py: "
         f"chars={validacao['chars']}"
     )
+    texto = mod.extrair_texto_pdf(MANUAL_PDF).lower()
+    assert "transkriptor v1.5" in texto
+    assert "processamento após a reunião" in texto or "processamento apos a reuniao" in texto

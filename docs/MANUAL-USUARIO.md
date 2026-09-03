@@ -1,6 +1,10 @@
-# Manual do Usuário — Transkriptor v1.3
+# Manual do Usuário — Transkriptor v1.5
 
 Transkriptor é um aplicativo para **Windows** que fica na **bandeja do sistema**, detecta **Google Meet**, transcreve o áudio em segundo plano (Whisper offline), separa vozes (diarização) e oferece um **assistente local** via Ollama.
+
+Durante uma reunião aceita, o aplicativo faz apenas a captura leve do áudio. O
+Whisper e a separação de vozes entram no **processamento após a reunião**, em um
+processo separado e de prioridade baixa. Isso mantém a chamada responsiva.
 
 Tudo roda no seu computador — transcrições e perfis de voz ficam em disco local.
 
@@ -29,9 +33,11 @@ Tudo roda no seu computador — transcrições e perfis de voz ficam em disco lo
 
 ### Primeira execução
 
-- O app cria a pasta `transcricoes/` e, por padrão, salva transcrições criptografadas em `.tkpt`.
-- Na primeira execução, gera a chave local (DPAPI) em `config_user.json`.
-- Modelos Whisper e de voz baixam na primeira transcrição (pode demorar alguns minutos).
+- O app cria a pasta `transcricoes/`; toda reunião concluída gera um `.txt` legível.
+- Na primeira execução, gera a chave local protegida por DPAPI em
+  `_modelo_voz/transkriptor_key.dpapi`, separada da configuração.
+- Modelos Whisper e de voz baixam no primeiro processamento após uma reunião
+  (pode demorar alguns minutos).
 - Apenas **uma instância** pode rodar; uma segunda exibe aviso e encerra.
 
 ---
@@ -42,13 +48,14 @@ Clique com o **botão direito** no ícone da bandeja para abrir o menu.
 
 | Item | Função |
 |------|--------|
-| Status | Mostra se está aguardando Meet, transcrevendo ou diarizando |
+| Status | Mostra detecção, gravação e `Em fila`, `Processando`, `Pronta` ou `Falhou` |
 | Abrir pasta de transcrições | Abre `transcricoes/` no Explorer |
+| Diagnóstico (por que não está gravando?) | Testa áudio e detecção e abre um relatório |
 | Abrir log | Abre `transkriptor.log` para diagnóstico |
-| Transcrição manual (Ctrl+Espaço) | Inicia/para gravação sem detectar Meet |
 | Retranscrever áudio… | Reprocessa um áudio salvo em `transcricoes/audio/` |
 | Abrir assistente | Abre o assistente web local (Ollama) |
 | Pausar gravação automática | Exige confirmação; enquanto pausado **não grava** reuniões |
+| Confirmar antes de gravar | Regra obrigatória: somente **Sim** permite capturar |
 | Ativar/desativar separação de vozes | Liga ou desliga diarização ao final |
 | Cadastrar minha voz (20s) | Grava perfil de voz pelo microfone |
 | Identificar minha voz | Toggle do rótulo `VOCÊ` na diarização |
@@ -58,22 +65,24 @@ Clique com o **botão direito** no ícone da bandeja para abrir o menu.
 | Instalar extensão Meet (pasta) | Abre pasta `extension/meet/` |
 | Renomear falante (última diarização) | Salva nome+embedding para reuniões futuras |
 | Abrir pasta vozes conhecidas | Pasta `_modelo_voz/` (`vozes_conhecidas.enc` ou legado `.json`) |
-| Criptografar transcrições | Toggle (padrão **ligado**): grava `.tkpt` e migra `.txt` legados |
+| Criar cópia criptografada (.tkpt) | Mantém uma cópia protegida além do `.txt` principal |
 | Iniciar com o Windows | Atalho na pasta Startup |
 | Sair | Encerra o app (confirma se estiver gravando) |
 
 ### Cores do ícone
 
-- **Verde** — transcrevendo
-- **Azul** — aguardando Meet
+- **Verde** — gravando a reunião, sem carregar a IA
+- **Roxo** — processando a reunião depois do encerramento
+- **Azul** — aguardando reunião
 - **Cinza** — detecção pausada
 - **Vermelho** — erro crítico (reverte após ~30 s)
 
-### Notificações (toast)
+### Notificações
 
-- Ao transcrever com Meet em segundo plano, trechos aparecem em notificação (60 caracteres).
-- Ao terminar a diarização, você recebe aviso com o nome do arquivo.
-- Se a gravação estiver pausada e um Meet abrir, um aviso lembra que **não está gravando**.
+- Durante a reunião não aparecem trechos, balões, janelas ou sons por bloco.
+- O estado fica no ícone, tooltip e primeira linha do menu.
+- Ao terminar ou falhar o processamento, pode aparecer uma única notificação
+  usando o mesmo ícone da bandeja.
 
 ### Como abrir e fechar
 
@@ -82,59 +91,83 @@ O Transkriptor **não usa atalho de teclado**. Para abrir, dê **dois cliques** 
 O app fica **na bandeja do sistema até ser fechado** pelo menu (**Sair**). Abrir de novo
 com ele já rodando apenas avisa que já está em execução — nunca cria segunda instância.
 
-A **transcrição manual** é iniciada e parada pelo item do menu da bandeja
-("Iniciar/Parar transcrição manual"). O atalho `.lnk` da Área de Trabalho não tem
-tecla de atalho associada (Ctrl+Alt legado foi removido).
+Não existe comando de gravação genérica ou transcrição manual. O atalho `.lnk`
+da Área de Trabalho apenas inicia o detector e não tem tecla de atalho associada.
 
 ---
 
 ## 3. Transcrição automática (Google Meet)
 
 1. Deixe o Transkriptor na bandeja com detecção **ativa**.
-2. Entre em uma reunião no Google Meet (Chrome, Edge, etc.).
-3. Quando o título da janela confirmar o Meet, a transcrição **inicia sozinha** e um
-   aviso pergunta se você quer **continuar gravando**:
-   - **Sim** ou sem resposta em 30s → continua gravando normalmente;
-   - **Não** → para e **descarta** tudo desta reunião (texto e áudio), e não volta a
-     gravar até essa reunião acabar. A próxima reunião pergunta de novo.
-4. Ao encerrar a reunião (janela fechada ou título sem Meet por alguns ciclos), a gravação **para e salva**.
+2. Entre em uma reunião no Google Meet (Chrome, Edge, etc.) ou no Zoom.
+3. Em cerca de 10 segundos, um diálogo pergunta se você quer gravar **antes de abrir**
+   o dispositivo ou criar qualquer arquivo.
+4. Somente **Sim** inicia a captura. **Não**, falta de resposta em 30 segundos ou
+   erro no diálogo não gravam nada e não repetem a pergunta na mesma reunião.
+5. Durante a chamada, o app apenas grava o áudio em disco, sem Whisper, diarização,
+   trechos na tela ou notificações por bloco.
+6. Quando título e extensão deixam de confirmar a reunião por cerca de 30 segundos,
+   a captura fecha os WAVs e entra na fila de processamento.
+7. O menu passa por `Em fila` → `Processando` → `Pronta` (ou `Falhou`). O `.txt`
+   aparece na raiz de `transcricoes/` quando estiver pronto.
+
+### Como o Transkriptor sabe que há uma reunião
+
+Ele observa três fontes, mas apenas sinais fortes podem iniciar a gravação ou
+mantê-la indefinidamente:
+
+| Sinal | O que observa | Cobre |
+|-------|---------------|-------|
+| **Título da janela** | `Meet: <nome>`, `Meet – abc-defg-hij`, `<sala> - Google Meet`, `Zoom Meeting` | O caso comum |
+| **Microfone em uso** | Indicador auxiliar do Windows | Diagnóstico; nunca inicia nem mantém a gravação sozinho |
+| **Extensão do Meet** | A própria página da reunião (opcional — seção 6) | Certeza total |
+
+Por que combinar: o título só mostra a **aba que está na frente**. A extensão do
+Meet mantém a reunião confirmada quando você troca de aba. Sem título nem extensão,
+a janela de graça termina mesmo que algum programa continue usando o microfone.
+
+Áudio do WhatsApp, música, vídeo, ditado e microfone isolado não iniciam reunião.
+Depois do encerramento detectado, nada do restante do computador é capturado.
 
 ### Arquivos gerados
 
-Para cada sessão, em `transcricoes/`:
+Para cada reunião processada:
 
-- `transcricao_AAAA-MM-DD_HhMM.tkpt` — texto corrido com timestamps (criptografado por padrão)
-- `transcricao_*_diarizado.tkpt` — versão com rótulos de falante (se diarização ativa)
-- `transcricao_*_audio.wav` — áudio temporário (removido após diarizar)
-- `transcricao_*_mic.wav` — microfone paralelo (se captura ativa)
+- `transcricao_AAAA-MM-DD_HhMM.txt` — **arquivo principal**, UTF-8, com início,
+  fim, duração, timestamps e texto.
+- `transcricao_*_diarizado.txt` — versão adicional com rótulos de falante, se ativa.
+- `transcricao_*.tkpt` — cópia criptografada adicional, quando habilitada; nunca
+  substitui nem apaga o `.txt` principal.
+- `audio/transcricao_*_audio.wav` (ou `.wav.enc`) — loopback preservado até a retenção.
+- `audio/transcricao_*_mic.wav` (ou `.wav.enc`) — microfone paralelo, se ativo.
+- `.jobs_processamento/*.json` — estado técnico da fila, sem conteúdo falado.
 
-Com **Criptografar transcrições** desligado, os mesmos arquivos usam extensão `.txt` em texto legível.
+O áudio é mantido quando o processamento falha, para permitir nova tentativa.
+Quando o resultado existe, a retenção remove áudios antigos conforme a configuração.
 
-### Transcrição manual
+### Por que não grava outros áudios
 
-Use quando quiser gravar **sem** Meet (entrevista presencial, áudio do PC, etc.):
-
-1. Menu → **Transcrição manual** → inicia
-2. Menu → **Transcrição manual** novamente → para e salva
-
-A detecção automática de Meet **não** encerra transcrição manual ao fechar o Meet.
+Não há botão que ignore o detector. A captura só nasce depois de uma fonte forte
+de Meet/Zoom e do seu **Sim**. Ao perder a fonte forte, ela termina mesmo se o
+WhatsApp, navegador, player ou microfone continuarem produzindo áudio.
 
 ---
 
 ## 4. Diarização (separação de vozes)
 
-Com **separação de vozes** ativa, ao final da gravação o app:
+Com **separação de vozes** ativa, o worker de processamento após a reunião:
 
 1. Analisa trechos de áudio com modelo ECAPA (SpeechBrain)
 2. Agrupa vozes semelhantes em `FALANTE_00`, `FALANTE_01`, …
-3. Gera `*_diarizado.tkpt` (ou `.txt` se criptografia desligada) com formato:
+3. Gera `*_diarizado.txt` com formato:
 
 ```
 [Ana Silva 00:01-00:05] Bom dia a todos.
 [VOCÊ 00:05-00:08] Obrigado por participar.
 ```
 
-A diarização roda em segundo plano — o monitor de Meet continua funcionando.
+A diarização roda no subprocesso de prioridade baixa. A bandeja continua
+responsiva e consegue detectar e capturar uma nova reunião.
 
 ---
 
@@ -223,7 +256,8 @@ O navegador abre `http://127.0.0.1:PORTA/?token=...` — porta automática (5050
 4. Ou digite perguntas livres no chat
 5. Botão **Copiar resposta** guarda a última resposta da IA
 
-O assistente lê `.tkpt` e `.txt` automaticamente — arquivos criptografados não abrem no Bloco de Notas, só pelo app.
+O assistente lê `.tkpt` e `.txt` automaticamente. O `.txt` principal também abre
+diretamente no Bloco de Notas ou editor de sua preferência.
 
 ### Sem Ollama
 
@@ -241,21 +275,21 @@ A transcrição continua funcionando; apenas o assistente fica indisponível.
 | XSS | Nomes de arquivo não são injetados via `innerHTML` no assistente |
 | Logs | Conteúdo de transcrições **não** é gravado no log |
 | Dados sensíveis | `transcricoes/`, perfil de voz e vozes conhecidas ficam locais |
-| Criptografia em repouso | Transcrições `.tkpt`, perfil `.enc` e vozes `.enc` com AES-256-GCM; chave protegida por DPAPI (usuário Windows) |
+| Criptografia em repouso | Cópia `.tkpt`, áudios `.enc`, perfil e vozes com AES-256-GCM; chave protegida por DPAPI |
 | Instância única | Mutex impede duas cópias simultâneas |
 
-### Criptografia (padrão ligado)
+### Cópia criptografada (padrão ligado)
 
+- O `.txt` principal permanece legível e deve ser tratado como dado sensível.
 - Arquivos `.tkpt` e `.enc` são **ilegíveis** no Bloco de Notas ou Explorer.
 - Leitura só pelo Transkriptor e pelo assistente autenticado (token na URL).
-- Na ativação, `.txt` legados em `transcricoes/` migram para `.tkpt` e o plaintext é removido.
-- Backup `.txt.bak` na migração só ocorre se `backup_txt_na_migracao: true` em `config_user.json`.
+- Ativar a cópia criptografada não remove nem substitui arquivos `.txt`.
 - Se a chave DPAPI não puder ser aberta (outro usuário Windows, perfil corrompido), a criptografia fica indisponível até o problema ser resolvido — arquivos antigos **não** são apagados.
 
 ### Boas práticas
 
-- Mantenha **Criptografar transcrições** ligado em máquinas compartilhadas.
-- Não copie `config_user.json` entre usuários Windows diferentes (chave DPAPI é por usuário).
+- Restrinja o acesso à pasta `transcricoes/`, pois o resultado principal é `.txt`.
+- Não copie `transkriptor_key.dpapi` entre usuários Windows diferentes (a chave é por usuário).
 - Feche o assistente quando não estiver em uso (aba do navegador).
 - Mantenha o Windows e o Chrome atualizados.
 
@@ -276,12 +310,13 @@ Arquivo na raiz do projeto (criado/atualizado pelo menu):
   "capturar_mic": true,
   "usar_nomes_meet": false,
   "modo_legendas_meet": false,
-  "meet_bridge_token": "<gerado automaticamente>",
-  "chave_dpapi": "<gerado automaticamente — não editar>"
+  "meet_bridge_token": "<gerado automaticamente>"
 }
 ```
 
-Constantes globais em `config.py` (modelo Whisper, portas, limiares).
+Constantes globais ficam em `config.py` (modelo Whisper, portas, limiares). A
+confirmação antes de gravar é obrigatória e não aparece como configuração. A
+chave DPAPI fica no arquivo dedicado `_modelo_voz/transkriptor_key.dpapi`.
 
 ---
 
@@ -292,17 +327,60 @@ Constantes globais em `config.py` (modelo Whisper, portas, limiares).
 - Clique na seta **^** na barra de tarefas
 - Verifique se não há segunda instância bloqueada no log
 
+### Nada é gravado — comece pelo Diagnóstico
+
+Menu da bandeja → **Diagnóstico (por que não está gravando?)**. Ele grava meio
+segundo de áudio de verdade, consulta as três fontes de detecção e abre um
+relatório dizendo, item a item, o que está `OK`, `AVISO` ou `ERRO`.
+
+Leia primeiro as linhas com **ERRO** — são as que impedem a gravação. `AVISO`
+costuma ser normal (por exemplo, "loopback em silêncio" quando nada está tocando).
+
 ### Meet não inicia transcrição
 
-- Confirme que a detecção não está pausada
-- Título da janela deve conter `- Google Meet` ou `meet.google.com/...`
+- Confirme que a detecção não está pausada (o status do menu diz o que ele vê agora)
+- Confirme que respondeu **Sim** ao diálogo; qualquer outra resposta não grava
+- Rode o **Diagnóstico** e veja a linha `Fonte: titulo` — ela mostra se alguma
+  janela foi reconhecida
 - Com `exigir_janela_visivel` ativo, janela minimizada não conta
+
+### WhatsApp, vídeo ou música iniciou gravação
+
+Na v1.5 isso não deve acontecer: microfone e áudio do sistema não iniciam reunião.
+Abra o menu e confirme o status. Se estiver `Gravando reunião`, use **Diagnóstico**
+para identificar qual título ou extensão está sendo tratado como fonte forte e
+anexe o relatório ao suporte; ele não inclui o conteúdo falado.
+
+### Gravou, mas a transcrição saiu vazia
+
+Sinal clássico de captura de áudio quebrada: o arquivo em `transcricoes/audio/`
+fica com pouquíssimos bytes.
+
+- Rode o **Diagnóstico**: a linha `soundcard` aponta incompatibilidade de versão
+- Correção: `pip install -U "soundcard>=0.4.6"` (versões anteriores não funcionam
+  com numpy 2)
+- Confira também se o dispositivo de saída do Windows não mudou (fone conectado
+  no meio da reunião)
+
+### "Já está em execução" mas não há ícone na bandeja
+
+A partir da v1.5 isso não deve mais acontecer: o controle de instância única usa
+um mutex do Windows, liberado pelo sistema mesmo se o app for encerrado à força.
+Se acontecer, feche `pythonw.exe` no Gerenciador de Tarefas e apague
+`transkriptor.lock`.
 
 ### Diarização não gera arquivo
 
 - Verifique se **separação de vozes** está ativa
 - Reunião muito curta pode ter poucos segmentos (1 falante apenas)
 - Veja erros em `transkriptor.log`
+
+### O áudio existe, mas o texto ainda não apareceu
+
+- Veja a primeira linha do menu: `Em fila` e `Processando` ainda não são erro
+- `Pronta` indica um `.txt` na raiz de `transcricoes/`
+- `Falhou` preserva o áudio em `transcricoes/audio/`; use **Retranscrever áudio…**
+- O primeiro processamento pode demorar mais por causa do download dos modelos
 
 ### `VOCÊ` não aparece
 
@@ -326,7 +404,7 @@ Constantes globais em `config.py` (modelo Whisper, portas, limiares).
 
 ### Transcrições ilegíveis ou erro ao abrir arquivo
 
-- Com criptografia ligada, `.tkpt` não abre fora do Transkriptor — use o assistente ou desligue o toggle para gravar `.txt` legado
+- Abra o `.txt` principal; `.tkpt` é apenas a cópia criptografada adicional
 - Chave DPAPI inválida: verifique se está no mesmo usuário Windows que criou os arquivos
 - Reinicie o app após trocar de conta Windows
 
@@ -343,15 +421,19 @@ Constantes globais em `config.py` (modelo Whisper, portas, limiares).
 ```
 Transkriptor/
 ├── transkriptor.pyw         # App principal (bandeja)
+├── app_processamento.py     # Fila e worker depois da reunião
 ├── crypto_storage.py        # Criptografia .tkpt / .enc
-├── transcricao_core.py      # Whisper + captura
+├── transcricao_core.py      # Captura leve; IA opcional fora da reunião
+├── fila_processamento.py    # Jobs atômicos pending/processing/ready/failed
+├── processador_reuniao.py   # Subprocesso Whisper/diarização
+├── retranscritor.py         # Geração do .txt principal
 ├── assistente.py            # Interface web + Ollama
 ├── diarizador.py            # Separação de vozes
 ├── identificador_voz.py     # Perfil VOCÊ + vozes conhecidas
 ├── meet_bridge.py           # WebSocket Meet
 ├── correlacionador.py       # Nomes ↔ segmentos
 ├── extension/meet/          # Extensão Chrome (+ README de instalação)
-├── transcricoes/            # Suas transcrições (.tkpt por padrão)
+├── transcricoes/            # Resultados .txt e cópias .tkpt opcionais
 ├── _modelo_voz/             # Perfil (.enc) e vozes conhecidas
 └── docs/                    # Documentação
 ```
@@ -364,11 +446,19 @@ Desenvolvedores podem validar a instalação:
 
 ```bash
 python scripts/verificar_fase.py --fase all
+python scripts/verificar_fase.py --fase v1.5-estatico
 python -m pytest tests/ -v --tb=short
 ```
 
-Documentação SDD em `docs/sdd/v1.2/`.  
-Auditoria: `docs/AUDITORIA-v1.2.md`.
+O gate Windows de recursos recebe o PID do processo da bandeja e mede 10 minutos,
+sem ler títulos, áudio ou transcrições:
+
+```bash
+python scripts/verificar_recursos_gravacao.py --pid 12345 --duracao 600
+```
+
+Ele exige crescimento menor que 100 MB, CPU média menor que 10% de um núcleo e
+um único ícone pystray. Documentação SDD atual em `docs/sdd/v1.5/`.
 
 ---
 
@@ -382,10 +472,11 @@ Auditoria: `docs/AUDITORIA-v1.2.md`.
 | Ollama | Servidor local para modelos de linguagem (assistente) |
 | ECAPA | Modelo de embedding de voz usado na identificação |
 | CC / Legendas | Closed Captions do Google Meet |
-| `.tkpt` | Transcrição criptografada (AES-GCM); legível só pelo Transkriptor |
+| `.txt` | Resultado principal legível, em UTF-8 |
+| `.tkpt` | Cópia criptografada adicional (AES-GCM) |
 | `.enc` | Perfil de voz e vozes conhecidas criptografados |
 | DPAPI | Proteção da chave mestra pelo Windows (por usuário) |
 
 ---
 
-*Transkriptor v1.2 — Manual do usuário — 2026*
+*Transkriptor v1.5 — Manual do usuário — 2026*

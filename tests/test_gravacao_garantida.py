@@ -307,7 +307,7 @@ def test_whisper_falha_ainda_grava_somente_audio(tmp_path, monkeypatch):
     def _falha_modelo(*a, **k):
         raise RuntimeError("modelo indisponivel")
 
-    with patch("transcricao_core.WhisperModel", side_effect=_falha_modelo), patch.object(
+    with patch.object(t, "_carregar_modelo", side_effect=_falha_modelo), patch.object(
         t, "_abrir_loopback", return_value=mic
     ):
         t.start()

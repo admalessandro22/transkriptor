@@ -21,6 +21,7 @@ from config import (
     SAMPLE_RATE,
     DURACAO_MIN_SEGMENTO,
     LIMIAR_COSSENO_DIARIZACAO,
+    MAX_FALANTES_AUTO_DIARIZACAO,
     LIMIAR_IDENTIFICACAO_VOZ,
     ROTULO_USUARIO,
     LIMIAR_RMS_MIC,
@@ -326,6 +327,18 @@ def diarizar(
             linkage="average",
         )
     labels = clustering.fit_predict(X)
+    if not num_falantes and len(set(labels)) > MAX_FALANTES_AUTO_DIARIZACAO:
+        detectados = len(set(labels))
+        status(
+            f"Agrupamento automatico instavel ({detectados} grupos); "
+            f"limitando a {MAX_FALANTES_AUTO_DIARIZACAO} falantes."
+        )
+        clustering = AgglomerativeClustering(
+            n_clusters=min(MAX_FALANTES_AUTO_DIARIZACAO, len(X)),
+            metric="cosine",
+            linkage="average",
+        )
+        labels = clustering.fit_predict(X)
     n_falantes = len(set(labels))
     status(f"Detectados {n_falantes} falante(s).")
 
