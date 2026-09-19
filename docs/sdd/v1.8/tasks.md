@@ -1,6 +1,6 @@
 # Tasks — confiabilidade e identificação de participantes
 
-**28 tarefas propostas; 0 implementadas nesta entrega.** Ordem e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
+**28 tarefas propostas; 1 implementada (T-13.A1) e 27 pendentes/bloqueadas.** Ordem e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
 
 Para execução por outra LLM, `interfaces.md` e `executor-llm.md` são leitura obrigatória. Os blocos **Arquivos**, **Implementação**, **RED**, **Teste final** e **Aceite** de cada task são cumulativos, não alternativas. O agente não pode trocar nomes de interfaces, tecnologia decidida, ordem, thresholds ou comportamento de falha sem primeiro emendar os documentos e obter revisão.
 
@@ -12,7 +12,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.A1 — reconciliar a fonte SDD
 
-- [ ] **Requisito:** NFR-13.A1. **Depende de:** revisão deste plano.
+- [x] **Requisito:** NFR-13.A1. **Depende de:** revisão deste plano. **Estado:** `DONE`; evidência: `evidencias/T-13.A1.md`.
 - **Arquivos:** modificar `AGENTS.md`, `docs/sdd/v1.6/plan.md`, `docs/sdd/v1.6/concept.md`, `docs/VERIFICACAO.md`, `scripts/verificar_fase.py`; criar `tests/test_sdd_rastreabilidade.py` e índice `docs/sdd/README.md`; preservar e referenciar `docs/sdd/v1.8/decisoes-usuario.md`.
 - **Implementação:** distinguir release 1.7 vigente e proposta 1.8; corrigir referência v1.5 no passo de execução; manter evidências antigas como históricas. Registrar todo requisito novo e tarefa/gate correspondente; exigir que o índice ativo aponte para decisões, interfaces e protocolo executor; verificar que arquivos/selectores existem ao executar uma fase, sem inferir sucesso por “≥474”.
 - **RED:** `test_referencia_ativa_nao_aponta_tasks_legadas`, `test_requisito_sem_task_reprova` e `test_indice_referencia_decisoes_confirmadas` devem acusar a inconsistência, não importar produto.
