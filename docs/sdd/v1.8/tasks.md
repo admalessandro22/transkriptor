@@ -1,6 +1,6 @@
 # Tasks — confiabilidade e identificação de participantes
 
-**28 tarefas propostas; 1 implementada (T-13.A1) e 27 pendentes/bloqueadas.** Ordem e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
+**28 tarefas propostas; 2 implementadas (T-13.A1–A2) e 26 pendentes/bloqueadas.** Ordem e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
 
 Para execução por outra LLM, `interfaces.md` e `executor-llm.md` são leitura obrigatória. Os blocos **Arquivos**, **Implementação**, **RED**, **Teste final** e **Aceite** de cada task são cumulativos, não alternativas. O agente não pode trocar nomes de interfaces, tecnologia decidida, ordem, thresholds ou comportamento de falha sem primeiro emendar os documentos e obter revisão.
 
@@ -21,7 +21,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.A2 — gate de fala e testes JavaScript reais
 
-- [ ] **Requisito:** NFR-13.A2. **Depende de:** A1.
+- [x] **Requisito:** NFR-13.A2. **Depende de:** A1. **Estado:** `DONE`; evidência: `evidencias/T-13.A2.md`.
 - **Arquivos:** modificar `scripts/gate_reuniao_real.py`, `tests/conftest.py`; criar `tests/test_gate_reuniao_qualidade.py`, `package.json`, lock de npm, `playwright.config.js`, `tests/js/` e `tests/e2e/`.
 - **Implementação:** separar extração de falas reconhecidas do cabeçalho; no gate sintético exigir conteúdo lexical da frase conhecida e rejeitar marcador de ausência. Runner JS carrega os módulos reais, sem espelho Python. Fixtures devem fornecer relógio controlado, WAVs sintéticos por fonte e servidores temporários com encerramento garantido. Playwright testa build/source reais e extensão em perfil isolado.
 - **RED:** `test_cabecalho_nao_e_fala`, `test_ausencia_de_fala_reprova`, `test_frase_esperada_precisa_aparecer`; teste JS que execute uma função real e falhe se sua implementação for removida.
