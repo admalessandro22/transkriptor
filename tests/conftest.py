@@ -2,7 +2,11 @@
 """Fixtures compartilhadas do pytest."""
 import hashlib
 import os
+import socket
 import sys
+import threading
+import wave
+from dataclasses import dataclass
 from importlib.machinery import SourceFileLoader
 from importlib.util import module_from_spec, spec_from_loader
 from pathlib import Path
@@ -11,6 +15,107 @@ import pytest
 
 
 REPO_TESTES = Path(__file__).resolve().parent.parent
+
+
+@dataclass
+class RelogioControlado:
+    """Relógio monotônico explícito para testes sem `sleep` real."""
+
+    agora_ns: int = 0
+
+    def monotonic_ns(self) -> int:
+        return self.agora_ns
+
+    def avancar_ms(self, milissegundos: int) -> None:
+        if milissegundos < 0:
+            raise ValueError("o relógio controlado não retrocede")
+        self.agora_ns += milissegundos * 1_000_000
+
+
+class ServidorTemporario:
+    """Servidor TCP local de teste com thread e socket encerráveis."""
+
+    def __init__(self, resposta: bytes) -> None:
+        self.host = "127.0.0.1"
+        self.resposta = resposta
+        self._encerrado = threading.Event()
+        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self._socket.bind((self.host, 0))
+        self._socket.listen()
+        self._socket.settimeout(0.1)
+        self.porta = self._socket.getsockname()[1]
+        self.thread = threading.Thread(target=self._atender, daemon=True)
+        self.thread.start()
+
+    def _atender(self) -> None:
+        while not self._encerrado.is_set():
+            try:
+                conexao, _ = self._socket.accept()
+            except TimeoutError:
+                continue
+            except OSError:
+                return
+            with conexao:
+                try:
+                    conexao.recv(4096)
+                    if self.resposta:
+                        conexao.sendall(self.resposta)
+                except OSError:
+                    continue
+
+    def fechar(self) -> None:
+        if self._encerrado.is_set():
+            return
+        self._encerrado.set()
+        self._socket.close()
+        self.thread.join(timeout=2)
+
+
+@pytest.fixture
+def relogio_controlado():
+    return RelogioControlado()
+
+
+@pytest.fixture
+def wav_sintetico(tmp_path):
+    """Cria WAV PCM 16-bit determinístico, sem dispositivo de áudio."""
+
+    def criar(
+        fonte: str,
+        *,
+        frames: int = 1_600,
+        sample_rate: int = 16_000,
+        channels: int = 1,
+    ) -> Path:
+        if frames < 0 or sample_rate <= 0 or channels <= 0:
+            raise ValueError("parâmetros WAV sintético inválidos")
+        caminho = tmp_path / f"{fonte}.wav"
+        amostras = b"\xe8\x03\x18\xfc" * ((frames * channels + 1) // 2)
+        with wave.open(str(caminho), "wb") as arquivo:
+            arquivo.setnchannels(channels)
+            arquivo.setsampwidth(2)
+            arquivo.setframerate(sample_rate)
+            arquivo.writeframes(amostras[: frames * channels * 2])
+        return caminho
+
+    return criar
+
+
+@pytest.fixture
+def servidor_temporario():
+    """Entrega servidores 127.0.0.1 e garante encerramento no teardown."""
+    servidores: list[ServidorTemporario] = []
+
+    def iniciar(*, resposta: bytes = b"") -> ServidorTemporario:
+        servidor = ServidorTemporario(resposta)
+        servidores.append(servidor)
+        return servidor
+
+    yield iniciar
+
+    for servidor in reversed(servidores):
+        servidor.fechar()
 
 
 def _raiz_estado_real() -> Path:

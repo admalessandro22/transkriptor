@@ -19,11 +19,13 @@ from __future__ import annotations
 import argparse
 import contextlib
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
+import unicodedata
 import wave
 from pathlib import Path
 
@@ -34,6 +36,22 @@ FRASE = (
     "Bom dia a todos. Esta é uma reunião de teste do Transkriptor. "
     "Vamos revisar o cronograma do projeto e definir os próximos passos. "
     "O relatório final fica pronto na sexta-feira."
+)
+
+PADRAO_LINHA_FALA = re.compile(
+    r"^\[\d{1,2}:\d{2}:\d{2}\]\s*(?P<texto>.+?)\s*$"
+)
+MARCADORES_SEM_FALA = (
+    "nenhuma fala reconhecida",
+    "sem fala reconhecida",
+    "nenhuma fala detectada",
+    "sem fala detectada",
+    "no speech",
+    "silencio",
+    "silêncio",
+)
+PALAVRAS_IGNORADAS = frozenset(
+    {"a", "ao", "as", "da", "de", "do", "e", "em", "esta", "o", "os", "um", "uma"}
 )
 
 OK, FALHA = "OK  ", "FALHA"
@@ -191,21 +209,71 @@ def processar(pasta: Path, wav: str, mic: str | None, base: str) -> Path | None:
     return Path(resultado)
 
 
+def _normalizar_lexico(texto: str) -> list[str]:
+    """Normaliza a comparação sem transformar cabeçalho em fala."""
+    sem_acentos = "".join(
+        caractere
+        for caractere in unicodedata.normalize("NFD", texto.lower())
+        if unicodedata.category(caractere) != "Mn"
+    )
+    return re.findall(r"[a-z0-9]+", sem_acentos)
+
+
+def extrair_falas_reconhecidas(texto: str) -> list[str]:
+    """Extrai somente linhas temporizadas produzidas pelo transcritor.
+
+    Cabeçalhos, metadados e delimitadores não são evidência de fala. O formato
+    aceito corresponde à saída `[HH:MM:SS] texto` de `retranscritor.py` e ao
+    caminho de transcrição ao vivo.
+    """
+    falas: list[str] = []
+    for linha in texto.splitlines():
+        match = PADRAO_LINHA_FALA.fullmatch(linha.strip())
+        if match:
+            falas.append(match.group("texto"))
+    return falas
+
+
+def validar_fala_esperada(texto: str, frase_esperada: str = FRASE) -> tuple[bool, str]:
+    """Exige fala temporalmente marcada e assinatura lexical da locução.
+
+    A comparação tolera uma pequena diferença normal de STT, mas exige termos
+    distintivos, incluindo `transkriptor`; nunca usa título, cabeçalho ou
+    marcador de ausência como prova de captura.
+    """
+    falas = extrair_falas_reconhecidas(texto)
+    if not falas:
+        return False, "nenhuma linha de fala temporalmente marcada"
+
+    corpus = " ".join(falas)
+    corpus_normalizado = " ".join(_normalizar_lexico(corpus))
+    if any(marcador in corpus_normalizado for marcador in MARCADORES_SEM_FALA):
+        return False, "marcador de ausência de fala"
+
+    esperadas = {
+        palavra
+        for palavra in _normalizar_lexico(frase_esperada)
+        if palavra not in PALAVRAS_IGNORADAS
+    }
+    encontradas = set(_normalizar_lexico(corpus))
+    correspondentes = esperadas & encontradas
+    minimo = max(1, -(-len(esperadas) * 3 // 4))
+    if "transkriptor" not in encontradas or len(correspondentes) < minimo:
+        return False, (
+            "frase de teste não reconhecida "
+            f"({len(correspondentes)}/{len(esperadas)} termos distintivos)"
+        )
+    return True, f"{len(correspondentes)}/{len(esperadas)} termos distintivos"
+
+
 def checar_texto(caminho: Path | None) -> bool:
     if not etapa("Transcrição .txt criada", bool(caminho and caminho.is_file()),
                  str(caminho or "")):
         return False
     texto = caminho.read_text(encoding="utf-8", errors="replace")
-    corpo = [
-        linha
-        for linha in texto.splitlines()
-        if linha.strip() and not linha.startswith("===")
-    ]
-    etapa("Transcrição tem conteúdo", bool(corpo), f"{len(corpo)} linha(s)")
-    print("\n----- transcrição -----")
-    print(texto.strip()[:1200])
-    print("-----------------------\n")
-    return bool(corpo)
+    ok, detalhe = validar_fala_esperada(texto)
+    etapa("Fala de teste reconhecida", ok, detalhe)
+    return ok
 
 
 def main(argv=None) -> int:

@@ -15,6 +15,9 @@ vozes_conhecidas.enc
 extension/meet/config.js
 config_user.json
 .venv/
+node_modules/
+test-results/
+playwright-report/
 terminals/
 agent-tools/
 .worktrees/

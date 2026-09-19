@@ -67,6 +67,21 @@ def test_git_check_ignore_caminhos_sensiveis(git_repo):
         assert r.returncode == 0, f"{rel} nao ignorado: {r.stderr}"
 
 
+def test_git_check_ignore_dependencias_js(git_repo):
+    for caminho in (
+        "node_modules/vitest/index.js",
+        "test-results/.last-run.json",
+        "playwright-report/index.html",
+    ):
+        resultado = subprocess.run(
+            ["git", "check-ignore", "-v", caminho],
+            cwd=git_repo,
+            capture_output=True,
+            text=True,
+        )
+        assert resultado.returncode == 0, f"{caminho} deve permanecer local"
+
+
 def test_verificacao_md_gates_f0_a_f8():
     path = REPO / "docs" / "VERIFICACAO.md"
     assert path.is_file()
