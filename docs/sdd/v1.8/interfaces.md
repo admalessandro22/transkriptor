@@ -80,14 +80,33 @@ def process_matches(identity: ProcessIdentity) -> bool: ...
 ```python
 # fila_processamento.py
 def renovar_lease(job_id: str) -> Job: ...
+def registrar_progresso(job_id: str, stage: str, units: int) -> Job: ...
+def solicitar_cancelamento(job_id: str) -> Job: ...
+def cancelar(job_id: str) -> Job: ...
+def registrar_falha_de_spawn(job_id: str, erro_seguro: str) -> Job: ...
+def reabrir_se_retry(job_id: str, max_tentativas: int | None = None) -> Job: ...
+def finalizar_por_supervisor(
+    job_id: str, pid_esperado: int, erro_seguro: str, *,
+    estado: str = "failed", max_tentativas: int | None = None,
+) -> Job: ...
+
+# worker_liveness.py
+def avaliar_inatividade(stage, ocioso_seg, aviso_seg, falha_seg, modelo_init_seg) -> str: ...
+def encerrar_se_lease_valido(lease, pid_esperado, encerrar) -> bool: ...
 ```
 
 `renovar_lease` só aceita o proprietário cujo `ProcessIdentity` coincide com o
 lease persistido. Ela preserva `owner`, `nonce` e `acquired_at_utc`, atualiza
 `heartbeat_at_utc` e incrementa `revision` dentro do mesmo lock do job. As
-transições `processing -> ready|failed` aplicam a mesma prova de propriedade;
-um processo que perdeu a disputa não pode abrir a transcrição nem concluir o
-job.
+transições `processing -> ready|failed|cancelled` aplicam a mesma prova de
+propriedade; um processo que perdeu a disputa não pode abrir a transcrição nem
+concluir o job.
+
+`registrar_progresso` é do detentor do lease e conta como avanço de etapa/unidades,
+não como mero heartbeat. `finalizar_por_supervisor` e o encerramento forçado só
+aceitam o PID que consta no lease validado daquele job. Cancelamento cooperativo
+grava `cancelled` e preserva as fontes. Retry de falha para em
+`WORKER_MAX_TENTATIVAS`.
 
 ```python
 # resultado_reuniao.py

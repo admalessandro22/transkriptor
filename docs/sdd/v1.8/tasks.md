@@ -1,6 +1,6 @@
 # Tasks — confiabilidade e identificação de participantes
 
-**28 tarefas propostas; 2 implementadas (T-13.A1–A2) e 26 pendentes/bloqueadas.** Ordem e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
+**28 tarefas propostas; 5 implementadas (T-13.A1–A2, T-13.B1–B3) e 23 pendentes/bloqueadas.** Ordem e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
 
 Para execução por outra LLM, `interfaces.md` e `executor-llm.md` são leitura obrigatória. Os blocos **Arquivos**, **Implementação**, **RED**, **Teste final** e **Aceite** de cada task são cumulativos, não alternativas. O agente não pode trocar nomes de interfaces, tecnologia decidida, ordem, thresholds ou comportamento de falha sem primeiro emendar os documentos e obter revisão.
 
@@ -50,7 +50,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.B3 — progresso, cancelamento e recuperação do worker
 
-- [ ] **Requisito:** FR-13.B3. **Depende de:** B1–B2.
+- [x] **Requisito:** FR-13.B3. **Depende de:** B1–B2. **Estado:** `DONE`; evidência: `evidencias/T-13.B3.md`.
 - **Arquivos:** modificar `app_processamento.py`, `processador_reuniao.py`, `fila_processamento.py`, `config.py`; criar `tests/test_worker_liveness.py`.
 - **Implementação:** progresso por etapa/unidades e heartbeat, deadlines da spec, retry até duas tentativas e cancelamento cooperativo. Encerramento forçado só do PID com lease validado, após timeout documentado. Estado `failed/cancelled` preserva fontes; fila segue para o próximo job; falha de import antes do claim não gera reinício infinito.
 - **RED:** `test_worker_vivo_sem_progresso_libera_fila`, `test_cancelar_preserva_audio`, `test_retry_tem_limite`, `test_progresso_real_renova_deadline`.

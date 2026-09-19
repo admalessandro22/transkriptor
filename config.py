@@ -150,3 +150,12 @@ TIMEOUT_JOIN_STOP_SEG = 30
 # ---- Watchdog ----
 INTERVALO_WATCHDOG = 10             # segundos entre verificações
 LIMITE_REINICIOS = 3                # reinícios consecutivos antes de erro crítico
+
+# ---- Worker pós-reunião (FR-13.B3) ----
+# Orçamentos injetáveis; não derivam da duração da reunião.
+WORKER_HEARTBEAT_SEG = 5
+WORKER_PROGRESSO_AVISO_SEG = 120
+WORKER_PROGRESSO_FALHA_SEG = 600
+WORKER_MODELO_INIT_SEG = 600
+WORKER_CANCEL_FORCAR_SEG = 30
+WORKER_MAX_TENTATIVAS = 2

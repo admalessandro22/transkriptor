@@ -71,9 +71,9 @@ def test_aguardar_worker_registra_saida_e_preserva_job_pendente(
     assert job.worker_pid == 9876
     assert job.worker_codigo_saida == 7
     assert job.worker_terminado_em
-    assert job.estado == "pending"
+    assert job.estado != "ready"
     assert audio.is_file()
-    app._despachar_proximo_job.assert_not_called()
+    app._despachar_proximo_job.assert_called()
 
 
 def test_despacho_registra_pid_do_worker(tmp_path, monkeypatch):

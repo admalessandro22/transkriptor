@@ -153,6 +153,9 @@ def test_worker_que_falha_antes_do_claim_nao_entra_em_loop(app_v15):
 
     app_v15._aguardar_worker(job_id, worker)
 
-    assert app_v15._estado_processamento == "Falhou"
-    assert app_v15.fila.obter(job_id).estado == "pending"
-    app_v15._despachar_proximo_job.assert_not_called()
+    job = app_v15.fila.obter(job_id)
+    assert job.estado == "pending"
+    assert job.attempt == 1
+    assert job.erro_seguro
+    assert app_v15._estado_processamento == "Em fila"
+    app_v15._despachar_proximo_job.assert_called_once_with()

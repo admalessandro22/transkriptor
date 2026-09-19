@@ -15,17 +15,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import config as _config
-from fila_lock import (
-    ProcessIdentityIndeterminate,
-    current_process_identity,
-    job_lock,
-    lease_de_dados,
-    process_matches,
-)
+from fila_lock import current_process_identity, job_lock, lease_de_dados
 from resultado_reuniao import validar_manifesto_para_job
+
 logger = logging.getLogger(__name__)
 
-ESTADOS = {"pending", "processing", "ready", "failed"}
+ESTADOS = {"pending", "processing", "ready", "failed", "cancelled"}
+PADRAO_STAGE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,39}$")
 CHAVES_METADADOS = {
     "origem",
     "inicio_iso",
@@ -68,6 +64,11 @@ class Job:
     worker_iniciado_em: str | None = None
     worker_terminado_em: str | None = None
     worker_codigo_saida: int | None = None
+    stage: str | None = None
+    progress_units: int = 0
+    attempt: int = 0
+    warnings: tuple[str, ...] = ()
+    cancel_solicitado: bool = False
 
 
 class FilaProcessamento:
@@ -165,6 +166,19 @@ class FilaProcessamento:
         dados.setdefault("lease", None)
         dados.setdefault("schema_version", 1)
         dados.setdefault("manifesto_resultado", None)
+        dados.setdefault("stage", None)
+        dados.setdefault("progress_units", 0)
+        dados.setdefault("attempt", 0)
+        dados.setdefault("warnings", [])
+        dados.setdefault("cancel_solicitado", False)
+        if not isinstance(dados["progress_units"], int) or dados["progress_units"] < 0:
+            raise ValueError("progresso de job inválido")
+        if not isinstance(dados["attempt"], int) or dados["attempt"] < 0:
+            raise ValueError("tentativa de job inválida")
+        if dados["stage"] is not None and not PADRAO_STAGE.fullmatch(str(dados["stage"])):
+            raise ValueError("etapa de job inválida")
+        if dados["cancel_solicitado"] not in {True, False}:
+            raise ValueError("cancelamento de job inválido")
         if not isinstance(dados["revision"], int) or dados["revision"] < 0:
             raise ValueError("revisão de job inválida")
         if dados["lease"] is not None:
@@ -197,6 +211,11 @@ class FilaProcessamento:
             worker_iniciado_em=dados.get("worker_iniciado_em"),
             worker_terminado_em=dados.get("worker_terminado_em"),
             worker_codigo_saida=dados.get("worker_codigo_saida"),
+            stage=dados.get("stage"),
+            progress_units=int(dados.get("progress_units") or 0),
+            attempt=int(dados.get("attempt") or 0),
+            warnings=tuple(dados.get("warnings") or ()),
+            cancel_solicitado=bool(dados.get("cancel_solicitado")),
         )
 
     def enfileirar(
@@ -225,6 +244,11 @@ class FilaProcessamento:
             "lease": None,
             "schema_version": 2,
             "manifesto_resultado": None,
+            "stage": None,
+            "progress_units": 0,
+            "attempt": 0,
+            "warnings": [],
+            "cancel_solicitado": False,
         }
         with self._lock:
             self._salvar(dados)
@@ -279,6 +303,8 @@ class FilaProcessamento:
         agora = _agora_iso()
         owner = current_process_identity()
         dados["estado"] = "processing"
+        dados["attempt"] = int(dados.get("attempt") or 0) + 1
+        dados["cancel_solicitado"] = bool(dados.get("cancel_solicitado"))
         dados["lease"] = {
             "owner": {
                 "pid": owner.pid,
@@ -366,30 +392,57 @@ class FilaProcessamento:
             job_id, "failed", erro_seguro=codigo, resultado=None
         )
 
-    def _registrar_observabilidade(self, job_id: str, **campos) -> Job:
-        """Atualiza somente metadados do worker, sem mudar o estado do job."""
-        with self._transacao_job(job_id) as caminho:
-            dados = self._carregar(caminho)
-            dados.update(campos)
-            dados["revision"] += 1
-            dados["atualizado_em"] = _agora_iso()
-            self._salvar(dados)
-            return self._para_job(dados)
+    def registrar_progresso(self, job_id: str, stage: str, units: int) -> Job:
+        from worker_liveness import persistir_progresso
+
+        return persistir_progresso(self, job_id, stage, units)
+
+    def registrar_aviso(self, job_id: str, aviso: str) -> Job:
+        from worker_liveness import persistir_aviso
+
+        return persistir_aviso(self, job_id, aviso)
+
+    def solicitar_cancelamento(self, job_id: str) -> Job:
+        from worker_liveness import persistir_pedido_cancelamento
+
+        return persistir_pedido_cancelamento(self, job_id)
+
+    def cancelar(self, job_id: str) -> Job:
+        return self._alterar_estado(
+            job_id,
+            "cancelled",
+            erro_seguro="cancelado",
+            resultado=None,
+            manifesto_resultado=None,
+        )
+
+    def registrar_falha_de_spawn(self, job_id: str, erro_seguro: str) -> Job:
+        from worker_liveness import persistir_falha_de_spawn
+
+        return persistir_falha_de_spawn(self, job_id, erro_seguro)
+
+    def reabrir_se_retry(
+        self, job_id: str, max_tentativas: int | None = None
+    ) -> Job:
+        from worker_liveness import persistir_reabrir_retry
+
+        return persistir_reabrir_retry(self, job_id, max_tentativas)
+
+    def finalizar_por_supervisor(
+        self, job_id: str, pid_esperado: int, erro_seguro: str, **kwargs
+    ) -> Job:
+        from worker_liveness import persistir_finalizar_supervisor
+
+        return persistir_finalizar_supervisor(
+            self, job_id, pid_esperado, erro_seguro, **kwargs
+        )
 
     def registrar_worker(
         self, job_id: str, pid: int, iniciado_em: str | None = None
     ) -> Job:
-        """Persiste o PID e o instante de início sem registrar áudio ou texto."""
-        if isinstance(pid, bool) or not isinstance(pid, int) or pid <= 0:
-            raise ValueError("pid de worker inválido")
-        instante = iniciado_em or _agora_iso()
-        if not isinstance(instante, str) or not (1 <= len(instante) <= 80):
-            raise ValueError("instante de início inválido")
-        return self._registrar_observabilidade(
-            job_id,
-            worker_pid=pid,
-            worker_iniciado_em=instante,
-        )
+        from worker_liveness import persistir_worker
+
+        return persistir_worker(self, job_id, pid, iniciado_em)
 
     def registrar_saida_worker(
         self,
@@ -397,72 +450,14 @@ class FilaProcessamento:
         codigo: int,
         terminado_em: str | None = None,
     ) -> Job:
-        """Persiste o código de saída, mantendo o estado funcional do job."""
-        if isinstance(codigo, bool) or not isinstance(codigo, int):
-            raise ValueError("código de saída inválido")
-        if not -(2**31) <= codigo <= 2**31 - 1:
-            raise ValueError("código de saída inválido")
-        instante = terminado_em or _agora_iso()
-        if not isinstance(instante, str) or not (1 <= len(instante) <= 80):
-            raise ValueError("instante de término inválido")
-        return self._registrar_observabilidade(
-            job_id,
-            worker_codigo_saida=codigo,
-            worker_terminado_em=instante,
-        )
+        from worker_liveness import persistir_saida_worker
 
-    def _lease_tem_proprietario_vivo(self, dados: dict) -> bool | None:
-        """True=vivo, False=ausente/legado, None=identidade indeterminada."""
-        lease = dados.get("lease")
-        if lease is None:
-            return False
-        try:
-            return process_matches(lease_de_dados(lease).owner)
-        except ProcessIdentityIndeterminate:
-            return None
-
-    def _quarentenar_corrompido(self, caminho: Path) -> None:
-        destino = caminho.with_suffix(".corrupt")
-        if destino.exists():
-            destino = caminho.with_suffix(f".{uuid.uuid4().hex}.corrupt")
-        try:
-            os.replace(caminho, destino)
-        except FileNotFoundError:
-            return
-        logger.error("Job corrompido movido para quarentena: %s", destino.name)
+        return persistir_saida_worker(self, job_id, codigo, terminado_em)
 
     def recuperar_interrompidos(self) -> int:
-        recuperados = 0
-        for caminho in sorted(self.pasta_jobs.glob("*.json")):
-            job_id = caminho.stem
-            if not PADRAO_ID.fullmatch(job_id):
-                continue
-            try:
-                with self._transacao_job(job_id) as bloqueado:
-                    dados = self._carregar(bloqueado)
-                    if dados["estado"] != "processing":
-                        continue
-                    vivo = self._lease_tem_proprietario_vivo(dados)
-                    if vivo is True:
-                        continue
-                    if vivo is None:
-                        logger.warning(
-                            "Lease de job indeterminado; recuperação adiada: %s",
-                            bloqueado.name,
-                        )
-                        continue
-                    dados["estado"] = "pending"
-                    dados["lease"] = None
-                    dados["erro_seguro"] = None
-                    dados["resultado"] = None
-                    dados["revision"] += 1
-                    dados["atualizado_em"] = _agora_iso()
-                    self._salvar(dados)
-                    recuperados += 1
-            except (OSError, ValueError, KeyError, json.JSONDecodeError):
-                self._quarentenar_corrompido(caminho)
-                continue
-        return recuperados
+        from worker_liveness import recuperar_jobs_interrompidos
+
+        return recuperar_jobs_interrompidos(self)
 
 
 _fila_padrao_instancia: FilaProcessamento | None = None

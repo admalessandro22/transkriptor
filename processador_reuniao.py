@@ -7,11 +7,18 @@ import logging
 import os
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
+import config as _config
 from fila_processamento import FilaProcessamento, fila_padrao
+from worker_liveness import ETAPA_FINAL, ETAPA_MODELO, ETAPA_TRANSCRICAO
 
 logger = logging.getLogger(__name__)
+
+
+class JobCancelado(RuntimeError):
+    """Cancelamento cooperativo observado pelo worker."""
 
 
 def flags_subprocesso_windows() -> int:
@@ -50,14 +57,42 @@ def processar_job(
     else:
         job = fila.renovar_lease(job_id)
 
+    parar_heartbeat = threading.Event()
+    unidades = 0
+
+    def _heartbeat():
+        intervalo = float(_config.WORKER_HEARTBEAT_SEG)
+        while not parar_heartbeat.wait(intervalo):
+            try:
+                atual = fila.renovar_lease(job_id)
+            except Exception:
+                return
+            if atual.cancel_solicitado:
+                return
+
+    def _on_status(_msg):
+        nonlocal unidades
+        unidades += 1
+        etapa = ETAPA_MODELO if unidades == 1 else ETAPA_TRANSCRICAO
+        fila.registrar_progresso(job_id, etapa, unidades)
+        if fila.obter(job_id).cancel_solicitado:
+            raise JobCancelado("cancelado")
+
+    pulso = threading.Thread(
+        target=_heartbeat, daemon=True, name="Transkriptor-WorkerHeartbeat"
+    )
     try:
         import retranscritor
 
         # O worker real reafirma a própria identidade depois do claim. A bandeja
         # pode ter registrado o PID do subprocesso antes de ele ganhar o lease.
         fila.registrar_worker(job_id, pid=os.getpid())
-        fila.renovar_lease(job_id)
+        fila.registrar_progresso(job_id, ETAPA_MODELO, 0)
+        pulso.start()
+        if fila.obter(job_id).cancel_solicitado:
+            raise JobCancelado("cancelado")
         metadados = dict(job.metadados)
+        fila.registrar_progresso(job_id, ETAPA_TRANSCRICAO, max(unidades, 1))
         resultado = retranscritor.retranscrever(
             job.audio,
             caminho_mic=job.mic,
@@ -70,7 +105,10 @@ def processar_job(
             gerar_copia_tkpt=bool(metadados.get("criptografar", False)),
             metadados=metadados,
             identificar_voz=bool(metadados.get("identificar_voz", False)),
+            on_status=_on_status,
         )
+        if fila.obter(job_id).cancel_solicitado:
+            raise JobCancelado("cancelado")
         from resultado_reuniao import criar_manifesto_inicial, salvar_manifesto
 
         caminho_resultado = Path(resultado)
@@ -85,9 +123,18 @@ def processar_job(
         )
         caminho_manifesto = caminho_resultado.with_suffix(".resultado.json")
         salvar_manifesto(caminho_manifesto, manifesto)
-        fila.renovar_lease(job_id)
+        fila.registrar_progresso(job_id, ETAPA_FINAL, unidades + 1)
+        if fila.obter(job_id).cancel_solicitado:
+            raise JobCancelado("cancelado")
         fila.concluir(job_id, resultado, str(caminho_manifesto))
         return Path(resultado)
+    except JobCancelado:
+        try:
+            fila.cancelar(job_id)
+        except Exception:
+            logger.error("Falha ao marcar job como cancelled")
+        logger.info("Pós-processamento cancelado")
+        return Path(job.audio)
     except Exception as exc:
         codigo = type(exc).__name__.lower()
         try:
@@ -96,6 +143,8 @@ def processar_job(
             logger.error("Falha ao marcar job como failed")
         logger.error("Pós-processamento falhou (%s)", type(exc).__name__)
         raise
+    finally:
+        parar_heartbeat.set()
 
 
 def main(argv=None) -> int:
