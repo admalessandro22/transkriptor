@@ -2,6 +2,7 @@
 """FR-10.D1/D2/D4 e SEC-10.F4 — fila durável pós-reunião."""
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -36,6 +37,11 @@ def test_processing_interrompido_volta_a_pending(fila, audio_valido):
     reivindicado = fila.reivindicar_proximo()
     assert reivindicado.id == job_id
     assert reivindicado.estado == "processing"
+
+    caminho = fila.caminho_job(job_id)
+    dados = json.loads(caminho.read_text(encoding="utf-8"))
+    dados["lease"]["owner"] = {"pid": 999_999, "created_at_100ns": 1}
+    caminho.write_text(json.dumps(dados), encoding="utf-8")
 
     assert fila.recuperar_interrompidos() == 1
     assert fila.obter(job_id).estado == "pending"

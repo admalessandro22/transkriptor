@@ -9,11 +9,20 @@ import re
 import tempfile
 import threading
 import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
 import config as _config
+from fila_lock import (
+    Lease,
+    ProcessIdentity,
+    ProcessIdentityIndeterminate,
+    current_process_identity,
+    job_lock,
+    process_matches,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -53,6 +62,8 @@ class Job:
     erro_seguro: str | None
     criado_em: str
     atualizado_em: str
+    revision: int = 0
+    lease: dict | None = None
     worker_pid: int | None = None
     worker_iniciado_em: str | None = None
     worker_terminado_em: str | None = None
@@ -69,12 +80,26 @@ class FilaProcessamento:
         if not self.pasta_jobs.is_relative_to(self.pasta_transcricoes):
             raise ValueError("pasta de jobs deve ficar dentro de transcricoes")
         self.pasta_jobs.mkdir(parents=True, exist_ok=True)
+        self.pasta_locks = self.pasta_jobs / ".locks"
+        self.pasta_locks.mkdir(exist_ok=True)
         self._lock = threading.Lock()
 
     def caminho_job(self, job_id: str) -> Path:
         if not PADRAO_ID.fullmatch(str(job_id)):
             raise ValueError("id de job inválido")
         return self.pasta_jobs / f"{job_id}.json"
+
+    def _caminho_lock(self, job_id: str) -> Path:
+        if not PADRAO_ID.fullmatch(str(job_id)):
+            raise ValueError("id de job inválido")
+        return self.pasta_locks / f"{job_id}.lock"
+
+    @contextmanager
+    def _transacao_job(self, job_id: str):
+        """Serializa RMW no processo e entre processos para um job."""
+        with self._lock:
+            with job_lock(self._caminho_lock(job_id)):
+                yield self.caminho_job(job_id)
 
     def _relativo_validado(self, caminho: str | None) -> str | None:
         if caminho is None:
@@ -108,6 +133,8 @@ class FilaProcessamento:
     def _salvar(self, dados: dict) -> None:
         if dados.get("estado") not in ESTADOS:
             raise ValueError("estado de job inválido")
+        if not isinstance(dados.get("revision"), int) or dados["revision"] < 0:
+            raise ValueError("revisão de job inválida")
         destino = self.caminho_job(dados["id"])
         fd, temporario = tempfile.mkstemp(
             prefix=f"{dados['id']}_", suffix=".tmp", dir=str(self.pasta_jobs)
@@ -127,10 +154,46 @@ class FilaProcessamento:
                 except OSError:
                     pass
 
+    @staticmethod
+    def _lease_de_dados(lease_bruto: object) -> Lease:
+        if not isinstance(lease_bruto, dict):
+            raise ValueError("lease de job inválido")
+        owner = lease_bruto.get("owner")
+        if not isinstance(owner, dict):
+            raise ValueError("proprietário de lease inválido")
+        try:
+            identidade = ProcessIdentity(
+                pid=int(owner["pid"]),
+                created_at_100ns=int(owner["created_at_100ns"]),
+            )
+            lease = Lease(
+                owner=identidade,
+                nonce=str(lease_bruto["nonce"]),
+                acquired_at_utc=str(lease_bruto["acquired_at_utc"]),
+                heartbeat_at_utc=str(lease_bruto["heartbeat_at_utc"]),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError("lease de job inválido") from exc
+        if (
+            lease.owner.pid <= 0
+            or lease.owner.created_at_100ns <= 0
+            or not lease.nonce
+            or not lease.acquired_at_utc
+            or not lease.heartbeat_at_utc
+        ):
+            raise ValueError("lease de job inválido")
+        return lease
+
     def _carregar(self, caminho: Path) -> dict:
         dados = json.loads(caminho.read_text(encoding="utf-8"))
         if not isinstance(dados, dict) or dados.get("estado") not in ESTADOS:
             raise ValueError("job inválido")
+        dados.setdefault("revision", 0)
+        dados.setdefault("lease", None)
+        if not isinstance(dados["revision"], int) or dados["revision"] < 0:
+            raise ValueError("revisão de job inválida")
+        if dados["lease"] is not None:
+            self._lease_de_dados(dados["lease"])
         return dados
 
     def _para_job(self, dados: dict) -> Job:
@@ -145,6 +208,8 @@ class FilaProcessamento:
             erro_seguro=dados.get("erro_seguro"),
             criado_em=dados["criado_em"],
             atualizado_em=dados["atualizado_em"],
+            revision=dados["revision"],
+            lease=dict(dados["lease"]) if dados["lease"] is not None else None,
             worker_pid=dados.get("worker_pid"),
             worker_iniciado_em=dados.get("worker_iniciado_em"),
             worker_terminado_em=dados.get("worker_terminado_em"),
@@ -173,14 +238,16 @@ class FilaProcessamento:
             "erro_seguro": None,
             "criado_em": agora,
             "atualizado_em": agora,
+            "revision": 0,
+            "lease": None,
         }
         with self._lock:
             self._salvar(dados)
         return job_id
 
     def obter(self, job_id: str) -> Job:
-        with self._lock:
-            return self._para_job(self._carregar(self.caminho_job(job_id)))
+        with self._transacao_job(job_id) as caminho:
+            return self._para_job(self._carregar(caminho))
 
     def listar(self, estado: str | None = None) -> list[Job]:
         if estado is not None and estado not in ESTADOS:
@@ -201,55 +268,82 @@ class FilaProcessamento:
         return len(self.listar(estado))
 
     def reivindicar_proximo(self) -> Job | None:
-        with self._lock:
-            for caminho in sorted(self.pasta_jobs.glob("*.json")):
-                claim = caminho.with_suffix(".claim")
-                try:
-                    fd = os.open(str(claim), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-                    os.close(fd)
-                except FileExistsError:
-                    continue
-                try:
-                    dados = self._carregar(caminho)
+        for caminho in sorted(self.pasta_jobs.glob("*.json")):
+            job_id = caminho.stem
+            if not PADRAO_ID.fullmatch(job_id):
+                continue
+            try:
+                with self._transacao_job(job_id) as bloqueado:
+                    dados = self._carregar(bloqueado)
                     if dados["estado"] != "pending":
                         continue
-                    dados["estado"] = "processing"
-                    dados["atualizado_em"] = _agora_iso()
-                    self._salvar(dados)
-                    return self._para_job(dados)
-                finally:
-                    claim.unlink(missing_ok=True)
+                    return self._reivindicar_dados(dados)
+            except FileNotFoundError:
+                continue
         return None
 
     def reivindicar(self, job_id: str) -> Job:
         """Marca um job pending específico para o subprocesso solicitado."""
-        caminho = self.caminho_job(job_id)
-        claim = caminho.with_suffix(".claim")
-        try:
-            fd = os.open(str(claim), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            os.close(fd)
-        except FileExistsError as exc:
-            raise RuntimeError("job já reivindicado") from exc
-        try:
-            with self._lock:
-                dados = self._carregar(caminho)
-                if dados["estado"] != "pending":
-                    raise RuntimeError("job não está pendente")
-                dados["estado"] = "processing"
-                dados["atualizado_em"] = _agora_iso()
-                self._salvar(dados)
-                return self._para_job(dados)
-        finally:
-            claim.unlink(missing_ok=True)
+        with self._transacao_job(job_id) as caminho:
+            dados = self._carregar(caminho)
+            if dados["estado"] != "pending":
+                raise RuntimeError("job não está pendente")
+            return self._reivindicar_dados(dados)
+
+    def _reivindicar_dados(self, dados: dict) -> Job:
+        agora = _agora_iso()
+        owner = current_process_identity()
+        dados["estado"] = "processing"
+        dados["lease"] = {
+            "owner": {
+                "pid": owner.pid,
+                "created_at_100ns": owner.created_at_100ns,
+            },
+            "nonce": uuid.uuid4().hex,
+            "acquired_at_utc": agora,
+            "heartbeat_at_utc": agora,
+        }
+        dados["revision"] += 1
+        dados["atualizado_em"] = agora
+        self._salvar(dados)
+        return self._para_job(dados)
 
     def _alterar_estado(self, job_id: str, estado: str, **campos) -> Job:
-        with self._lock:
-            caminho = self.caminho_job(job_id)
+        with self._transacao_job(job_id) as caminho:
             dados = self._carregar(caminho)
             if dados["estado"] != "processing":
                 raise RuntimeError("job não está em processamento")
+            self._exigir_lease_do_processo_atual(dados)
             dados.update(campos)
             dados["estado"] = estado
+            dados["revision"] += 1
+            dados["atualizado_em"] = _agora_iso()
+            self._salvar(dados)
+            return self._para_job(dados)
+
+    def _exigir_lease_do_processo_atual(self, dados: dict) -> Lease:
+        lease = self._lease_de_dados(dados.get("lease"))
+        if lease.owner != current_process_identity():
+            raise RuntimeError("lease não pertence ao processo atual")
+        return lease
+
+    def renovar_lease(self, job_id: str) -> Job:
+        """Registra atividade do proprietário sem trocar o lease do job."""
+        with self._transacao_job(job_id) as caminho:
+            dados = self._carregar(caminho)
+            if dados["estado"] != "processing":
+                raise RuntimeError("job não está em processamento")
+            lease = self._exigir_lease_do_processo_atual(dados)
+            dados["lease"] = {
+                "owner": {
+                    "pid": lease.owner.pid,
+                    "created_at_100ns": lease.owner.created_at_100ns,
+                },
+                "nonce": lease.nonce,
+                "acquired_at_utc": lease.acquired_at_utc,
+                "heartbeat_at_utc": _agora_iso(),
+            }
+            dados["revision"] += 1
             dados["atualizado_em"] = _agora_iso()
             self._salvar(dados)
             return self._para_job(dados)
@@ -270,10 +364,10 @@ class FilaProcessamento:
 
     def _registrar_observabilidade(self, job_id: str, **campos) -> Job:
         """Atualiza somente metadados do worker, sem mudar o estado do job."""
-        with self._lock:
-            caminho = self.caminho_job(job_id)
+        with self._transacao_job(job_id) as caminho:
             dados = self._carregar(caminho)
             dados.update(campos)
+            dados["revision"] += 1
             dados["atualizado_em"] = _agora_iso()
             self._salvar(dados)
             return self._para_job(dados)
@@ -313,21 +407,57 @@ class FilaProcessamento:
             worker_terminado_em=instante,
         )
 
+    def _lease_tem_proprietario_vivo(self, dados: dict) -> bool | None:
+        """True=vivo, False=ausente/legado, None=identidade indeterminada."""
+        lease = dados.get("lease")
+        if lease is None:
+            return False
+        try:
+            return process_matches(self._lease_de_dados(lease).owner)
+        except ProcessIdentityIndeterminate:
+            return None
+
+    def _quarentenar_corrompido(self, caminho: Path) -> None:
+        destino = caminho.with_suffix(".corrupt")
+        if destino.exists():
+            destino = caminho.with_suffix(f".{uuid.uuid4().hex}.corrupt")
+        try:
+            os.replace(caminho, destino)
+        except FileNotFoundError:
+            return
+        logger.error("Job corrompido movido para quarentena: %s", destino.name)
+
     def recuperar_interrompidos(self) -> int:
         recuperados = 0
-        with self._lock:
-            for claim in self.pasta_jobs.glob("*.claim"):
-                claim.unlink(missing_ok=True)
-            for caminho in sorted(self.pasta_jobs.glob("*.json")):
-                dados = self._carregar(caminho)
-                if dados["estado"] != "processing":
-                    continue
-                dados["estado"] = "pending"
-                dados["erro_seguro"] = None
-                dados["resultado"] = None
-                dados["atualizado_em"] = _agora_iso()
-                self._salvar(dados)
-                recuperados += 1
+        for caminho in sorted(self.pasta_jobs.glob("*.json")):
+            job_id = caminho.stem
+            if not PADRAO_ID.fullmatch(job_id):
+                continue
+            try:
+                with self._transacao_job(job_id) as bloqueado:
+                    dados = self._carregar(bloqueado)
+                    if dados["estado"] != "processing":
+                        continue
+                    vivo = self._lease_tem_proprietario_vivo(dados)
+                    if vivo is True:
+                        continue
+                    if vivo is None:
+                        logger.warning(
+                            "Lease de job indeterminado; recuperação adiada: %s",
+                            bloqueado.name,
+                        )
+                        continue
+                    dados["estado"] = "pending"
+                    dados["lease"] = None
+                    dados["erro_seguro"] = None
+                    dados["resultado"] = None
+                    dados["revision"] += 1
+                    dados["atualizado_em"] = _agora_iso()
+                    self._salvar(dados)
+                    recuperados += 1
+            except (OSError, ValueError, KeyError, json.JSONDecodeError):
+                self._quarentenar_corrompido(caminho)
+                continue
         return recuperados
 
 

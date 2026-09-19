@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -46,10 +47,16 @@ def processar_job(
         return Path(job.resultado)
     elif job.estado != "processing":
         raise RuntimeError("job não pode ser processado neste estado")
+    else:
+        job = fila.renovar_lease(job_id)
 
     try:
         import retranscritor
 
+        # O worker real reafirma a própria identidade depois do claim. A bandeja
+        # pode ter registrado o PID do subprocesso antes de ele ganhar o lease.
+        fila.registrar_worker(job_id, pid=os.getpid())
+        fila.renovar_lease(job_id)
         metadados = dict(job.metadados)
         resultado = retranscritor.retranscrever(
             job.audio,
@@ -64,6 +71,7 @@ def processar_job(
             metadados=metadados,
             identificar_voz=bool(metadados.get("identificar_voz", False)),
         )
+        fila.renovar_lease(job_id)
         fila.concluir(job_id, resultado)
         return Path(resultado)
     except Exception as exc:

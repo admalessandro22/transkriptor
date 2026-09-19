@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import subprocess
 import wave
+import json
+import os
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -79,7 +81,9 @@ def test_processador_cria_txt_utf8_e_copia_tkpt(
     copia = resultado.with_suffix(".tkpt")
     assert copia.is_file()
     assert ler_transcricao(copia.name, str(copia.parent)) == texto
-    assert fila.obter(job_id).estado == "ready"
+    job = fila.obter(job_id)
+    assert job.estado == "ready"
+    assert job.worker_pid == os.getpid()
 
 
 def test_falha_mantem_audio_e_marca_job(fila_com_job, monkeypatch):
@@ -96,6 +100,25 @@ def test_falha_mantem_audio_e_marca_job(fila_com_job, monkeypatch):
     job = fila.obter(job_id)
     assert job.estado == "failed"
     assert job.erro_seguro == "runtimeerror"
+
+
+def test_worker_nao_transcreve_job_com_lease_de_outro_processo(
+    fila_com_job, monkeypatch
+):
+    fila, job_id, _audio = fila_com_job
+    fila.reivindicar(job_id)
+    caminho = fila.caminho_job(job_id)
+    dados = json.loads(caminho.read_text(encoding="utf-8"))
+    dados["lease"]["owner"] = {"pid": 999_999, "created_at_100ns": 1}
+    caminho.write_text(json.dumps(dados), encoding="utf-8")
+
+    def nao_deve_transcrever(*_args, **_kwargs):
+        pytest.fail("worker sem lease não pode abrir a transcrição")
+
+    monkeypatch.setattr(retranscritor, "retranscrever", nao_deve_transcrever)
+
+    with pytest.raises(RuntimeError, match="lease"):
+        processar_job(job_id, fila=fila)
 
 
 def test_flags_windows_sao_sem_janela_e_prioridade_baixa():

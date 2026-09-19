@@ -67,12 +67,18 @@ class ProcessamentoReuniaoMixin:
         pid = getattr(worker, "pid", None)
         if pid is not None:
             try:
-                self.fila.registrar_worker(job_id, pid=pid)
+                job_observado = self.fila.registrar_worker(job_id, pid=pid)
                 logger.info(
                     "Worker de pós-processamento iniciado: job=%s pid=%s",
                     job_id,
                     pid,
                 )
+                if job_observado.estado != "processing":
+                    logger.warning(
+                        "Worker iniciado antes do claim: job=%s estado=%s",
+                        job_id,
+                        job_observado.estado,
+                    )
             except Exception:
                 # A captura e o worker não podem falhar só porque a auditoria
                 # de metadados ficou indisponível.

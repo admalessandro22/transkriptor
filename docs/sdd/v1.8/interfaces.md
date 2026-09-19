@@ -78,6 +78,18 @@ def process_matches(identity: ProcessIdentity) -> bool: ...
 `job_lock` usa `msvcrt.locking` em um byte de lockfile criado dentro de `jobs/.locks/`. Toda leitura-modificação-escrita de um job ocorre dentro do lock. `process_matches` usa PID + criação do processo; acesso negado produz estado indeterminado e impede recuperação destrutiva.
 
 ```python
+# fila_processamento.py
+def renovar_lease(job_id: str) -> Job: ...
+```
+
+`renovar_lease` só aceita o proprietário cujo `ProcessIdentity` coincide com o
+lease persistido. Ela preserva `owner`, `nonce` e `acquired_at_utc`, atualiza
+`heartbeat_at_utc` e incrementa `revision` dentro do mesmo lock do job. As
+transições `processing -> ready|failed` aplicam a mesma prova de propriedade;
+um processo que perdeu a disputa não pode abrir a transcrição nem concluir o
+job.
+
+```python
 # resultado_reuniao.py
 class StageState(StrEnum):
     COMPLETE = "complete"
