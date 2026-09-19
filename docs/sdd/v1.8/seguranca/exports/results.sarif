@@ -1,0 +1,251 @@
+{
+  "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/os/schemas/sarif-schema-2.1.0.json",
+  "runs": [
+    {
+      "automationDetails": {
+        "id": "265f0c6b-9593-4419-be69-1c895aa84aa5"
+      },
+      "invocations": [
+        {
+          "executionSuccessful": true,
+          "toolExecutionNotifications": [
+            {
+              "level": "warning",
+              "message": {
+                "text": "Dois revisores independentes atingiram limite de uso antes de entregar cobertura final; seus avisos foram conferidos pelo agente principal."
+              }
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "codexSecurityCoverageCompleteness": "partial",
+        "codexSecuritySchemaVersion": "1.0",
+        "codexSecurityTargetKind": "git_revision"
+      },
+      "results": [
+        {
+          "level": "note",
+          "locations": [
+            {
+              "message": {
+                "text": "sink"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "identificador_voz.py"
+                },
+                "region": {
+                  "endLine": 51,
+                  "startLine": 22
+                }
+              }
+            },
+            {
+              "message": {
+                "text": "sink"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "crypto_storage.py"
+                },
+                "region": {
+                  "endLine": 431,
+                  "startLine": 403
+                }
+              }
+            },
+            {
+              "message": {
+                "text": "evidence:policy"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "identificador_voz.py"
+                },
+                "region": {
+                  "endLine": 28,
+                  "startLine": 22
+                }
+              }
+            },
+            {
+              "message": {
+                "text": "evidence:profile-write"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "identificador_voz.py"
+                },
+                "region": {
+                  "endLine": 51,
+                  "startLine": 47
+                }
+              }
+            },
+            {
+              "message": {
+                "text": "evidence:wav-no-key"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "crypto_storage.py"
+                },
+                "region": {
+                  "endLine": 413,
+                  "startLine": 412
+                }
+              }
+            },
+            {
+              "message": {
+                "text": "evidence:wav-error"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "crypto_storage.py"
+                },
+                "region": {
+                  "endLine": 431,
+                  "startLine": 429
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Falha de chave permite salvar audio e perfil de voz sem a protecao solicitada\n\nAo salvar biometria ou finalizar WAV com criptografia ativa, a indisponibilidade da chave pode selecionar persistencia legivel. Um leitor de copia de disco/backup dispensa a chave DPAPI para esses artefatos. Nao implica exposicao remota nem abrange o TXT legivel intencional.\n\nSeverity: low\n\nCategory: Sensitive data exposure\n\nWeaknesses: CWE-636, CWE-312\n\nRemediation:\nSeparar politica de capacidade; retornar erro/estado protection_pending obrigatorio e visivel quando protecao solicitada falhar. Para perfil novo, nao salvar plaintext; para audio ja capturado, preservar unica copia em area restrita para recuperacao, sem anunciar protecao concluida.\n\nRemediation tests:\n- Com cifra ativa e chave indisponivel, salvar_perfil deve falhar explicitamente sem criar NPZ legivel.\n- Erro ao cifrar WAV preserva original e marca protection_pending; sucesso so apos validar copia equivalente.\n- Modo compativel preserva TXT intencional e informa a politica."
+          },
+          "partialFingerprints": {
+            "codexSecurity/v1": "codex-security/v1:sha256:5a86cd1200e90ba2a4b97da32779c2ef8b56dad6f43ebcc2a649392d2cc86d88"
+          },
+          "properties": {
+            "category": "sensitive-data-exposure",
+            "confidence": "high",
+            "findingId": "csf_4226874721aaa09c760bf173",
+            "occurrenceId": "occ_8b51b2191376c00df822e3ac",
+            "severity": "low"
+          },
+          "ruleId": "privacy.encryption-silent-downgrade",
+          "ruleIndex": 0
+        },
+        {
+          "level": "note",
+          "locations": [
+            {
+              "message": {
+                "text": "root_control"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "crypto_storage.py"
+                },
+                "region": {
+                  "endLine": 442,
+                  "startLine": 434
+                }
+              }
+            },
+            {
+              "message": {
+                "text": "sink"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "transcricao_core.py"
+                },
+                "region": {
+                  "endLine": 178,
+                  "startLine": 173
+                }
+              }
+            },
+            {
+              "message": {
+                "text": "sink"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "retranscritor.py"
+                },
+                "region": {
+                  "endLine": 253,
+                  "startLine": 245
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Queda durante captura ou diarizacao deixa WAV fora da recuperacao de orfaos\n\nCaptura escreve WAV na raiz de saida; diarizacao recria audio em pasta diarizacao_*. Encerramento abrupto pode deixar esses arquivos legiveis, enquanto a recuperacao inspeciona somente *.wav de PASTA_AUDIO. Exposicao exige acesso independente aos arquivos.\n\nSeverity: low\n\nCategory: Sensitive data exposure\n\nWeaknesses: CWE-459, CWE-312\n\nRemediation:\nInventariar artefatos em armazenamento restrito por sessao, com lease, protecao e recuperacao de raiz legada/temporarios. Nao tocar sessoes vivas nem apagar unica copia; preferir processamento sem temporario plaintext quando viavel.\n\nRemediation tests:\n- Interromper subprocesso de teste em pontos controlados e verificar recuperacao de todos os WAVs de sua sessao.\n- Recuperacao nao altera sessao viva nem arquivos fora dos alvos permitidos.\n- Falha de protecao preserva fonte e comunica estado pendente."
+          },
+          "partialFingerprints": {
+            "codexSecurity/v1": "codex-security/v1:sha256:29593745ec8b9806dd44df274e65f09ca4d92603d152f1a76bf8e7e7a730876c"
+          },
+          "properties": {
+            "category": "sensitive-data-exposure",
+            "confidence": "high",
+            "findingId": "csf_e8bb3da95d503b36573b22a4",
+            "occurrenceId": "occ_9f12d37ed441579e171c9861",
+            "severity": "low"
+          },
+          "ruleId": "privacy.plaintext-crash-residue",
+          "ruleIndex": 1
+        }
+      ],
+      "tool": {
+        "driver": {
+          "name": "Codex Security",
+          "rules": [
+            {
+              "fullDescription": {
+                "text": "Privacy: Encryption silent downgrade. Categories: Sensitive data exposure. Weaknesses: CWE-312, CWE-636."
+              },
+              "help": {
+                "markdown": "Privacy: Encryption silent downgrade. Categories: Sensitive data exposure. Weaknesses: CWE-312, CWE-636.\n\n## Remediation\n\nSeparar politica de capacidade; retornar erro/estado protection_pending obrigatorio e visivel quando protecao solicitada falhar. Para perfil novo, nao salvar plaintext; para audio ja capturado, preservar unica copia em area restrita para recuperacao, sem anunciar protecao concluida.",
+                "text": "Privacy: Encryption silent downgrade. Categories: Sensitive data exposure. Weaknesses: CWE-312, CWE-636.\n\nRemediation:\n\nSeparar politica de capacidade; retornar erro/estado protection_pending obrigatorio e visivel quando protecao solicitada falhar. Para perfil novo, nao salvar plaintext; para audio ja capturado, preservar unica copia em area restrita para recuperacao, sem anunciar protecao concluida."
+              },
+              "id": "privacy.encryption-silent-downgrade",
+              "name": "Privacy: Encryption silent downgrade",
+              "properties": {
+                "security-severity": "2.0",
+                "tags": [
+                  "external/cwe/cwe-312",
+                  "external/cwe/cwe-636",
+                  "security",
+                  "sensitive-data-exposure"
+                ]
+              },
+              "shortDescription": {
+                "text": "Privacy: Encryption silent downgrade"
+              }
+            },
+            {
+              "fullDescription": {
+                "text": "Privacy: Plaintext crash residue. Categories: Sensitive data exposure. Weaknesses: CWE-312, CWE-459."
+              },
+              "help": {
+                "markdown": "Privacy: Plaintext crash residue. Categories: Sensitive data exposure. Weaknesses: CWE-312, CWE-459.\n\n## Remediation\n\nInventariar artefatos em armazenamento restrito por sessao, com lease, protecao e recuperacao de raiz legada/temporarios. Nao tocar sessoes vivas nem apagar unica copia; preferir processamento sem temporario plaintext quando viavel.",
+                "text": "Privacy: Plaintext crash residue. Categories: Sensitive data exposure. Weaknesses: CWE-312, CWE-459.\n\nRemediation:\n\nInventariar artefatos em armazenamento restrito por sessao, com lease, protecao e recuperacao de raiz legada/temporarios. Nao tocar sessoes vivas nem apagar unica copia; preferir processamento sem temporario plaintext quando viavel."
+              },
+              "id": "privacy.plaintext-crash-residue",
+              "name": "Privacy: Plaintext crash residue",
+              "properties": {
+                "security-severity": "2.0",
+                "tags": [
+                  "external/cwe/cwe-312",
+                  "external/cwe/cwe-459",
+                  "security",
+                  "sensitive-data-exposure"
+                ]
+              },
+              "shortDescription": {
+                "text": "Privacy: Plaintext crash residue"
+              }
+            }
+          ],
+          "version": "0.1.24"
+        }
+      }
+    }
+  ],
+  "version": "2.1.0"
+}

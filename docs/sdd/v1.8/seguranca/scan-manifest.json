@@ -1,0 +1,105 @@
+{
+  "documentType": "codex-security.scan-manifest",
+  "scan": {
+    "artifacts": [
+      {
+        "mediaType": "application/json",
+        "path": "findings.json",
+        "sha256": "5bf599dc83ceff527fe1e58d759e34c43b733d26fadeb7f052c7f4e9dc2d98a8"
+      },
+      {
+        "mediaType": "application/json",
+        "path": "coverage.json",
+        "sha256": "06557333565935b7d7da11b8c6c779ff646f78247f8d2ff42f855f7c75a28eb8"
+      }
+    ],
+    "completedAt": "2026-09-19T12:06:33.566621Z",
+    "coverageRef": "coverage.json",
+    "findingsRef": "findings.json",
+    "id": "265f0c6b-9593-4419-be69-1c895aa84aa5",
+    "preservedSources": {
+      "checkpoints/007014431b7492faaae9e49d71e36bacb44ce238656d1b6efd676c796ffdbba8.json": "51bdbdef4662c7d7e0657d155e5395b289e7deb0eb7666f9f6ed4ddee0dc642e",
+      "checkpoints/2ac6969950c3395ca0c53e65e683b8a9cedcd093aa14e2c1546ee1eeb9c422c8.json": "2ac6969950c3395ca0c53e65e683b8a9cedcd093aa14e2c1546ee1eeb9c422c8",
+      "checkpoints/5747dd6192e56dfc3d778a0b07b1f52a72325165b54b2f046028774c2be290ad.json": "2f745b62f30835891d49a4a259204c0a1ca37235fe5891cde8dbbd0f229b94d8",
+      "checkpoints/b7bee0f9119755ea5794caa69c2ecf917b583da45d53b57e5dead4df3cccf10f.json": "0dec1445a537d031f21eb9a392eaddacb060f43f3de07d67b293805747b350c4"
+    },
+    "producer": {
+      "name": "codex-security-plugin",
+      "version": "0.1.24"
+    },
+    "scope": {
+      "artifactsReviewed": [
+        "app_ciclo_reuniao.py",
+        "app_processamento.py",
+        "fila_processamento.py",
+        "processador_reuniao.py",
+        "transcricao_core.py",
+        "retranscritor.py",
+        "crypto_storage.py",
+        "identificador_voz.py",
+        "meet_bridge.py",
+        "extension/meet/content.js",
+        "assistente.py",
+        "assistente_ollama.py"
+      ],
+      "excludePaths": [],
+      "includePaths": [
+        "."
+      ],
+      "limitations": [
+        "Dois revisores independentes atingiram limite antes do recibo final; principal conferiu os achados aproveitados.",
+        "Sem acesso Daybreak, auditoria CVE, ACL, pentest ou gate fisico.",
+        "Nenhum dado privado de reuniao, biometria ou credencial inspecionado."
+      ],
+      "runtimeStatus": "Somente observacao minima de processos/listeners; sem captura ou reinicio.",
+      "summary": "Diagnostico read-only dos principais fluxos no HEAD eff83a61; cobertura parcial do inventario total.",
+      "validationMode": "Source review and existing pytest suite; synthetic bridge/correlation checks."
+    },
+    "sealedAt": "2026-09-19T12:06:33.566621Z",
+    "startedAt": "2026-09-18T21:05:27.787963Z",
+    "status": "completed",
+    "target": {
+      "displayName": "transkriptor",
+      "kind": "git_revision",
+      "revision": "eff83a61f3ee2291e48a80a00da3f70f1475ccbc",
+      "targetId": "target_sha256_4e4497e9845a6be677a838400b1b776a31783a55125e71084a77d244bfd268c7"
+    },
+    "threatModel": {
+      "assets": [
+        "Audio e transcricoes de reunioes",
+        "Nomes, roster e embeddings biometricos",
+        "Tokens da ponte e assistente, chave DPAPI",
+        "Integridade dos jobs e disponibilidade da captura"
+      ],
+      "assumptions": [
+        "TXT legivel e escolha explicita existente, nao promessa de cifra integral.",
+        "DPAPI user-scope nao protege de todo processo com a mesma identidade.",
+        "Worker nao e sandbox; Ollama configurado localmente.",
+        "Modelos podem exigir download no setup; runtime local nao significa instalacao offline.",
+        "Standalone/CLI diferem do tray em autenticacao e protecao; ponte inicia apesar de divergencia de documentacao.",
+        "ACLs, extensao realmente instalada, Google/OAuth, binarios e CVEs nao verificados."
+      ],
+      "attackerCapabilities": [
+        "Controlar conteudo falado/nome exibido numa reuniao",
+        "Enviar requisicoes locais ou de pagina maliciosa, ainda sujeito a token/origem",
+        "Obter copia de arquivos sem a chave, conforme ACL/backup; nao presumir esse acesso existente"
+      ],
+      "securityObjectives": [
+        "Consentimento antes de captura e coleta de conteudo",
+        "Nao degradar protecao solicitada silenciosamente",
+        "Conter paths e exigir autenticacao nos servicos",
+        "Isolar identidade/eventos/contexto por reuniao",
+        "Preservar audio e recuperar jobs sem duplicacao"
+      ],
+      "summary": "Transkriptor e um aplicativo Windows local de captura loopback/mic, transcricao Whisper, diarizacao e assistente Flask/Ollama. A confianca atravessa pagina/extensao, listener autenticado, arquivos locais e processos worker. Processos do mesmo usuario nao constituem sandbox isolado.",
+      "trustBoundaries": [
+        "Pagina Meet/content script -> service worker/bridge local",
+        "Cliente HTTP -> Flask em 127.0.0.1 com token",
+        "Disco/backup -> arquivos cifrados com chave protegida por DPAPI do usuario",
+        "Capturador -> fila JSON -> worker com mesmos privilegios",
+        "Texto transcrito nao confiavel -> prompt Ollama local"
+      ]
+    }
+  },
+  "schemaVersion": "1.0"
+}

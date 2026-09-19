@@ -1,0 +1,358 @@
+{
+  "complete": true,
+  "scanId": "265f0c6b-9593-4419-be69-1c895aa84aa5",
+  "threatModel": {
+    "summary": "Transkriptor e um aplicativo Windows local de captura loopback/mic, transcricao Whisper, diarizacao e assistente Flask/Ollama. A confianca atravessa pagina/extensao, listener autenticado, arquivos locais e processos worker. Processos do mesmo usuario nao constituem sandbox isolado.",
+    "assets": [
+      "Audio e transcricoes de reunioes",
+      "Nomes, roster e embeddings biometricos",
+      "Tokens da ponte e assistente, chave DPAPI",
+      "Integridade dos jobs e disponibilidade da captura"
+    ],
+    "trustBoundaries": [
+      "Pagina Meet/content script -> service worker/bridge local",
+      "Cliente HTTP -> Flask em 127.0.0.1 com token",
+      "Disco/backup -> arquivos cifrados com chave protegida por DPAPI do usuario",
+      "Capturador -> fila JSON -> worker com mesmos privilegios",
+      "Texto transcrito nao confiavel -> prompt Ollama local"
+    ],
+    "attackerCapabilities": [
+      "Controlar conteudo falado/nome exibido numa reuniao",
+      "Enviar requisicoes locais ou de pagina maliciosa, ainda sujeito a token/origem",
+      "Obter copia de arquivos sem a chave, conforme ACL/backup; nao presumir esse acesso existente"
+    ],
+    "securityObjectives": [
+      "Consentimento antes de captura e coleta de conteudo",
+      "Nao degradar protecao solicitada silenciosamente",
+      "Conter paths e exigir autenticacao nos servicos",
+      "Isolar identidade/eventos/contexto por reuniao",
+      "Preservar audio e recuperar jobs sem duplicacao"
+    ],
+    "assumptions": [
+      "TXT legivel e escolha explicita existente, nao promessa de cifra integral.",
+      "DPAPI user-scope nao protege de todo processo com a mesma identidade.",
+      "Worker nao e sandbox; Ollama configurado localmente.",
+      "Modelos podem exigir download no setup; runtime local nao significa instalacao offline.",
+      "Standalone/CLI diferem do tray em autenticacao e protecao; ponte inicia apesar de divergencia de documentacao.",
+      "ACLs, extensao realmente instalada, Google/OAuth, binarios e CVEs nao verificados."
+    ]
+  },
+  "findings": [
+    {
+      "ruleId": "privacy.encryption-silent-downgrade",
+      "title": "Falha de chave permite salvar audio e perfil de voz sem a protecao solicitada",
+      "summary": "Ao salvar biometria ou finalizar WAV com criptografia ativa, a indisponibilidade da chave pode selecionar persistencia legivel. Um leitor de copia de disco/backup dispensa a chave DPAPI para esses artefatos. Nao implica exposicao remota nem abrange o TXT legivel intencional.",
+      "severity": {
+        "level": "low",
+        "rationale": "Exige falha de protecao e acesso independente aos arquivos; nao foi demonstrado acesso remoto. Prioridade de produto P1 por sensibilidade e estado pouco visivel."
+      },
+      "confidence": {
+        "level": "high",
+        "rationale": "Branches e sinks de persistencia inspecionados diretamente; ACLs e frequencia da falha nao foram medidas."
+      },
+      "taxonomy": {
+        "category": "sensitive-data-exposure",
+        "cwe": [
+          "CWE-636",
+          "CWE-312"
+        ]
+      },
+      "locations": [
+        {
+          "path": "identificador_voz.py",
+          "startLine": 22,
+          "endLine": 51,
+          "role": "sink"
+        },
+        {
+          "path": "crypto_storage.py",
+          "startLine": 403,
+          "endLine": 431,
+          "role": "sink"
+        }
+      ],
+      "codeEvidence": [
+        {
+          "id": "policy",
+          "label": "Chave indisponivel equivale a cifra desativada",
+          "path": "identificador_voz.py",
+          "startLine": 22,
+          "endLine": 28,
+          "language": "python",
+          "role": "root_control",
+          "code": "def _usar_criptografia_voz() -> bool:\n    try:\n        from crypto_storage import chave_disponivel, criptografia_ativa\n\n        return criptografia_ativa() and chave_disponivel()\n    except Exception:\n        return False",
+          "explanation": "A decisao combina preferencia e capacidade. O chamador nao distingue usuario que desativou a protecao de falha ao acessar a chave."
+        },
+        {
+          "id": "profile-write",
+          "label": "Persistencia plaintext do perfil",
+          "path": "identificador_voz.py",
+          "startLine": 47,
+          "endLine": 51,
+          "language": "python",
+          "role": "sink",
+          "code": "    np.savez(\n        path,\n        embedding=embedding.astype(np.float32),\n        versao=np.int32(1),\n    )",
+          "explanation": "Se a decisao anterior e falsa, o embedding e salvo em NPZ sem cifra. O atacante considerado nao controla o embedding; seu pre-requisito e obter acesso a uma copia do arquivo."
+        },
+        {
+          "id": "wav-no-key",
+          "label": "WAV permanece legivel quando a chave falta",
+          "path": "crypto_storage.py",
+          "startLine": 412,
+          "endLine": 413,
+          "language": "python",
+          "role": "root_control",
+          "code": "    if not (criptografia_ativa() and chave_disponivel()):\n        return caminho",
+          "explanation": "A finalizacao devolve o caminho WAV original sem sinalizar uma falha de protecao ao chamador."
+        },
+        {
+          "id": "wav-error",
+          "label": "Erro de cifragem tambem devolve WAV",
+          "path": "crypto_storage.py",
+          "startLine": 429,
+          "endLine": 431,
+          "language": "python",
+          "role": "outcome",
+          "code": "    except Exception:\n        logger.warning(\"Falha ao criptografar WAV %s\", path.name, exc_info=True)\n        return caminho",
+          "explanation": "O warning preserva o audio, o que e correto para recuperacao, mas o retorno nao distingue protecao aplicada de falha."
+        }
+      ],
+      "rootCause": {
+        "summary": "A politica de confidencialidade e a disponibilidade da chave sao reduzidas ao mesmo booleano. O caminho de perfil seleciona np.savez quando esse booleano e falso; a finalizacao de WAV retorna o original quando chave/cifra falham. Falta um estado obrigatorio de protecao pendente que os consumidores e a interface respeitem.",
+        "evidenceRefs": [
+          "policy",
+          "profile-write",
+          "wav-no-key",
+          "wav-error"
+        ]
+      },
+      "remediation": "Separar politica de capacidade; retornar erro/estado protection_pending obrigatorio e visivel quando protecao solicitada falhar. Para perfil novo, nao salvar plaintext; para audio ja capturado, preservar unica copia em area restrita para recuperacao, sem anunciar protecao concluida.",
+      "validation": {
+        "assertions": [
+          "Criptografia ativa com chave indisponivel faz _usar_criptografia_voz retornar False.",
+          "O caminho False persiste embedding sem cifragem.",
+          "Falha de cifra WAV preserva caminho original sem resultado tipado de erro."
+        ],
+        "limitations": [
+          "Sem leitura de perfis, audio ou chaves privados.",
+          "ACLs e acesso de terceiros a backups nao verificados."
+        ],
+        "method": "static source trace",
+        "summary": "Conferidos preferencia/chave, desvio para escrita NPZ e retornos WAV. O sink legivel e determinado pelos branches; nao foi simulada falha DPAPI no perfil real."
+      },
+      "attackPath": {
+        "dataflow": {
+          "summary": "Preferencia ativa + chave indisponivel -> ramo sem protecao -> NPZ/WAV legivel -> leitor de copia",
+          "source": "operacao legitima de persistencia durante falha de chave",
+          "sink": "arquivo legivel no disco",
+          "outcome": "confidencialidade em repouso nao aplicada"
+        },
+        "impact": {
+          "level": "medium",
+          "why": "Audio e biometria podem conter dados sensiveis."
+        },
+        "likelihood": {
+          "level": "low",
+          "why": "Pre-requisitos locais e condicao de falha nao quantificados."
+        },
+        "limitations": [
+          "DPAPI nao promete isolamento contra todos os processos do mesmo usuario.",
+          "TXT intencional nao constitui este achado."
+        ],
+        "reachability": {
+          "summary": "Depende de acesso aos arquivos e da condicao de falha; nao existe bypass de token demonstrado.",
+          "attacker": "leitor nao autorizado de copia de disco, backup ou pasta",
+          "entrypoint": "copia do artefato persistido",
+          "outcome": "leitura sem a chave de cifragem"
+        },
+        "summary": "Durante falha de chave, usuario cadastra perfil/finaliza audio; app deixa artefato legivel; terceiro com acesso independente a copia do arquivo pode le-lo sem DPAPI."
+      },
+      "remediationTests": [
+        "Com cifra ativa e chave indisponivel, salvar_perfil deve falhar explicitamente sem criar NPZ legivel.",
+        "Erro ao cifrar WAV preserva original e marca protection_pending; sucesso so apos validar copia equivalente.",
+        "Modo compativel preserva TXT intencional e informa a politica."
+      ],
+      "provenance": {
+        "source": "local_plugin"
+      }
+    },
+    {
+      "ruleId": "privacy.plaintext-crash-residue",
+      "title": "Queda durante captura ou diarizacao deixa WAV fora da recuperacao de orfaos",
+      "summary": "Captura escreve WAV na raiz de saida; diarizacao recria audio em pasta diarizacao_*. Encerramento abrupto pode deixar esses arquivos legiveis, enquanto a recuperacao inspeciona somente *.wav de PASTA_AUDIO. Exposicao exige acesso independente aos arquivos.",
+      "severity": {
+        "level": "low",
+        "rationale": "Falha requer interrupcao abrupta e leitor com acesso ao disco; nao foi demonstrada exposicao pela rede."
+      },
+      "confidence": {
+        "level": "high",
+        "rationale": "Locais de escrita, limpeza normal e escopo limitado de recuperacao confirmados no codigo; crash real nao foi induzido."
+      },
+      "taxonomy": {
+        "category": "sensitive-data-exposure",
+        "cwe": [
+          "CWE-459",
+          "CWE-312"
+        ]
+      },
+      "locations": [
+        {
+          "path": "transcricao_core.py",
+          "startLine": 173,
+          "endLine": 178,
+          "role": "sink"
+        },
+        {
+          "path": "retranscritor.py",
+          "startLine": 245,
+          "endLine": 253,
+          "role": "sink"
+        },
+        {
+          "path": "crypto_storage.py",
+          "startLine": 434,
+          "endLine": 442,
+          "role": "root_control"
+        }
+      ],
+      "codeEvidence": [
+        {
+          "id": "capture",
+          "label": "WAV ativo ao lado da saida",
+          "path": "transcricao_core.py",
+          "startLine": 173,
+          "endLine": 178,
+          "language": "python",
+          "role": "sink",
+          "code": "        base = os.path.splitext(self._caminho_saida)[0]\n        self._caminho_wav = base + \"_audio.wav\"\n        self._wav = self._abrir_wav(self._caminho_wav)\n        if self.capturar_mic:\n            self._caminho_wav_mic = base + \"_mic.wav\"\n            self._wav_mic = self._abrir_wav(self._caminho_wav_mic)",
+          "explanation": "A captura precisa preservar frames, mas os arquivos ativos ficam fora do diretorio audio varrido na recuperacao."
+        },
+        {
+          "id": "diar-temp",
+          "label": "Copia legivel para diarizacao",
+          "path": "retranscritor.py",
+          "startLine": 245,
+          "endLine": 253,
+          "language": "python",
+          "role": "sink",
+          "code": "        with tempfile.TemporaryDirectory(prefix=\"diarizacao_\", dir=pasta) as tmp_dir:\n            temporario_txt = Path(tmp_dir) / f\"{base}.txt\"\n            temporario_wav = Path(tmp_dir) / f\"{base}_audio.wav\"\n            temporario_txt.write_text(texto_final, encoding=\"utf-8\")\n            with wave.open(str(temporario_wav), \"wb\") as wav:\n                wav.setnchannels(1)\n                wav.setsampwidth(2)\n                wav.setframerate(SAMPLE_RATE)\n                wav.writeframes((audio * 32767).astype(np.int16).tobytes())",
+          "explanation": "TemporaryDirectory remove no encerramento normal; morte abrupta do processo pode impedir sua limpeza. Audio previamente decifrado volta a existir como WAV."
+        },
+        {
+          "id": "recovery",
+          "label": "Recuperacao limitada a um nivel de PASTA_AUDIO",
+          "path": "crypto_storage.py",
+          "startLine": 434,
+          "endLine": 442,
+          "language": "python",
+          "role": "root_control",
+          "code": "def recuperar_orfaos_wav(pasta_audio: str) -> int:\n    \"\"\"Criptografa WAVs plaintext órfãos em PASTA_AUDIO (recuperação pós-crash).\"\"\"\n    if not (criptografia_ativa() and chave_disponivel()):\n        return 0\n    pasta = Path(pasta_audio)\n    if not pasta.is_dir():\n        return 0\n    n = 0\n    for wav in sorted(pasta.glob(\"*.wav\")):",
+          "explanation": "A varredura nao alcanca os arquivos na raiz nem os temporarios aninhados. Nao ha necessidade de o atacante controlar o caminho: ele precisa obter o arquivo residual."
+        }
+      ],
+      "rootCause": {
+        "summary": "Escritores de audio usam locais diferentes do dominio da recuperacao. A captura e a diarizacao podem deixar WAVs fora de PASTA_AUDIO; a limpeza depende da saida normal e a retomada nao inventaria esses locais. Falta ownership por sessao e registro de todos os artefatos recuperaveis.",
+        "evidenceRefs": [
+          "capture",
+          "diar-temp",
+          "recovery"
+        ]
+      },
+      "remediation": "Inventariar artefatos em armazenamento restrito por sessao, com lease, protecao e recuperacao de raiz legada/temporarios. Nao tocar sessoes vivas nem apagar unica copia; preferir processamento sem temporario plaintext quando viavel.",
+      "validation": {
+        "assertions": [
+          "Diarizacao grava WAV plaintext temporario mesmo ao processar fonte cifrada.",
+          "Recuperacao atual nao abrange todos os caminhos de escrita."
+        ],
+        "limitations": [
+          "Nenhum processo real foi morto e nenhum audio privado foi aberto.",
+          "ACLs e residuos existentes nao foram inventariados."
+        ],
+        "method": "static source trace",
+        "summary": "Conferidos os caminhos ativos e temporarios e a varredura glob nao recursiva usada na recuperacao. A garantia de limpeza normal nao cobre morte abrupta."
+      },
+      "attackPath": {
+        "dataflow": {
+          "summary": "Audio capturado/decifrado -> WAV ativo/temporario -> crash -> residuo nao recuperado",
+          "source": "audio legitimo em processamento",
+          "sink": "WAV residual fora de PASTA_AUDIO",
+          "outcome": "persistencia legivel alem do ciclo esperado"
+        },
+        "impact": {
+          "level": "medium",
+          "why": "Audio integral pode permanecer disponivel."
+        },
+        "likelihood": {
+          "level": "low",
+          "why": "Crash e acesso a arquivos sao pre-requisitos."
+        },
+        "limitations": [
+          "Saida normal limpa TemporaryDirectory.",
+          "Nao se recomenda apagar a unica fonte para corrigir confidencialidade."
+        ],
+        "reachability": {
+          "summary": "Requer acesso independente ao disco e encerramento abrupto; nao foi demonstrado ataque remoto.",
+          "attacker": "leitor nao autorizado de arquivo/backup",
+          "entrypoint": "arquivo residual apos crash",
+          "outcome": "audio recuperavel sem chave"
+        },
+        "summary": "Processo e interrompido durante captura/diarizacao; WAV residual permanece fora do escopo de recuperacao; leitor de copia consegue acessar audio sem a chave."
+      },
+      "remediationTests": [
+        "Interromper subprocesso de teste em pontos controlados e verificar recuperacao de todos os WAVs de sua sessao.",
+        "Recuperacao nao altera sessao viva nem arquivos fora dos alvos permitidos.",
+        "Falha de protecao preserva fonte e comunica estado pendente."
+      ],
+      "provenance": {
+        "source": "local_plugin"
+      }
+    }
+  ],
+  "coverage": {
+    "completeness": "partial",
+    "surfaces": [
+      {
+        "id": "storage",
+        "label": "Criptografia e ciclo de vida de audio/biometria",
+        "disposition": "reported",
+        "notes": "Dois achados locais de confidencialidade validados por rastreamento de fonte; ACLs e crash real pendentes."
+      },
+      {
+        "id": "bridge",
+        "label": "Extensao Meet e correlacao",
+        "disposition": "needs_follow_up",
+        "notes": "Falhas funcionais confirmadas no handoff ao worker e correlacao; Origin isolado nao prova bypass de token."
+      },
+      {
+        "id": "assistant",
+        "label": "API Flask e Ollama",
+        "disposition": "needs_follow_up",
+        "notes": "Token e realpath presentes; ausencia de isolamento de historico entre transcricoes e limites tipados sao melhorias."
+      }
+    ],
+    "explicitExclusions": [
+      {
+        "pattern": "transcricoes/",
+        "reason": "Dados privados do usuario, nao inspecionados."
+      },
+      {
+        "pattern": "_modelo_voz/",
+        "reason": "Modelos e biometria privados, nao inspecionados."
+      },
+      {
+        "pattern": "config_user.json",
+        "reason": "Preferencias e credenciais privadas, nao inspecionadas."
+      }
+    ],
+    "deferred": [
+      {
+        "reason": "Dois revisores independentes atingiram limite de uso antes de entregar cobertura final; seus avisos foram conferidos pelo agente principal."
+      }
+    ],
+    "openQuestions": [
+      "Handshake real Chrome/Edge e instalacao da extensao nao exercitados.",
+      "ACLs, contas Google e vulnerabilidades de dependencias por CVE nao verificadas.",
+      "Nem todos os arquivos auxiliares/legados foram auditados integralmente."
+    ]
+  }
+}

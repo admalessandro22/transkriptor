@@ -1,0 +1,66 @@
+{
+  "completeness": "partial",
+  "deferred": [
+    {
+      "id": "deferred-7ef6af5ffc62439e",
+      "reason": "Dois revisores independentes atingiram limite de uso antes de entregar cobertura final; seus avisos foram conferidos pelo agente principal."
+    }
+  ],
+  "documentType": "codex-security.coverage",
+  "excludePaths": [],
+  "explicitExclusions": [
+    {
+      "pattern": "transcricoes/",
+      "reason": "Dados privados do usuario, nao inspecionados."
+    },
+    {
+      "pattern": "_modelo_voz/",
+      "reason": "Modelos e biometria privados, nao inspecionados."
+    },
+    {
+      "pattern": "config_user.json",
+      "reason": "Preferencias e credenciais privadas, nao inspecionadas."
+    }
+  ],
+  "includePaths": [
+    "."
+  ],
+  "inventoryStrategy": "repository",
+  "mode": "repository",
+  "openQuestions": [
+    {
+      "question": "Handshake real Chrome/Edge e instalacao da extensao nao exercitados."
+    },
+    {
+      "question": "ACLs, contas Google e vulnerabilidades de dependencias por CVE nao verificadas."
+    },
+    {
+      "question": "Nem todos os arquivos auxiliares/legados foram auditados integralmente."
+    }
+  ],
+  "scanId": "265f0c6b-9593-4419-be69-1c895aa84aa5",
+  "schemaVersion": "1.0",
+  "surfaces": [
+    {
+      "disposition": "reported",
+      "id": "storage",
+      "label": "Criptografia e ciclo de vida de audio/biometria",
+      "notes": "Dois achados locais de confidencialidade validados por rastreamento de fonte; ACLs e crash real pendentes.",
+      "receiptRefs": []
+    },
+    {
+      "disposition": "needs_follow_up",
+      "id": "bridge",
+      "label": "Extensao Meet e correlacao",
+      "notes": "Falhas funcionais confirmadas no handoff ao worker e correlacao; Origin isolado nao prova bypass de token.",
+      "receiptRefs": []
+    },
+    {
+      "disposition": "needs_follow_up",
+      "id": "assistant",
+      "label": "API Flask e Ollama",
+      "notes": "Token e realpath presentes; ausencia de isolamento de historico entre transcricoes e limites tipados sao melhorias.",
+      "receiptRefs": []
+    }
+  ]
+}

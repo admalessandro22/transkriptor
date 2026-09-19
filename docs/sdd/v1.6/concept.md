@@ -1,5 +1,9 @@
 # Concept — Transkriptor v1.6 — Refinamento Operacional & UX Premium
 
+> **Status histórico.** Este concept descreve a release v1.6 implementada. A
+> fonte SDD ativa é [`docs/sdd/v1.8/`](../v1.8/README.md); preservar as
+> referências e evidências desta versão como registro histórico.
+
 ## Incidente observado (dívida de UX da v1.5)
 
 A v1.5 estabilizou captura, fila e consentimento, mas deixou débito de UX visível na auditoria 2026-09-03 (19/40 no Nielsen, 1 warning `bounce` no `detect.mjs`):

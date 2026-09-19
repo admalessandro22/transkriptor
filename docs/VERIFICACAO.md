@@ -1,5 +1,11 @@
 # Verificação — Transkriptor v1.2
 
+> **Registro histórico.** Os comandos e resultados abaixo pertencem às fases
+> anteriores do produto. A fonte SDD ativa é
+> [`docs/sdd/v1.8/README.md`](sdd/v1.8/README.md). Para a rastreabilidade da
+> versão ativa, execute `python scripts/verificar_fase.py --fase v1.8-sdd`.
+> Não tratar resultados históricos como gate verde da v1.8.
+
 Comandos copy-paste para gates SDD por fase.
 
 ## Fase 0 — Fundação QA

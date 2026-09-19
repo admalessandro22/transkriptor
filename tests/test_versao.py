@@ -33,11 +33,11 @@ def test_instalar_bat_le_versao_de_config():
     assert re.search(r"Instalando Transkriptor 1\.2\.\d", bat) is None
 
 
-def test_agents_md_aponta_sdd_v15():
+def test_agents_md_aponta_sdd_v18():
     agents = (REPO / "AGENTS.md").read_text(encoding="utf-8")
-    assert "docs/sdd/v1.6/" in agents
-    # A fonte de verdade atual é a v1.6; a v1.5 agora é legado.
-    assert "docs/sdd/v1.6/tasks.md" in agents
+    assert "docs/sdd/v1.8/" in agents
+    assert "docs/sdd/v1.8/tasks.md" in agents
+    assert "docs/sdd/v1.5/tasks.md" not in agents
 
 
 def test_v15_preserva_txt_principal_ao_criar_copia_criptografada():

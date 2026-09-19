@@ -1,0 +1,52 @@
+{
+  "complete": false,
+  "scanId": "265f0c6b-9593-4419-be69-1c895aa84aa5",
+  "findings": [],
+  "coverage": {
+    "completeness": "partial",
+    "surfaces": [
+      {
+        "id": "storage",
+        "label": "Criptografia e ciclo de vida de audio/biometria",
+        "disposition": "needs_follow_up",
+        "notes": "Revisao de crypto_storage, identificador_voz, retranscritor, captura e consumidores."
+      },
+      {
+        "id": "bridge",
+        "label": "Extensao Meet e correlacao",
+        "disposition": "needs_follow_up",
+        "notes": "Falhas funcionais confirmadas no handoff ao worker e correlacao; Origin isolado nao prova bypass de token."
+      },
+      {
+        "id": "assistant",
+        "label": "API Flask e Ollama",
+        "disposition": "needs_follow_up",
+        "notes": "Token e realpath presentes; ausencia de isolamento de historico entre transcricoes e limites tipados sao melhorias."
+      }
+    ],
+    "explicitExclusions": [
+      {
+        "pattern": "transcricoes/",
+        "reason": "Dados privados do usuario, nao inspecionados."
+      },
+      {
+        "pattern": "_modelo_voz/",
+        "reason": "Modelos e biometria privados, nao inspecionados."
+      },
+      {
+        "pattern": "config_user.json",
+        "reason": "Preferencias e credenciais privadas, nao inspecionadas."
+      }
+    ],
+    "deferred": [
+      {
+        "reason": "Dois revisores independentes atingiram limite de uso antes de entregar cobertura final; seus avisos foram conferidos pelo agente principal."
+      }
+    ],
+    "openQuestions": [
+      "Handshake real Chrome/Edge e instalacao da extensao nao exercitados.",
+      "ACLs, contas Google e vulnerabilidades de dependencias por CVE nao verificadas.",
+      "Nem todos os arquivos auxiliares/legados foram auditados integralmente."
+    ]
+  }
+}

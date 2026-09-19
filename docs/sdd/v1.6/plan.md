@@ -1,6 +1,13 @@
 # Plan — Transkriptor v1.6
 
-Ordem fechada. Uma fase só começa com a anterior verde e commitada. Até `T-11.H1`, `AGENTS.md` continua apontando `docs/sdd/v1.5/` como fonte; `v1.6` é preview.
+> **Status histórico.** Esta versão registra a implementação v1.6 e seus
+> gates da época. Desde a reconciliação T-13.A1, a fonte ativa é
+> [`docs/sdd/v1.8/`](../v1.8/README.md). Não reinterpretar os resultados abaixo
+> como testes da v1.8 nem reescrever suas evidências.
+
+Ordem fechada da implementação histórica. Uma fase só começava com a anterior
+verde e commitada. A referência a `T-11.H1` e ao preview abaixo é contexto da
+época, não instrução ativa.
 
 ```text
 F11.A tokens/detect

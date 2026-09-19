@@ -15,14 +15,15 @@ Este projeto usa **Spec-Driven Development (SDD)** + **Superpowers**.
 
 ### Ordem obrigatória
 
-1. Ler `docs/sdd/v1.6/plan.md` → plano fechado, ordem F11.A–F11.H, gates.
-2. Ler `docs/sdd/v1.6/concept.md` → visão e escopo.
-3. Ler `docs/sdd/v1.6/spec.md` → requisitos `FR-*`, `SEC-*`, `UX-*`.
-4. Ler `docs/sdd/v1.6/tasks.md` → tarefa atual.
-5. Executar **uma tarefa por vez** de `docs/sdd/v1.5/tasks.md`.
-6. **Antes de codar:** invocar skill `superpowers:test-driven-development`.
-7. **Antes de declarar fase concluída:** invocar skill `superpowers:verification-before-completion`.
-8. **Se testes falharem:** invocar skill `superpowers:systematic-debugging` → corrigir → re-rodar gate.
+1. Ler `docs/sdd/v1.8/plan.md` → plano fechado, ordem F13.A–F13.H, gates.
+2. Ler `docs/sdd/v1.8/concept.md` → visão e escopo.
+3. Ler `docs/sdd/v1.8/spec.md` → requisitos `FR-*`, `SEC-*`, `UX-*`.
+4. Ler `docs/sdd/v1.8/tasks.md` → tarefa atual.
+5. Ler `docs/sdd/v1.8/decisoes-usuario.md`, `interfaces.md` e `executor-llm.md` antes de alterar código.
+6. Executar **uma tarefa por vez** de `docs/sdd/v1.8/tasks.md`.
+7. **Antes de codar:** invocar skill `superpowers:test-driven-development`.
+8. **Antes de declarar fase concluída:** invocar skill `superpowers:verification-before-completion`.
+9. **Se testes falharem:** invocar skill `superpowers:systematic-debugging` → corrigir → re-rodar gate.
 
 ### Skills Superpowers (projeto)
 
@@ -55,7 +56,8 @@ python -m pytest tests/ -v
 python -m pytest tests/ -v --tb=short -x   # parar no primeiro erro
 ```
 
-Gate de fase: ver `docs/sdd/v1.3/plan.md` § "Gates de verificação".
+Gate de fase: ver `docs/sdd/v1.8/plan.md` e o checklist da tarefa atual. O
+histórico de gates permanece em `docs/VERIFICACAO.md` e nas versões legadas.
 
 ### Gate de reunião real (NFR-10.C2) — obrigatório ao mexer em captura
 
@@ -102,7 +104,8 @@ Ver `docs/sdd/v1.3/concept.md`.
 | 1.3 | `docs/sdd/v1.3/` | Legado (implementado) |
 | 1.4 | `docs/sdd/v1.4/` | Legado (implementado) |
 | 1.5 | `docs/sdd/v1.5/` | Legado (implementado) |
-| 1.6 | `docs/sdd/v1.6/` | **Em execução (fonte de verdade)** |
+| 1.6 | `docs/sdd/v1.6/` | Histórico (implementado; preservar evidências) |
+| 1.8 | `docs/sdd/v1.8/` | **Em execução (fonte de verdade)** |
 
 ### Detecção de reunião (v1.4)
 
