@@ -219,6 +219,7 @@ def retranscrever(
         fim_frame = min(audio.size, inicio_frame + tamanho_bloco)
         pedaco = audio[inicio_frame:fim_frame]
         inicio_bloco = inicio_frame / SAMPLE_RATE
+        on_status(f"transcribe:{inicio_frame}")
         encontrados, _info = modelo.transcribe(
             pedaco,
             language=None if idioma == "auto" else idioma,

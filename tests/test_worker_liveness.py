@@ -8,14 +8,20 @@ import os
 import subprocess
 import threading
 import time
+import wave
 from pathlib import Path
+from unittest.mock import MagicMock
 
+import numpy as np
 import pytest
 
 import app_processamento
 import config
+import retranscritor
 from fila_processamento import FilaProcessamento
+from processador_reuniao import processar_job
 from tests import alvos_worker_liveness as alvos
+from worker_liveness import ETAPA_TRANSCRICAO
 
 
 def _wav(pasta: Path, nome: str = "reuniao.wav") -> str:
@@ -369,3 +375,55 @@ def test_falha_import_antes_do_claim_nao_reinicia_infinito(
     assert job2 in despachados
     assert len(despachados) < 8
     app._despachar_proximo_job = lambda: None
+
+
+class _SegWhisper:
+    def __init__(self, text, start, end):
+        self.text = text
+        self.start = start
+        self.end = end
+
+
+def test_processar_job_avanca_unidades_durante_chunks_whisper(tmp_path):
+    """O loop real de retranscrever deve renovar progresso a cada bloco."""
+    pasta = tmp_path / "transcricoes"
+    audio_dir = pasta / "audio"
+    audio_dir.mkdir(parents=True)
+    sr = 16_000
+    # Dois blocos no tamanho de produção (CHUNK_SEGUNDOS = 25).
+    n_amostras = sr * 50
+    amostras = (
+        np.sin(2 * np.pi * 220 * np.arange(n_amostras) / sr) * 0.2 * 32767
+    ).astype(np.int16)
+    audio = audio_dir / "reuniao_longa.wav"
+    with wave.open(str(audio), "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(sr)
+        wav.writeframes(amostras.tobytes())
+    fila = FilaProcessamento(str(pasta))
+    job_id = fila.enfileirar(
+        str(audio),
+        None,
+        "reuniao-chunks",
+        {"diarizar": False, "criptografar": False, "origem": "meet"},
+    )
+    visto: list[tuple[str | None, int]] = []
+
+    def transcribe(_pedaco, **_kwargs):
+        job = fila.obter(job_id)
+        visto.append((job.stage, job.progress_units))
+        n = len(visto)
+        return ([_SegWhisper(f"bloco {n}", 0.0, 0.4)], MagicMock())
+
+    modelo = MagicMock()
+    modelo.transcribe.side_effect = transcribe
+
+    processar_job(job_id, modelo_whisper=modelo, fila=fila)
+
+    assert modelo.transcribe.call_count >= 2
+    assert all(stage == ETAPA_TRANSCRICAO for stage, _units in visto)
+    unidades = [units for _stage, units in visto]
+    assert unidades[-1] > unidades[0]
+    assert unidades == sorted(unidades)
+    assert fila.obter(job_id).estado == "ready"

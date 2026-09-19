@@ -70,10 +70,16 @@ def processar_job(
             if atual.cancel_solicitado:
                 return
 
-    def _on_status(_msg):
+    def _on_status(msg):
         nonlocal unidades
         unidades += 1
-        etapa = ETAPA_MODELO if unidades == 1 else ETAPA_TRANSCRICAO
+        texto = str(msg or "")
+        if texto.startswith("transcribe:"):
+            etapa = ETAPA_TRANSCRICAO
+        elif unidades == 1:
+            etapa = ETAPA_MODELO
+        else:
+            etapa = ETAPA_TRANSCRICAO
         fila.registrar_progresso(job_id, etapa, unidades)
         if fila.obter(job_id).cancel_solicitado:
             raise JobCancelado("cancelado")
