@@ -28,19 +28,14 @@ definição de pronto nem altera a ordem obrigatória das tarefas.
 | T-13.B1 | DONE | `e0ad07f`, `8850e92`; evidência `T-13.B1.md` |
 | T-13.B2 | DONE | `7d971a3`, `86979bd`; evidência `T-13.B2.md` |
 | T-13.B3 | DONE | `c9a7255`, `8ca0f8e`, `0a175fb`; evidência `T-13.B3.md` |
-| T-13.C1 | IN_PROGRESS | alterações locais não commitadas, descritas abaixo |
+| T-13.C1 | DONE | `8a65132` (C1) + commit de fechamento; evidência `T-13.C1.md` (gates 25 s e 600 s APROVADOS) |
+| T-13.C2 | PRÓXIMA | depende de C1 DONE; não iniciada nesta sessão além do planejamento |
 
 ### Base e árvore de trabalho
 
-- Base confirmada antes de C1: `0a175fba7ba737862b44aa965e764848425a8b56`
-  (`fix: emite progresso de transcrição a cada bloco do Whisper`).
-- `master` estava 11 commits à frente de `origin/master`; não houve push.
-- C1 tem alterações locais não staged em `captura_leve.py`, `config.py`,
-  `diagnostico.py`, `identificador_voz.py`, `transcricao_core.py` e
-  `watchdog.py`, além do novo `tests/test_captura_progresso.py`.
-- Nenhum áudio, reunião, conta Google, credencial ou dado de produção foi
-  aberto, usado, movido ou removido. `transcricao_core.py` tem 497 linhas,
-  respeitando o limite de 500.
+- Base de C1: `0a175fba7ba737862b44aa965e764848425a8b56`; commit C1: `8a651328f9994016af5326ce16281010c095fca9`.
+- Fechamento de C1 nesta sessão: correção do validador do gate em `scripts/gate_reuniao_real.py` (aceita `transkriptor|transcriptor|transcritor`; Whisper grafou “Transcriptor” nas execuções reais), evidência promovida a DONE, `tasks.md` com C1 marcada.
+- `transcricao_core.py` tem 497 linhas, respeitando o limite de 500. Pastas temporárias do gate (`--manter` para diagnóstico) foram removidas após a análise.
 
 ### Implementação local de C1 a preservar e revisar
 
@@ -64,27 +59,14 @@ definição de pronto nem altera a ordem obrigatória das tarefas.
   `python -m pytest tests/test_captura_progresso.py tests/test_diagnostico.py tests/test_com_audio.py tests/test_watchdog.py tests/test_lock_sem_callback.py tests/test_dubles_fieis.py -v --tb=short`.
 - Limite de linhas, compilação e C1: 21 testes passaram:
   `python -m pytest tests/test_limite_linhas.py tests/test_v16_g_qualidade.py tests/test_captura_progresso.py -v --tb=short`.
-- Uma suíte completa anterior encontrou exclusivamente o limite de linhas
-  (`564 passed`, 2 falhas por `transcricao_core.py: 504 linhas`); a causa foi
-  corrigida ao mover o helper para `CapturaLeveMixin`. A nova suíte completa
-  foi iniciada, mas interrompida pelo usuário antes do resultado final. Ela
-  permanece **PENDENTE** e não pode ser inferida como verde.
+- Suíte completa refeita: `python -m pytest tests/ -qq --tb=short` → exit code 0, **566 passed** em 144.30 s.
+- Gates físicos autorizados (DU-12) em 19/09/2026, ambos **APROVADOS — 11 etapas**: 25 s (384.000 frames, 0 falhas) e 600 s (9.600.000 frames, 0 falhas; WAV 601 s; 19/20 termos).
 
-### Próximos passos obrigatórios para encerrar C1
+### Próximos passos (C2 em diante)
 
-1. Não iniciar C2. Conferir a árvore local e reler os contratos de C1.
-2. Rodar novamente `python -m pytest tests/ -qq --tb=short` até exit code 0.
-3. Rodar `git diff --check`, revisar somente os sete paths de C1 e confirmar
-   ausência de segredo, conteúdo de fala ou dado real.
-4. Executar `python -m compileall -q captura_leve.py config.py diagnostico.py identificador_voz.py transcricao_core.py watchdog.py`.
-5. O gate físico `python scripts/gate_reuniao_real.py --segundos 25` continua
-   **PENDENTE**: requer aviso e autorização específica para reproduzir/capturar
-   áudio real. Não o substituir por mock nem `--sem-audio`.
-6. Invocar `verification-before-completion` e criar
-   `docs/sdd/v1.8/evidencias/T-13.C1.md`. Sem autorização específica para o
-   gate físico, a evidência deve ficar `BLOCKED` exclusivamente por esse gate,
-   a checkbox de C1 continua desmarcada e C2 não começa. Registrar o commit
-   local coeso da C1 em português; não fazer push.
+1. C1 está DONE. Próxima tarefa elegível: T-13.C2, uma por vez, com RED→GREEN, teste final, evidência e commit local; push autorizado pelo usuário.
+2. C3 encerra F13.C com o gate longo já validado aqui mais o streaming em blocos.
+3. F13.D–G exigem gates reais próprios (Chrome/Edge, corpus, instalação); cada um pede autorização específica na hora, por DU-12.
 
 Antes de implementar, a LLM executora deve ler integralmente `interfaces.md` e `executor-llm.md`. Esses documentos fecham assinaturas, escolhas técnicas, escopo autorizado, formato de evidência e condições de parada. Não substituir uma decisão fechada por preferência do agente. Se uma decisão se provar inviável, propor emenda documental e parar a task antes de alterar consumidores.
 

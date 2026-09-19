@@ -1,6 +1,6 @@
 # Tasks — confiabilidade e identificação de participantes
 
-**28 tarefas propostas; 5 DONE (T-13.A1–A2, T-13.B1–B3), 1 IN_PROGRESS (T-13.C1) e 22 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
+**28 tarefas propostas; 6 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1) e 22 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
 
 Para execução por outra LLM, `interfaces.md` e `executor-llm.md` são leitura obrigatória. Os blocos **Arquivos**, **Implementação**, **RED**, **Teste final** e **Aceite** de cada task são cumulativos, não alternativas. O agente não pode trocar nomes de interfaces, tecnologia decidida, ordem, thresholds ou comportamento de falha sem primeiro emendar os documentos e obter revisão.
 
@@ -61,7 +61,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.C1 — progresso de captura e COM em todos os caminhos
 
-- [ ] **Requisito:** FR-13.C1. **Depende de:** B3. **Estado:** `IN_PROGRESS`; checkpoint em `plan.md` (19/09/2026). Não iniciar C2 até a finalização/documentação/commit de C1.
+- [x] **Requisito:** FR-13.C1. **Depende de:** B3. **Estado:** `DONE`; evidência: `evidencias/T-13.C1.md` (gates físicos 25 s e 600 s APROVADOS em 19/09/2026).
 - **Arquivos:** modificar `captura_leve.py`, `watchdog.py`, `transcricao_core.py`, `identificador_voz.py`, `diagnostico.py`, `config.py`; criar `tests/test_captura_progresso.py`.
 - **Implementação:** contador e último frame por fonte; erros consecutivos e disco disponível; supervisionar mic e loopback sem confundir silêncio com ausência de frames. Reinício de dispositivo delimita lacuna no resultado. Envolver cadastro de voz em `com_inicializada()`. Após timeout de stop, não fechar/mover um WAV ainda escrito por thread viva; reportar falha de finalização.
 - **RED:** `test_thread_viva_sem_frames_gera_erro`, `test_silencio_com_frames_nao_falha`, `test_mic_morto_e_supervisionado`, `test_cadastro_mantem_com`, `test_stop_nao_move_wav_com_escritor_vivo`.

@@ -53,6 +53,10 @@ MARCADORES_SEM_FALA = (
 PALAVRAS_IGNORADAS = frozenset(
     {"a", "ao", "as", "da", "de", "do", "e", "em", "esta", "o", "os", "um", "uma"}
 )
+# Whisper costuma grafar o nome próprio com C ("Transcriptor"); a variação
+# fonética prova a mesma captura sem enfraquecer o gate (cabeçalho/marcador
+# continuam reprovando e o mínimo de 3/4 dos termos segue exigido).
+VARIANTES_TRANSKRIPTOR = frozenset({"transkriptor", "transcriptor", "transcritor"})
 
 OK, FALHA = "OK  ", "FALHA"
 _resultados: list[tuple[str, bool, str]] = []
@@ -258,7 +262,8 @@ def validar_fala_esperada(texto: str, frase_esperada: str = FRASE) -> tuple[bool
     encontradas = set(_normalizar_lexico(corpus))
     correspondentes = esperadas & encontradas
     minimo = max(1, -(-len(esperadas) * 3 // 4))
-    if "transkriptor" not in encontradas or len(correspondentes) < minimo:
+    tem_nome = bool(VARIANTES_TRANSKRIPTOR & encontradas)
+    if not tem_nome or len(correspondentes) < minimo:
         return False, (
             "frase de teste não reconhecida "
             f"({len(correspondentes)}/{len(esperadas)} termos distintivos)"
