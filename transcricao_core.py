@@ -108,16 +108,14 @@ class Transcritor(CapturaLeveMixin):
         self.rodando = False
         self.diarizando = False
         self.finalizando = False
+        self._finalizacao_pendente = False
         self._somente_audio = not self.processar_ao_vivo
         self.audios_preservados: list[str] = []
         self._thread_diar = None
         self._metricas_lock = threading.Lock()
         self._audio_io_lock = threading.Lock()
-        self._frames_gravados = 0
-        self._falhas_captura = 0
-        self._falhas_gravacao = 0
-        self._blocos_descartados = 0
-        self._segundos_desde_flush = 0.0
+        self._resultado_io_lock = threading.Lock()
+        self._resetar_metricas_captura()
 
         # dados para diarização (leves: só timestamps + texto, sem áudio)
         self._segmentos = []  # [(start_sec, end_sec, texto)]
@@ -203,7 +201,7 @@ class Transcritor(CapturaLeveMixin):
         try:
             mic = self._abrir_loopback()
         except Exception as e:
-            self._incrementar_metrica("_falhas_captura")
+            self._registrar_erro_captura_fonte("loopback")
             self.on_status(f"Erro ao abrir audio: {e}")
             self._stop.set()
             return
@@ -215,7 +213,7 @@ class Transcritor(CapturaLeveMixin):
                     try:
                         data = rec.record(numframes=frames)
                     except Exception:
-                        self._incrementar_metrica("_falhas_captura")
+                        self._registrar_erro_captura_fonte("loopback")
                         time.sleep(0.5)
                         continue
                     if data.ndim > 1:
@@ -298,9 +296,10 @@ class Transcritor(CapturaLeveMixin):
         self._offset_seg += duracao
         texto = " ".join(texto_completo).strip()
         ts = datetime.datetime.now().strftime("%H:%M:%S")
-        if self._arq:
-            self._arq.write(f"[{ts}] {texto if texto else '(silencio)'}\n")
-            self._arq.flush()
+        with self._resultado_io_lock:
+            if self._arq:
+                self._arq.write(f"[{ts}] {texto if texto else '(silencio)'}\n")
+                self._arq.flush()
         if texto:
             self.on_status(texto)
 
@@ -315,13 +314,19 @@ class Transcritor(CapturaLeveMixin):
     def _checar_disco_livre(self):
         try:
             livre = shutil.disk_usage(self.pasta_saida).free
+            self._registrar_espaco_disco(livre)
+            if livre <= 0:
+                self.on_status("Erro: sem espaço em disco para continuar a gravação.")
+                return False
             if livre < MIN_DISCO_LIVRE_GB * (1024**3):
                 self.on_status(
                     f"Aviso: pouco espaço em disco "
                     f"(menos de {MIN_DISCO_LIVRE_GB} GB livres). A gravação continua."
                 )
+            return True
         except Exception:
             logger.debug("Não foi possível checar espaço em disco", exc_info=True)
+            return None
 
     def start(self):
         if self.rodando:
@@ -332,14 +337,10 @@ class Transcritor(CapturaLeveMixin):
         self._segmentos = []
         self._offset_seg = 0.0
         self.diarizando = False
+        self._finalizacao_pendente = False
         self._somente_audio = not self.processar_ao_vivo
         self.audios_preservados = []
-        with self._metricas_lock:
-            self._frames_gravados = 0
-            self._falhas_captura = 0
-            self._falhas_gravacao = 0
-            self._blocos_descartados = 0
-            self._segundos_desde_flush = 0.0
+        self._resetar_metricas_captura()
         self.rodando = True
         if not self.processar_ao_vivo:
             self._thread_proc = threading.Thread(
@@ -378,18 +379,19 @@ class Transcritor(CapturaLeveMixin):
             thread.join(timeout=timeout)
 
     def _finalizar_arquivo_texto(self):
-        if not self._arq:
-            return
-        self._arq.write(
-            f"\n=== Encerrado em {datetime.datetime.now():%Y-%m-%d %H:%M:%S} ===\n"
-        )
-        if self.criptografar and isinstance(self._arq, io.StringIO):
-            from crypto_storage import salvar_transcricao
-            salvar_transcricao(self._caminho_saida, self._arq.getvalue())
+        with self._resultado_io_lock:
+            if not self._arq:
+                return
+            self._arq.write(
+                f"\n=== Encerrado em {datetime.datetime.now():%Y-%m-%d %H:%M:%S} ===\n"
+            )
+            if self.criptografar and isinstance(self._arq, io.StringIO):
+                from crypto_storage import salvar_transcricao
+                salvar_transcricao(self._caminho_saida, self._arq.getvalue())
+                self._arq = None
+                return
+            self._arq.close()
             self._arq = None
-            return
-        self._arq.close()
-        self._arq = None
 
     def _fechar_arquivos_abertos(self):
         try:
@@ -426,6 +428,14 @@ class Transcritor(CapturaLeveMixin):
         self._aguardar_thread(self._thread_proc)
         if self._thread_mic and self._thread_mic.is_alive():
             self._aguardar_thread(self._thread_mic)
+        if self._escritor_de_audio_ainda_vivo():
+            self._finalizacao_pendente = True
+            self.on_status(
+                "Finalização pendente: thread de áudio ainda ativa; "
+                "WAV preservado sem fechar ou mover."
+            )
+            return None
+        self._finalizacao_pendente = False
         self._fechar_wav_mic()
         if self._thread_proc and self._thread_proc.is_alive():
             self._aguardar_thread(self._thread_proc, timeout=5)
@@ -456,6 +466,16 @@ class Transcritor(CapturaLeveMixin):
             self.on_status("Reiniciando captura (watchdog)...")
             self._thread_cap = threading.Thread(target=self._capturar, daemon=True)
             self._thread_cap.start()
+
+    def _reiniciar_microfone(self):
+        if (
+            self.rodando
+            and self.capturar_mic
+            and (self._thread_mic is None or not self._thread_mic.is_alive())
+        ):
+            self.on_status("Reiniciando captura do microfone (watchdog)...")
+            self._thread_mic = threading.Thread(target=self._capturar_mic, daemon=True)
+            self._thread_mic.start()
 
     def _reiniciar_processar(self):
         """FR-2.4×FR-6.1: em só-áudio reinicia `_processar_somente_audio`."""

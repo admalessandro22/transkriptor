@@ -172,11 +172,19 @@ def checar_metricas_captura(transcritor):
         metricas.get("falhas_gravacao", 0)
     )
     descartes = int(metricas.get("blocos_descartados", 0))
+    disco = metricas.get("disco", {})
+    estado_disco = str(disco.get("estado", "desconhecido"))
     detalhe = (
         f"frames={int(metricas.get('frames_gravados', 0))}; "
-        f"falhas={falhas}; descartes={descartes}"
+        f"falhas={falhas}; descartes={descartes}; disco={estado_disco}"
     )
-    return [_item("Integridade da captura", ERRO if falhas or descartes else OK, detalhe)]
+    return [
+        _item(
+            "Integridade da captura",
+            ERRO if falhas or descartes or estado_disco == "sem_espaco" else OK,
+            detalhe,
+        )
+    ]
 
 
 def checar_zoom(janelas=None):

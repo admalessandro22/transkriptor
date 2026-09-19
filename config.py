@@ -150,6 +150,8 @@ TIMEOUT_JOIN_STOP_SEG = 30
 # ---- Watchdog ----
 INTERVALO_WATCHDOG = 10             # segundos entre verificações
 LIMITE_REINICIOS = 3                # reinícios consecutivos antes de erro crítico
+CAPTURA_SEM_FRAMES_FALHA_SEG = 10   # thread viva sem avanço é falha, não silêncio
+CAPTURA_ERROS_CONSECUTIVOS_LIMITE = 3
 
 # ---- Worker pós-reunião (FR-13.B3) ----
 # Orçamentos injetáveis; não derivam da duração da reunião.

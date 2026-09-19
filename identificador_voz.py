@@ -8,6 +8,7 @@ from pathlib import Path
 
 import numpy as np
 
+from com_audio import com_inicializada
 from config import LIMIAR_IDENTIFICACAO_VOZ
 
 
@@ -113,17 +114,18 @@ def gravar_audio_microfone(duracao_seg: float, sample_rate: int = 16000) -> list
 
     import soundcard as sc
 
-    mic = sc.default_microphone()
-    frames = int(sample_rate * 0.5)
-    chunks: list[np.ndarray] = []
-    deadline = time.monotonic() + duracao_seg
-    with mic.recorder(samplerate=sample_rate, channels=1) as rec:
-        while time.monotonic() < deadline:
-            data = rec.record(numframes=frames)
-            if data.ndim > 1:
-                data = data.mean(axis=1)
-            chunks.append(data.astype(np.float32))
-    return chunks
+    with com_inicializada():
+        mic = sc.default_microphone()
+        frames = int(sample_rate * 0.5)
+        chunks: list[np.ndarray] = []
+        deadline = time.monotonic() + duracao_seg
+        with mic.recorder(samplerate=sample_rate, channels=1) as rec:
+            while time.monotonic() < deadline:
+                data = rec.record(numframes=frames)
+                if data.ndim > 1:
+                    data = data.mean(axis=1)
+                chunks.append(data.astype(np.float32))
+        return chunks
 
 
 def perfil_de_chunks(encoder, chunks: list[np.ndarray]) -> np.ndarray | None:

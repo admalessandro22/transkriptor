@@ -16,6 +16,76 @@ Este plano está em execução na tarefa corrente registrada em `tasks.md`. Não
 bump de versão, instalação de extensão, OAuth, publicação ou migração sem a
 autorização específica exigida por `decisoes-usuario.md`.
 
+## Checkpoint de execução — 19/09/2026
+
+Este é o estado factual para retomada por outra LLM. Ele não substitui a
+definição de pronto nem altera a ordem obrigatória das tarefas.
+
+| Tarefa | Estado | Evidência/commit |
+|---|---|---|
+| T-13.A1 | DONE | `0b7a11d`, `2d7a521`; evidência `T-13.A1.md` |
+| T-13.A2 | DONE | `604c935`, `a1149f2`; evidência `T-13.A2.md` |
+| T-13.B1 | DONE | `e0ad07f`, `8850e92`; evidência `T-13.B1.md` |
+| T-13.B2 | DONE | `7d971a3`, `86979bd`; evidência `T-13.B2.md` |
+| T-13.B3 | DONE | `c9a7255`, `8ca0f8e`, `0a175fb`; evidência `T-13.B3.md` |
+| T-13.C1 | IN_PROGRESS | alterações locais não commitadas, descritas abaixo |
+
+### Base e árvore de trabalho
+
+- Base confirmada antes de C1: `0a175fba7ba737862b44aa965e764848425a8b56`
+  (`fix: emite progresso de transcrição a cada bloco do Whisper`).
+- `master` estava 11 commits à frente de `origin/master`; não houve push.
+- C1 tem alterações locais não staged em `captura_leve.py`, `config.py`,
+  `diagnostico.py`, `identificador_voz.py`, `transcricao_core.py` e
+  `watchdog.py`, além do novo `tests/test_captura_progresso.py`.
+- Nenhum áudio, reunião, conta Google, credencial ou dado de produção foi
+  aberto, usado, movido ou removido. `transcricao_core.py` tem 497 linhas,
+  respeitando o limite de 500.
+
+### Implementação local de C1 a preservar e revisar
+
+- Métricas por `loopback` e `microfone`: frames, último frame monotônico,
+  erros consecutivos, lacunas e estado de espaço em disco; o conteúdo de áudio
+  não entra nas métricas nem nos logs.
+- O watchdog distingue silêncio (frames avançam) de fonte viva sem frames,
+  supervisiona/reinicia o microfone sem gerar alarme quando ele está desligado e
+  sinaliza disco sem espaço uma única vez por ocorrência.
+- Falha/reconexão da fonte registra marcador técnico de lacuna no resultado e
+  fecha a lacuna quando os frames retornam.
+- `gravar_audio_microfone()` usa `com_inicializada()`; `stop()` não fecha,
+  move, diariza ou descarta WAV enquanto houver thread escritora viva e deixa
+  a finalização pendente e visível.
+
+### Verificação já observada
+
+- Baseline anterior ao RED de C1: 37 testes passaram.
+- RED→GREEN de C1: 11 testes em `tests/test_captura_progresso.py` passaram.
+- Teste final exigido por C1, depois da última alteração: 48 testes passaram:
+  `python -m pytest tests/test_captura_progresso.py tests/test_diagnostico.py tests/test_com_audio.py tests/test_watchdog.py tests/test_lock_sem_callback.py tests/test_dubles_fieis.py -v --tb=short`.
+- Limite de linhas, compilação e C1: 21 testes passaram:
+  `python -m pytest tests/test_limite_linhas.py tests/test_v16_g_qualidade.py tests/test_captura_progresso.py -v --tb=short`.
+- Uma suíte completa anterior encontrou exclusivamente o limite de linhas
+  (`564 passed`, 2 falhas por `transcricao_core.py: 504 linhas`); a causa foi
+  corrigida ao mover o helper para `CapturaLeveMixin`. A nova suíte completa
+  foi iniciada, mas interrompida pelo usuário antes do resultado final. Ela
+  permanece **PENDENTE** e não pode ser inferida como verde.
+
+### Próximos passos obrigatórios para encerrar C1
+
+1. Não iniciar C2. Conferir a árvore local e reler os contratos de C1.
+2. Rodar novamente `python -m pytest tests/ -qq --tb=short` até exit code 0.
+3. Rodar `git diff --check`, revisar somente os sete paths de C1 e confirmar
+   ausência de segredo, conteúdo de fala ou dado real.
+4. Executar `python -m compileall -q captura_leve.py config.py diagnostico.py identificador_voz.py transcricao_core.py watchdog.py`.
+5. O gate físico `python scripts/gate_reuniao_real.py --segundos 25` continua
+   **PENDENTE**: requer aviso e autorização específica para reproduzir/capturar
+   áudio real. Não o substituir por mock nem `--sem-audio`.
+6. Invocar `verification-before-completion` e criar
+   `docs/sdd/v1.8/evidencias/T-13.C1.md`. Sem autorização específica para o
+   gate físico, a evidência deve ficar `BLOCKED` exclusivamente por esse gate,
+   a checkbox de C1 continua desmarcada e C2 não começa. Registrar o commit
+   local coeso da C1 em português; não fazer push.
+
 Antes de implementar, a LLM executora deve ler integralmente `interfaces.md` e `executor-llm.md`. Esses documentos fecham assinaturas, escolhas técnicas, escopo autorizado, formato de evidência e condições de parada. Não substituir uma decisão fechada por preferência do agente. Se uma decisão se provar inviável, propor emenda documental e parar a task antes de alterar consumidores.
 
 O usuário aprovou todas as decisões de produto necessárias para A–G. Não interromper A–G para perguntar novamente sobre navegador, Zoom, formato de saída, thresholds, biometria, modos de proteção, retenção, CPU/CUDA ou política de falha. Gates reais continuam exigindo autorização por execução. H permanece bloqueada até tipo/edição da conta Google e autorização específica.
