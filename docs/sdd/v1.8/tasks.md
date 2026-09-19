@@ -32,7 +32,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.B1 — exclusão entre processos e lease de job
 
-- [ ] **Requisito:** FR-13.B1. **Depende de:** A2.
+- [x] **Requisito:** FR-13.B1. **Depende de:** A2. **Estado:** `DONE`; evidência: `evidencias/T-13.B1.md`.
 - **Arquivos:** modificar `fila_processamento.py`, `app_processamento.py`, `processador_reuniao.py`; criar `fila_lock.py`, `tests/test_fila_concorrencia.py`.
 - **Implementação:** lock de arquivo Windows por job em todas as operações read-modify-write; revisão monotônica e lease com PID, criação do processo e nonce. Claim, heartbeat, registro de PID e conclusão usam o mesmo controle. Recuperar só proprietário inexistente/expirado; PID reutilizado não valida lease. Job corrompido vai para quarentena com erro visível, sem impedir os outros.
 - **RED:** `test_registrar_pid_nao_reverte_processing`, `test_dois_workers_um_claim`, `test_startup_nao_reivindica_worker_vivo`, `test_json_corrompido_nao_bloqueia_fila`.
