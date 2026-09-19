@@ -153,6 +153,11 @@ LIMITE_REINICIOS = 3                # reinícios consecutivos antes de erro crí
 CAPTURA_SEM_FRAMES_FALHA_SEG = 10   # thread viva sem avanço é falha, não silêncio
 CAPTURA_ERROS_CONSECUTIVOS_LIMITE = 3
 
+# ---- Áudio por fonte (FR-13.C2) ----
+AUDIO_BLOCO_MAX_SEG = 30.0            # leitura/STT em blocos; nunca materializar 2 h
+AUDIO_CIFRADO_LEGADO_MAX_BYTES = 256 * 1024 * 1024  # .wav.enc AES-GCM monolítico
+ECO_SIMILARIDADE_MIN = 0.5            # Jaccard lexical mínimo p/ deduplicar eco
+
 # ---- Worker pós-reunião (FR-13.B3) ----
 # Orçamentos injetáveis; não derivam da duração da reunião.
 WORKER_HEARTBEAT_SEG = 5

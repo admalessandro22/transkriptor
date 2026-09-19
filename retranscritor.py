@@ -213,28 +213,53 @@ def retranscrever(
         audio = np.interp(x_new, x_old, audio).astype(np.float32)
 
     modelo = _carregar_modelo(modelo_whisper, pasta, on_status, modelo_nome)
-    tamanho_bloco = max(SAMPLE_RATE, int(SAMPLE_RATE * chunk))
-    linhas, segmentos = [], []
-    for inicio_frame in range(0, audio.size, tamanho_bloco):
-        fim_frame = min(audio.size, inicio_frame + tamanho_bloco)
-        pedaco = audio[inicio_frame:fim_frame]
-        inicio_bloco = inicio_frame / SAMPLE_RATE
-        on_status(f"transcribe:{inicio_frame}")
-        encontrados, _info = modelo.transcribe(
-            pedaco,
-            language=None if idioma == "auto" else idioma,
-            vad_filter=True,
-            beam_size=1,
-            vad_parameters={"min_silence_duration_ms": 600},
+    if caminho_mic:
+        # T-13.C2: STT separado por fonte com origem temporal explícita e
+        # fusão cronológica; nunca apenas rotular segmentos do loopback.
+        import audio_fontes
+        from audio_reader import AudioSource
+
+        segs_lb = audio_fontes.transcrever_fonte(
+            Path(caminho_audio), AudioSource.LOOPBACK, model=modelo
         )
-        for segmento in list(encontrados):
-            texto = str(segmento.text).strip()
-            if not texto:
-                continue
-            inicio_abs = inicio_bloco + float(segmento.start)
-            fim_abs = inicio_bloco + float(segmento.end)
-            linhas.append(f"[{_timestamp_relativo(inicio_abs)}] {texto}")
-            segmentos.append((inicio_abs, fim_abs, texto))
+        try:
+            segs_mic = audio_fontes.transcrever_fonte(
+                Path(caminho_mic), AudioSource.MICROPHONE, model=modelo
+            )
+        except (FileNotFoundError, OSError):
+            logger.warning("Áudio do mic indisponível; seguindo só com loopback")
+            segs_mic = []
+        fundidos = audio_fontes.mesclar_segmentos(segs_lb, segs_mic)
+        linhas = [
+            f"[{_timestamp_relativo(s.start_ms / 1000.0)}] {s.text}" for s in fundidos
+        ]
+        segmentos = [
+            (s.start_ms / 1000.0, s.end_ms / 1000.0, s.text) for s in fundidos
+        ]
+        on_status(f"transcribe:fontes:{len(segs_lb)}+{len(segs_mic)}")
+    else:
+        tamanho_bloco = max(SAMPLE_RATE, int(SAMPLE_RATE * chunk))
+        linhas, segmentos = [], []
+        for inicio_frame in range(0, audio.size, tamanho_bloco):
+            fim_frame = min(audio.size, inicio_frame + tamanho_bloco)
+            pedaco = audio[inicio_frame:fim_frame]
+            inicio_bloco = inicio_frame / SAMPLE_RATE
+            on_status(f"transcribe:{inicio_frame}")
+            encontrados, _info = modelo.transcribe(
+                pedaco,
+                language=None if idioma == "auto" else idioma,
+                vad_filter=True,
+                beam_size=1,
+                vad_parameters={"min_silence_duration_ms": 600},
+            )
+            for segmento in list(encontrados):
+                texto = str(segmento.text).strip()
+                if not texto:
+                    continue
+                inicio_abs = inicio_bloco + float(segmento.start)
+                fim_abs = inicio_bloco + float(segmento.end)
+                linhas.append(f"[{_timestamp_relativo(inicio_abs)}] {texto}")
+                segmentos.append((inicio_abs, fim_abs, texto))
 
     metadados = dict(metadados or {})
     duracao = audio.size / float(SAMPLE_RATE)
