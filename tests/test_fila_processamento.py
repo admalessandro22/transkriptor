@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from fila_processamento import FilaProcessamento
+from resultado_reuniao import criar_manifesto_inicial, salvar_manifesto
 
 
 @pytest.fixture
@@ -83,10 +84,21 @@ def test_concluir_e_falhar_preservam_estados_seguros(fila, audio_valido):
     assert fila.reivindicar_proximo().id == pronto_id
     resultado = fila.pasta_transcricoes / "reuniao-pronta.txt"
     resultado.write_text("resultado", encoding="utf-8")
-    fila.concluir(pronto_id, str(resultado))
+    manifesto = fila.pasta_transcricoes / "reuniao-pronta.resultado.json"
+    salvar_manifesto(
+        manifesto,
+        criar_manifesto_inicial(
+            meeting_id=pronto_id,
+            resultado=resultado,
+            fontes_audio=[Path(audio_valido)],
+            raiz=fila.pasta_transcricoes,
+        ),
+    )
+    fila.concluir(pronto_id, str(resultado), str(manifesto))
     pronto = fila.obter(pronto_id)
     assert pronto.estado == "ready"
     assert pronto.resultado == str(resultado.resolve())
+    assert pronto.manifesto_resultado == str(manifesto.resolve())
 
     falho_id = fila.enfileirar(audio_valido, None, "reuniao-falha", {})
     assert fila.reivindicar_proximo().id == falho_id
@@ -95,6 +107,30 @@ def test_concluir_e_falhar_preservam_estados_seguros(fila, audio_valido):
     assert falho.estado == "failed"
     assert falho.erro_seguro == "modelo_indisponivel"
     assert Path(falho.audio).is_file()
+
+
+def test_concluir_recusa_manifesto_integro_mas_de_outra_fonte(fila, audio_valido):
+    job_id = fila.enfileirar(audio_valido, None, "reuniao-fonte", {})
+    assert fila.reivindicar_proximo().id == job_id
+    resultado = fila.pasta_transcricoes / "reuniao-fonte.txt"
+    resultado.write_text("resultado", encoding="utf-8")
+    outra_fonte = fila.pasta_transcricoes / "audio" / "outra.wav"
+    outra_fonte.write_bytes(b"RIFF-outra")
+    manifesto = fila.pasta_transcricoes / "reuniao-fonte.resultado.json"
+    salvar_manifesto(
+        manifesto,
+        criar_manifesto_inicial(
+            meeting_id=job_id,
+            resultado=resultado,
+            fontes_audio=[outra_fonte],
+            raiz=fila.pasta_transcricoes,
+        ),
+    )
+
+    with pytest.raises(ValueError, match="não corresponde"):
+        fila.concluir(job_id, str(resultado), str(manifesto))
+
+    assert fila.obter(job_id).estado == "processing"
 
 
 @pytest.mark.parametrize("base", ["../fora", "sub/pasta", "", "."])

@@ -13,7 +13,7 @@ def _tocar_mtime(path: Path, quando: datetime):
     os.utime(path, (ts, ts))
 
 
-def test_audio_8_dias_com_transcricao_e_removido(tmp_path):
+def test_audio_com_txt_sem_manifesto_permanece_em_dry_run(tmp_path):
     pasta_audio = tmp_path / "audio"
     pasta_tr = tmp_path / "tr"
     pasta_audio.mkdir()
@@ -28,9 +28,9 @@ def test_audio_8_dias_com_transcricao_e_removido(tmp_path):
     removidos, orfaos = limpar_audios_vencidos(
         str(pasta_audio), str(pasta_tr), dias=7, agora=agora
     )
-    assert removidos == [str(wav)]
-    assert orfaos == []
-    assert not wav.exists()
+    assert removidos == []
+    assert orfaos == [str(wav)]
+    assert wav.exists()
 
 
 def test_audio_8_dias_sem_transcricao_mantido_e_reportado(tmp_path):
@@ -51,7 +51,7 @@ def test_audio_8_dias_sem_transcricao_mantido_e_reportado(tmp_path):
     assert wav.exists()
 
 
-def test_audio_2_dias_mantido(tmp_path):
+def test_audio_recente_sem_manifesto_permanece_em_dry_run(tmp_path):
     pasta_audio = tmp_path / "audio"
     pasta_tr = tmp_path / "tr"
     pasta_audio.mkdir()
@@ -67,7 +67,7 @@ def test_audio_2_dias_mantido(tmp_path):
         str(pasta_audio), str(pasta_tr), dias=7, agora=agora
     )
     assert removidos == []
-    assert orfaos == []
+    assert orfaos == [str(wav)]
     assert wav.exists()
 
 

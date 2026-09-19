@@ -71,8 +71,22 @@ def processar_job(
             metadados=metadados,
             identificar_voz=bool(metadados.get("identificar_voz", False)),
         )
+        from resultado_reuniao import criar_manifesto_inicial, salvar_manifesto
+
+        caminho_resultado = Path(resultado)
+        fontes_audio = [Path(job.audio)]
+        if job.mic:
+            fontes_audio.append(Path(job.mic))
+        manifesto = criar_manifesto_inicial(
+            meeting_id=job.id,
+            resultado=caminho_resultado,
+            fontes_audio=fontes_audio,
+            raiz=fila.pasta_transcricoes,
+        )
+        caminho_manifesto = caminho_resultado.with_suffix(".resultado.json")
+        salvar_manifesto(caminho_manifesto, manifesto)
         fila.renovar_lease(job_id)
-        fila.concluir(job_id, resultado)
+        fila.concluir(job_id, resultado, str(caminho_manifesto))
         return Path(resultado)
     except Exception as exc:
         codigo = type(exc).__name__.lower()

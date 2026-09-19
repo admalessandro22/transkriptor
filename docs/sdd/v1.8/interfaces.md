@@ -113,9 +113,20 @@ class ResultManifest:
 def salvar_manifesto(path: Path, manifesto: ResultManifest) -> None: ...
 def carregar_manifesto(path: Path) -> ResultManifest: ...
 def validar_manifesto(path: Path, root: Path) -> bool: ...
+def criar_manifesto_inicial(*, meeting_id: str, resultado: Path,
+                             fontes_audio: Sequence[Path], raiz: Path,
+                             created_at: str | None = None) -> ResultManifest: ...
+def validar_manifesto_para_job(*, resultado: Path, manifesto: Path,
+                               fontes_audio: Sequence[Path], raiz: Path) -> str: ...
 ```
 
-Job v2 adiciona os campos da spec ao JSON atual. Leitor aceita v1, mas escritor gera v2. Estado `ready` só é escrito depois de `validar_manifesto(...) is True`. O TXT não é manifesto.
+Na B2, `criar_manifesto_inicial` referencia o TXT legado por hash como
+artefato de saída até D7 materializar segmentos estruturados. A ausência de
+fala fica como `stage_status["stt"] == PARTIAL` e aviso `stt_sem_fala`; ela não
+é resultado útil para retenção. Job v2 adiciona os campos da spec ao JSON
+atual. Leitor aceita v1, mas escritor gera v2. Estado `ready` só é escrito
+depois de `validar_manifesto(...) is True`, com hash da fonte do job e ref do
+resultado conferidos. O TXT não é manifesto.
 
 ## Áudio e STT por fonte
 
@@ -242,9 +253,18 @@ class RetentionPolicy:
     meet_events_days_after_valid_result: int = 7
     auto_delete_results: bool = False
     voice_profile_until_revoked: bool = True
+
+def pode_expirar(audio: Path, jobs: Iterable[object], manifesto: Path,
+                 agora: datetime, *, dias: int = 7) -> bool: ...
+def inventariar_audios_vencidos(pasta_audio: Path, pasta_transcricoes: Path,
+                 *, jobs: Iterable[object] | None = None,
+                 agora: datetime | None = None, dias: int = 7) -> tuple[list[str], list[str]]: ...
+def aplicar_exclusao_confirmada(candidatos: Iterable[str | Path], *,
+                 pasta_audio: Path, confirmados: Iterable[str | Path],
+                 dry_run: bool = True) -> list[str]: ...
 ```
 
-O marco temporal para áudio/eventos é `ResultManifest.created_at` validado, não início/fim da reunião. Job pendente, falho com retry, reprocessamento ou hash inválido suspende o prazo.
+O marco temporal para áudio/eventos é `ResultManifest.created_at` validado, não início/fim da reunião. Job pendente, falho com retry, reprocessamento ou hash inválido suspende o prazo. Inventário não remove; `dry_run` é o padrão e a remoção só considera a interseção entre candidatos e a lista exata de paths confirmados. Resultados/manifests não entram em candidatos de retenção.
 
 ```python
 # recuperacao_sessao.py

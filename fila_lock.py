@@ -37,6 +37,37 @@ class Lease:
     heartbeat_at_utc: str
 
 
+def lease_de_dados(lease_bruto: object) -> Lease:
+    """Desserializa o lease persistido e rejeita identidade incompleta."""
+    if not isinstance(lease_bruto, dict):
+        raise ValueError("lease de job inválido")
+    owner = lease_bruto.get("owner")
+    if not isinstance(owner, dict):
+        raise ValueError("proprietário de lease inválido")
+    try:
+        identidade = ProcessIdentity(
+            pid=int(owner["pid"]),
+            created_at_100ns=int(owner["created_at_100ns"]),
+        )
+        lease = Lease(
+            owner=identidade,
+            nonce=str(lease_bruto["nonce"]),
+            acquired_at_utc=str(lease_bruto["acquired_at_utc"]),
+            heartbeat_at_utc=str(lease_bruto["heartbeat_at_utc"]),
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("lease de job inválido") from exc
+    if (
+        lease.owner.pid <= 0
+        or lease.owner.created_at_100ns <= 0
+        or not lease.nonce
+        or not lease.acquired_at_utc
+        or not lease.heartbeat_at_utc
+    ):
+        raise ValueError("lease de job inválido")
+    return lease
+
+
 class _FileTime(ctypes.Structure):
     _fields_ = [("low", ctypes.c_ulong), ("high", ctypes.c_ulong)]
 

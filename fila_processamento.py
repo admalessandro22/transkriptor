@@ -16,15 +16,13 @@ from pathlib import Path
 
 import config as _config
 from fila_lock import (
-    Lease,
-    ProcessIdentity,
     ProcessIdentityIndeterminate,
     current_process_identity,
     job_lock,
+    lease_de_dados,
     process_matches,
 )
-
-
+from resultado_reuniao import validar_manifesto_para_job
 logger = logging.getLogger(__name__)
 
 ESTADOS = {"pending", "processing", "ready", "failed"}
@@ -64,6 +62,8 @@ class Job:
     atualizado_em: str
     revision: int = 0
     lease: dict | None = None
+    schema_version: int = 1
+    manifesto_resultado: str | None = None
     worker_pid: int | None = None
     worker_iniciado_em: str | None = None
     worker_terminado_em: str | None = None
@@ -135,6 +135,9 @@ class FilaProcessamento:
             raise ValueError("estado de job inválido")
         if not isinstance(dados.get("revision"), int) or dados["revision"] < 0:
             raise ValueError("revisão de job inválida")
+        if dados.get("schema_version") not in {1, 2}:
+            raise ValueError("versão de job inválida")
+        dados["schema_version"] = 2
         destino = self.caminho_job(dados["id"])
         fd, temporario = tempfile.mkstemp(
             prefix=f"{dados['id']}_", suffix=".tmp", dir=str(self.pasta_jobs)
@@ -154,46 +157,24 @@ class FilaProcessamento:
                 except OSError:
                     pass
 
-    @staticmethod
-    def _lease_de_dados(lease_bruto: object) -> Lease:
-        if not isinstance(lease_bruto, dict):
-            raise ValueError("lease de job inválido")
-        owner = lease_bruto.get("owner")
-        if not isinstance(owner, dict):
-            raise ValueError("proprietário de lease inválido")
-        try:
-            identidade = ProcessIdentity(
-                pid=int(owner["pid"]),
-                created_at_100ns=int(owner["created_at_100ns"]),
-            )
-            lease = Lease(
-                owner=identidade,
-                nonce=str(lease_bruto["nonce"]),
-                acquired_at_utc=str(lease_bruto["acquired_at_utc"]),
-                heartbeat_at_utc=str(lease_bruto["heartbeat_at_utc"]),
-            )
-        except (KeyError, TypeError, ValueError) as exc:
-            raise ValueError("lease de job inválido") from exc
-        if (
-            lease.owner.pid <= 0
-            or lease.owner.created_at_100ns <= 0
-            or not lease.nonce
-            or not lease.acquired_at_utc
-            or not lease.heartbeat_at_utc
-        ):
-            raise ValueError("lease de job inválido")
-        return lease
-
     def _carregar(self, caminho: Path) -> dict:
         dados = json.loads(caminho.read_text(encoding="utf-8"))
         if not isinstance(dados, dict) or dados.get("estado") not in ESTADOS:
             raise ValueError("job inválido")
         dados.setdefault("revision", 0)
         dados.setdefault("lease", None)
+        dados.setdefault("schema_version", 1)
+        dados.setdefault("manifesto_resultado", None)
         if not isinstance(dados["revision"], int) or dados["revision"] < 0:
             raise ValueError("revisão de job inválida")
         if dados["lease"] is not None:
-            self._lease_de_dados(dados["lease"])
+            lease_de_dados(dados["lease"])
+        if dados["schema_version"] not in {1, 2}:
+            raise ValueError("versão de job inválida")
+        if dados["manifesto_resultado"] is not None and not isinstance(
+            dados["manifesto_resultado"], str
+        ):
+            raise ValueError("manifesto de job inválido")
         return dados
 
     def _para_job(self, dados: dict) -> Job:
@@ -210,6 +191,8 @@ class FilaProcessamento:
             atualizado_em=dados["atualizado_em"],
             revision=dados["revision"],
             lease=dict(dados["lease"]) if dados["lease"] is not None else None,
+            schema_version=dados["schema_version"],
+            manifesto_resultado=self._absoluto_validado(dados["manifesto_resultado"]),
             worker_pid=dados.get("worker_pid"),
             worker_iniciado_em=dados.get("worker_iniciado_em"),
             worker_terminado_em=dados.get("worker_terminado_em"),
@@ -240,6 +223,8 @@ class FilaProcessamento:
             "atualizado_em": agora,
             "revision": 0,
             "lease": None,
+            "schema_version": 2,
+            "manifesto_resultado": None,
         }
         with self._lock:
             self._salvar(dados)
@@ -321,8 +306,8 @@ class FilaProcessamento:
             self._salvar(dados)
             return self._para_job(dados)
 
-    def _exigir_lease_do_processo_atual(self, dados: dict) -> Lease:
-        lease = self._lease_de_dados(dados.get("lease"))
+    def _exigir_lease_do_processo_atual(self, dados: dict):
+        lease = lease_de_dados(dados.get("lease"))
         if lease.owner != current_process_identity():
             raise RuntimeError("lease não pertence ao processo atual")
         return lease
@@ -348,11 +333,30 @@ class FilaProcessamento:
             self._salvar(dados)
             return self._para_job(dados)
 
-    def concluir(self, job_id: str, resultado: str) -> Job:
+    def concluir(self, job_id: str, resultado: str, manifesto_resultado: str) -> Job:
         relativo = self._relativo_validado(resultado)
-        return self._alterar_estado(
-            job_id, "ready", resultado=relativo, erro_seguro=None
-        )
+        with self._transacao_job(job_id) as caminho:
+            dados = self._carregar(caminho)
+            if dados["estado"] != "processing":
+                raise RuntimeError("job não está em processamento")
+            self._exigir_lease_do_processo_atual(dados)
+            fontes = [Path(self._absoluto_validado(dados["audio"]))]
+            if dados.get("mic"):
+                fontes.append(Path(self._absoluto_validado(dados["mic"])))
+            relativo_manifesto = validar_manifesto_para_job(
+                resultado=Path(resultado),
+                manifesto=Path(manifesto_resultado),
+                fontes_audio=fontes,
+                raiz=self.pasta_transcricoes,
+            )
+            dados["estado"] = "ready"
+            dados["resultado"] = relativo
+            dados["manifesto_resultado"] = relativo_manifesto
+            dados["erro_seguro"] = None
+            dados["revision"] += 1
+            dados["atualizado_em"] = _agora_iso()
+            self._salvar(dados)
+            return self._para_job(dados)
 
     def falhar(self, job_id: str, erro_seguro: str) -> Job:
         codigo = str(erro_seguro)
@@ -413,7 +417,7 @@ class FilaProcessamento:
         if lease is None:
             return False
         try:
-            return process_matches(self._lease_de_dados(lease).owner)
+            return process_matches(lease_de_dados(lease).owner)
         except ProcessIdentityIndeterminate:
             return None
 
@@ -483,8 +487,8 @@ def reivindicar_proximo() -> Job | None:
     return fila_padrao().reivindicar_proximo()
 
 
-def concluir(job_id, resultado) -> Job:
-    return fila_padrao().concluir(job_id, resultado)
+def concluir(job_id, resultado, manifesto_resultado) -> Job:
+    return fila_padrao().concluir(job_id, resultado, manifesto_resultado)
 
 
 def falhar(job_id, erro_seguro) -> Job:

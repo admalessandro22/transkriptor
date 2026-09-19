@@ -16,6 +16,7 @@ import retranscritor
 from crypto_storage import ler_transcricao
 from fila_processamento import FilaProcessamento
 from processador_reuniao import flags_subprocesso_windows, processar_job
+from resultado_reuniao import validar_manifesto
 
 
 class _Seg:
@@ -84,6 +85,8 @@ def test_processador_cria_txt_utf8_e_copia_tkpt(
     job = fila.obter(job_id)
     assert job.estado == "ready"
     assert job.worker_pid == os.getpid()
+    assert job.manifesto_resultado
+    assert validar_manifesto(job.manifesto_resultado, fila.pasta_transcricoes)
 
 
 def test_falha_mantem_audio_e_marca_job(fila_com_job, monkeypatch):

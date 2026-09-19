@@ -2,6 +2,7 @@
 """FR-10.A4/FR-10.E4 — ciclo reunião -> fila -> texto posterior."""
 from __future__ import annotations
 
+import json
 import sys
 import threading
 import types
@@ -119,6 +120,10 @@ def test_startup_recupera_job_interrompido(app_v15):
     audio.write_bytes(b"RIFF" + b"\0" * 64)
     job_id = app_v15.fila.enfileirar(str(audio), None, "interrompido", {})
     app_v15.fila.reivindicar(job_id)
+    caminho = app_v15.fila.caminho_job(job_id)
+    dados = json.loads(caminho.read_text(encoding="utf-8"))
+    dados["lease"]["owner"] = {"pid": 999_999, "created_at_100ns": 1}
+    caminho.write_text(json.dumps(dados), encoding="utf-8")
 
     app_v15._preparar_processamento()
 
