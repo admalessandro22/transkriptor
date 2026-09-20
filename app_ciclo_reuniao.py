@@ -140,7 +140,9 @@ class CicloReuniaoMixin:
                 from eventos_meet_store import EventStore
 
                 _store = EventStore(
-                    _Path(PASTA_TRANSCRICOES) / MEET_EVENTOS_RAIZ, self._sessao_ativa
+                    _Path(PASTA_TRANSCRICOES) / MEET_EVENTOS_RAIZ,
+                    self._sessao_ativa,
+                    ancora_refs=_Path(PASTA_TRANSCRICOES),
                 )
                 self._eventos_store = _store
                 ponte = getattr(self, "meet_bridge", None)

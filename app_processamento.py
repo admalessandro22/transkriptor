@@ -338,7 +338,43 @@ class ProcessamentoReuniaoMixin:
         if titulo:
             metadados["titulo_reuniao"] = str(titulo)[:80]
         base_saida = Path(caminho_saida).stem
-        job_id = self.fila.enfileirar(audio, mic, base_saida, metadados)
+        # T-13.D5: snapshot da sessão + refs seladas + preferências congeladas.
+        sessao_dict = None
+        eventos_refs: list[dict] = []
+        sessao = getattr(self, "_sessao_ativa", None)
+        if sessao is not None:
+            sessao_dict = {
+                "session_id": sessao.session_id,
+                "meeting_key": sessao.meeting_key,
+                "consented_at_utc": sessao.consented_at_utc,
+                "policy_id": sessao.policy_id,
+                "first_frame_monotonic_ns": sessao.first_frame_monotonic_ns,
+                "offset_ms": getattr(sessao, "offset_ms", 0.0),
+                "relogio_incerto": bool(getattr(sessao, "relogio_incerto", True)),
+            }
+        store = getattr(self, "_eventos_store", None)
+        if store is not None:
+            try:
+                import dataclasses
+
+                eventos_refs = [dataclasses.asdict(r) for r in store.seal()]
+            except Exception:  # noqa: BLE001 — sem refs, worker segue sem nomes
+                eventos_refs = []
+        preferencias = {
+            "rotulo_usuario": getattr(transcritor, "rotulo_usuario", None),
+            "usar_vozes_conhecidas": bool(
+                getattr(transcritor, "usar_vozes_conhecidas", True)
+            ),
+        }
+        job_id = self.fila.enfileirar(
+            audio,
+            mic,
+            base_saida,
+            metadados,
+            sessao=sessao_dict,
+            eventos_refs=eventos_refs,
+            preferencias=preferencias,
+        )
         self._definir_estado_processamento("Em fila", job_id)
         self._status("Reunião encerrada e colocada na fila de transcrição.")
         self._despachar_proximo_job()

@@ -14,7 +14,7 @@ from pathlib import Path
 
 import numpy as np
 
-from config import CHUNK_SEGUNDOS, PASTA_AUDIO, PASTA_TRANSCRICOES, SAMPLE_RATE
+from config import CHUNK_SEGUNDOS, PASTA_AUDIO, PASTA_TRANSCRICOES, ROTULO_USUARIO, SAMPLE_RATE
 from transcricao_core import Transcritor
 
 logger = logging.getLogger(__name__)
@@ -191,6 +191,8 @@ def retranscrever(
     on_status=None,
     identificar_voz: bool = False,
     usar_vozes_conhecidas: bool = True,
+    rotulo_usuario: str | None = None,
+    eventos_meet: list | None = None,
     **_kwargs,
 ) -> str:
     """Transcreve áudio retido e entrega `.txt` UTF-8 atômico como principal."""
@@ -273,6 +275,8 @@ def retranscrever(
                 diarizar_ao_final=True,
                 capturar_mic=False,
                 identificar_voz=identificar_voz,
+                rotulo_usuario=rotulo_usuario or ROTULO_USUARIO,
+                eventos_meet=list(eventos_meet or []),
                 usar_vozes_conhecidas=usar_vozes_conhecidas,
                 criptografar=False,
                 on_status=on_status,

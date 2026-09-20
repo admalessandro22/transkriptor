@@ -74,10 +74,15 @@ class EventStore:
     segmento rasgado invalida só a cauda a partir dele.
     """
 
-    def __init__(self, root: Path, session: SessaoReuniao, cipher=None) -> None:
+    def __init__(
+        self, root: Path, session: SessaoReuniao, cipher=None, ancora_refs=None
+    ) -> None:
         del cipher  # adaptador usa crypto_storage (sem duplicar AES-GCM)
         self._raiz = Path(root) / session.session_id
         self._raiz.mkdir(parents=True, exist_ok=True)
+        # Âncora das refs seladas (padrão: dir da sessão; app/worker usam a
+        # raiz de transcrições para refs resolvíveis pelo job v2).
+        self._ancora = Path(ancora_refs) if ancora_refs is not None else self._raiz
         self.sessao = session
         self._aberto: list[bytes] = []
         self._aberto_bytes = 0
@@ -267,7 +272,7 @@ class EventStore:
             refs.append(
                 criar_referencia(
                     caminho,
-                    self._raiz,
+                    self._ancora,
                     format=FORMATO_SEGMENTO,
                     schema_version=VERSAO_ARTEFATO,
                 )

@@ -1,6 +1,6 @@
 # Tasks — confiabilidade e identificação de participantes
 
-**28 tarefas propostas; 11 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1, T-13.D3–D4) e 17 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
+**28 tarefas propostas; 12 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1, T-13.D3–D5) e 16 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
 
 Para execução por outra LLM, `interfaces.md` e `executor-llm.md` são leitura obrigatória. Os blocos **Arquivos**, **Implementação**, **RED**, **Teste final** e **Aceite** de cada task são cumulativos, não alternativas. O agente não pode trocar nomes de interfaces, tecnologia decidida, ordem, thresholds ou comportamento de falha sem primeiro emendar os documentos e obter revisão.
 
@@ -126,7 +126,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.D5 — entregar os eventos ao worker
 
-- [ ] **Requisito:** FR-13.D5. **Depende de:** B1, D4.
+- [x] **Requisito:** FR-13.D5. **Depende de:** B1, D4. **Estado:** `DONE`; evidência: `evidencias/T-13.D5.md`.
 - **Arquivos:** modificar `app_processamento.py`, `fila_processamento.py`, `processador_reuniao.py`, `retranscritor.py`, `diarizacao_final.py`; criar `tests/test_nomes_meet_worker.py`.
 - **Implementação:** selar eventos e passar `ArtifactRef`, relógios e preferências da sessão no job v2. Novo worker carrega/valida/decifra o artefato e fornece eventos à diarização. Jobs v1 sem evento resultam em identificação indisponível; não recuperam nomes fictícios. Snapshot inclui rótulo do usuário e opção de vozes conhecidas, sem depender de alteração de configuração posterior.
 - **RED:** `test_nome_atravessa_job_e_worker_novo`, `test_restart_preserva_eventos`, `test_hash_incorreto_recusa_eventos`, `test_job_v1_sem_nome_nao_fabrica_participante`.

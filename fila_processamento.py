@@ -16,25 +16,13 @@ from pathlib import Path
 
 import config as _config
 from fila_lock import current_process_identity, job_lock, lease_de_dados
+from job_v2 import anexar_v2, ler_v2, metadados_seguros, normalizar_leitura, validar_para_salvar
 from resultado_reuniao import validar_manifesto_para_job
 
 logger = logging.getLogger(__name__)
 
 ESTADOS = {"pending", "processing", "ready", "failed", "cancelled"}
 PADRAO_STAGE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,39}$")
-CHAVES_METADADOS = {
-    "origem",
-    "inicio_iso",
-    "fim_iso",
-    "duracao_seg",
-    "diarizar",
-    "identificar_voz",
-    "criptografar",
-    "modelo",
-    "idioma",
-    "lacuna_estimada_seg",
-    "titulo_reuniao",
-}
 PADRAO_ID = re.compile(r"^[a-f0-9]{32}$")
 PADRAO_BASE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$")
 PADRAO_ERRO = re.compile(r"^[A-Za-z0-9_.:-]{1,120}$")
@@ -69,6 +57,9 @@ class Job:
     attempt: int = 0
     warnings: tuple[str, ...] = ()
     cancel_solicitado: bool = False
+    sessao: dict | None = None
+    eventos_refs: tuple[dict, ...] = ()
+    preferencias: dict | None = None
 
 
 class FilaProcessamento:
@@ -120,17 +111,6 @@ class FilaProcessamento:
             raise ValueError("path inválido no job")
         return str(caminho)
 
-    def _metadados_seguros(self, metadados: dict | None) -> dict:
-        seguros = {}
-        for chave, valor in dict(metadados or {}).items():
-            if chave not in CHAVES_METADADOS:
-                continue
-            if isinstance(valor, (bool, int, float)) or valor is None:
-                seguros[chave] = valor
-            elif isinstance(valor, str) and len(valor) <= 80:
-                seguros[chave] = valor
-        return seguros
-
     def _salvar(self, dados: dict) -> None:
         if dados.get("estado") not in ESTADOS:
             raise ValueError("estado de job inválido")
@@ -139,6 +119,7 @@ class FilaProcessamento:
         if dados.get("schema_version") not in {1, 2}:
             raise ValueError("versão de job inválida")
         dados["schema_version"] = 2
+        validar_para_salvar(dados)
         destino = self.caminho_job(dados["id"])
         fd, temporario = tempfile.mkstemp(
             prefix=f"{dados['id']}_", suffix=".tmp", dir=str(self.pasta_jobs)
@@ -171,6 +152,7 @@ class FilaProcessamento:
         dados.setdefault("attempt", 0)
         dados.setdefault("warnings", [])
         dados.setdefault("cancel_solicitado", False)
+        dados = normalizar_leitura(dados)
         if not isinstance(dados["progress_units"], int) or dados["progress_units"] < 0:
             raise ValueError("progresso de job inválido")
         if not isinstance(dados["attempt"], int) or dados["attempt"] < 0:
@@ -192,6 +174,7 @@ class FilaProcessamento:
         return dados
 
     def _para_job(self, dados: dict) -> Job:
+        sessao_v2, refs_v2, prefs_v2 = ler_v2(dados)
         return Job(
             id=dados["id"],
             estado=dados["estado"],
@@ -216,6 +199,9 @@ class FilaProcessamento:
             attempt=int(dados.get("attempt") or 0),
             warnings=tuple(dados.get("warnings") or ()),
             cancel_solicitado=bool(dados.get("cancel_solicitado")),
+            sessao=sessao_v2,
+            eventos_refs=refs_v2,
+            preferencias=prefs_v2,
         )
 
     def enfileirar(
@@ -224,6 +210,9 @@ class FilaProcessamento:
         mic: str | None,
         base_saida: str,
         metadados: dict | None,
+        sessao: dict | None = None,
+        eventos_refs: list[dict] | None = None,
+        preferencias: dict | None = None,
     ) -> str:
         if not PADRAO_BASE.fullmatch(str(base_saida)):
             raise ValueError("base de saída inválida")
@@ -235,7 +224,7 @@ class FilaProcessamento:
             "audio": self._relativo_validado(audio),
             "mic": self._relativo_validado(mic),
             "base_saida": base_saida,
-            "metadados": self._metadados_seguros(metadados),
+            "metadados": metadados_seguros(metadados),
             "resultado": None,
             "erro_seguro": None,
             "criado_em": agora,
@@ -250,6 +239,13 @@ class FilaProcessamento:
             "warnings": [],
             "cancel_solicitado": False,
         }
+        anexar_v2(
+            dados,
+            sessao=sessao,
+            eventos_refs=eventos_refs,
+            preferencias=preferencias,
+            raiz=self.pasta_transcricoes,
+        )
         with self._lock:
             self._salvar(dados)
         return job_id

@@ -27,6 +27,51 @@ def flags_subprocesso_windows() -> int:
     )
 
 
+def carregar_eventos_job(job, raiz_transcricoes) -> tuple[list[dict], list[str]]:
+    """Carrega eventos das refs do job v2 com hash validado (T-13.D5).
+
+    Retorna (eventos, avisos). Ref inválida/adulterada é recusada sem
+    fabricar nomes; o job segue sem eventos (identificação indisponível).
+    """
+    import json as _json
+
+    from artefatos import ArtifactRef, referencia_integra
+
+    eventos: list[dict] = []
+    avisos: list[str] = []
+    for ref_dict in job.eventos_refs or ():
+        try:
+            ref = ArtifactRef(
+                relative_path=str(ref_dict["relative_path"]),
+                format=str(ref_dict["format"]),
+                schema_version=int(ref_dict["schema_version"]),
+                sha256=str(ref_dict["sha256"]),
+                size_bytes=int(ref_dict["size_bytes"]),
+            )
+        except (KeyError, TypeError, ValueError):
+            avisos.append("evento_ref_invalida_recusada")
+            continue
+        try:
+            if not referencia_integra(ref, Path(raiz_transcricoes)):
+                raise ValueError("hash divergente")
+            from crypto_storage import ler_bytes_arquivo
+
+            caminho = (Path(raiz_transcricoes) / ref.relative_path).resolve()
+            plano = ler_bytes_arquivo(str(caminho))
+        except Exception:  # noqa: BLE001 — hash/formato/cifra: recusa sem nomes
+            avisos.append("evento_hash_invalido_recusado")
+            continue
+        try:
+            for linha in plano.decode("utf-8").splitlines():
+                evento = _json.loads(linha)
+                if isinstance(evento, dict):
+                    eventos.append(evento)
+        except (ValueError, UnicodeDecodeError):
+            avisos.append("evento_ref_invalida_recusada")
+            return [], avisos
+    return eventos, avisos
+
+
 def iniciar_subprocesso(job_id: str):
     """Inicia um worker sem console e abaixo da prioridade da bandeja."""
     return subprocess.Popen(
@@ -99,6 +144,13 @@ def processar_job(
             raise JobCancelado("cancelado")
         metadados = dict(job.metadados)
         fila.registrar_progresso(job_id, ETAPA_TRANSCRICAO, max(unidades, 1))
+        eventos_meet, avisos_eventos = carregar_eventos_job(job, fila.pasta_transcricoes)
+        for aviso in avisos_eventos:
+            try:
+                fila.registrar_aviso(job_id, aviso)
+            except Exception:
+                logger.error("Falha ao registrar aviso de eventos")
+        preferencias = dict(job.preferencias or {})
         resultado = retranscritor.retranscrever(
             job.audio,
             caminho_mic=job.mic,
@@ -111,6 +163,9 @@ def processar_job(
             gerar_copia_tkpt=bool(metadados.get("criptografar", False)),
             metadados=metadados,
             identificar_voz=bool(metadados.get("identificar_voz", False)),
+            usar_vozes_conhecidas=bool(preferencias.get("usar_vozes_conhecidas", True)),
+            rotulo_usuario=preferencias.get("rotulo_usuario"),
+            eventos_meet=eventos_meet,
             on_status=_on_status,
         )
         if fila.obter(job_id).cancel_solicitado:
