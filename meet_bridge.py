@@ -106,6 +106,7 @@ class MeetBridge:
         self._reuniao_ativa = False
         self._visto_em: float = 0.0
         self._titulo_meet: str | None = None
+        self._sessao_por_conexao: dict[str, str] = {}
 
     def reuniao_ativa(self, agora: float | None = None, validade: float = 20.0) -> bool:
         """FR-9.3: a extensão reportou reunião ativa há menos de `validade` s.
@@ -135,6 +136,19 @@ class MeetBridge:
         with self._estado_lock:
             return self._titulo_meet
 
+    def anexar_sessao(self, connection_id: str, session_id: str) -> None:
+        """Vincula uma conexão à sessão consentida (T-13.D1; uma por aba)."""
+        with self._estado_lock:
+            self._sessao_por_conexao[str(connection_id)] = str(session_id)
+
+    def desanexar_sessao(self, connection_id: str) -> None:
+        with self._estado_lock:
+            self._sessao_por_conexao.pop(str(connection_id), None)
+
+    def sessao_de_conexao(self, connection_id: str) -> str | None:
+        with self._estado_lock:
+            return self._sessao_por_conexao.get(str(connection_id))
+
     def registrar_evento(self, dados: Any) -> None:
         if eh_evento_estado(dados):
             titulo = dados.get("titulo") if isinstance(dados, dict) else None
@@ -160,14 +174,16 @@ class MeetBridge:
         elif isinstance(mensagem, dict):
             self.registrar_evento(mensagem)
 
-    def drenar_eventos(self) -> list[dict]:
+    def drenar_eventos(self, sessao_id: str | None = None) -> list[dict]:
         eventos: list[dict] = []
         while True:
             try:
                 eventos.append(self.fila.get_nowait())
             except queue.Empty:
                 break
-        return eventos
+        if sessao_id is None:
+            return eventos
+        return [ev for ev in eventos if ev.get("session_id") == sessao_id]
 
     def parar(self) -> None:
         self._parar.set()

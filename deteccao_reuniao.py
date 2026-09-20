@@ -293,6 +293,18 @@ class DetectorReuniao:
                     return slug
         return None
 
+    def chave_reuniao_atual(self) -> str:
+        """Chave opaca e estável da conferência/instância atual (T-13.D1).
+
+        Deriva do slug do título ou, sem título, das fontes ativas — nunca
+        contém nome de participante. Distingue duas abas/conferências.
+        """
+        from sessao_reuniao import chave_reuniao
+
+        return chave_reuniao(
+            self.titulo_reuniao_atual(), list(self.fontes_da_reuniao)
+        )
+
     def verificar(self):
         """Um ciclo do monitor. Retorna "iniciou" | "encerrou" | None."""
         sinais = self.instantaneo()

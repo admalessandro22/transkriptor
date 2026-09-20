@@ -1,6 +1,6 @@
 # Tasks — confiabilidade e identificação de participantes
 
-**28 tarefas propostas; 8 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3) e 20 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
+**28 tarefas propostas; 9 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1) e 19 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
 
 Para execução por outra LLM, `interfaces.md` e `executor-llm.md` são leitura obrigatória. Os blocos **Arquivos**, **Implementação**, **RED**, **Teste final** e **Aceite** de cada task são cumulativos, não alternativas. O agente não pode trocar nomes de interfaces, tecnologia decidida, ordem, thresholds ou comportamento de falha sem primeiro emendar os documentos e obter revisão.
 
@@ -90,7 +90,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.D1 — sessão e relógio verificáveis
 
-- [ ] **Requisito:** FR-13.D1. **Depende de:** C3.
+- [x] **Requisito:** FR-13.D1. **Depende de:** C3. **Estado:** `DONE`; evidência: `evidencias/T-13.D1.md`.
 - **Arquivos:** criar `sessao_reuniao.py`, `tests/test_sessao_meet.py`; modificar `meet_bridge.py`, `app_ciclo_reuniao.py`, `deteccao_reuniao.py`.
 - **Implementação:** contratos `SessaoReuniao` e envelope da spec; um estado por conexão/aba/conferência. Selecionar a sessão consentida e não confundir recusa/reconexão. Capturar primeira amostra monotônica e âncora UTC; estimar offset/RTT no handshake; marcar tempo incerto em vez de aplicar nomes pelo relógio errado.
 - **RED:** `test_duas_abas_nao_se_encerram`, `test_evento_antigo_nao_entra_sessao`, `test_mudanca_relogio_nao_desloca_audio`, `test_evento_antes_do_consentimento_descartado`.

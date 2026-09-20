@@ -48,6 +48,20 @@ class CicloReuniaoMixin:
         inicio = self._inicio_transcricao_wall_ms
         relativos = []
         for ev in self.meet_bridge.drenar_eventos():
+            try:
+                from sessao_reuniao import EnvelopeRejeitado, validar_envelope
+
+                sessao = getattr(self, "_sessao_ativa", None)
+                if sessao is not None and isinstance(ev, dict) and "event_id" in ev:
+                    # Envelope v1: validação estrita. Payload legado
+                    # {nome, ts_ms, tipo} passa intacto até a migração D2/D4.
+                    ev = validar_envelope(ev, sessao)
+            except EnvelopeRejeitado:
+                logger.debug("Evento Meet fora da sessão/consentimento; descartado.")
+                continue
+            except Exception:  # noqa: BLE001
+                logger.debug("Falha ao validar evento Meet", exc_info=True)
+                continue
             ts_ms = ev.get("ts_ms", int(ev.get("ts_sec", 0) * 1000))
             relativos.append({**ev, "ts_sec": (ts_ms - inicio) / 1000.0})
         return relativos
@@ -105,6 +119,23 @@ class CicloReuniaoMixin:
         fontes = ", ".join(getattr(detector, "fontes_da_reuniao", None) or []) or "?"
         titulo = self._obter_titulo_reuniao()
         self._titulo_reuniao_atual = titulo
+        try:
+            import datetime as _dt
+
+            from sessao_reuniao import chave_reuniao, criar_sessao
+
+            if detector is not None and hasattr(detector, "chave_reuniao_atual"):
+                meeting_key = detector.chave_reuniao_atual()
+            else:
+                meeting_key = chave_reuniao(titulo, fontes.split(", "))
+            self._sessao_ativa = criar_sessao(
+                meeting_key,
+                _dt.datetime.now(_dt.timezone.utc).isoformat().replace("+00:00", "Z"),
+                "padrao",
+            )
+        except Exception:  # noqa: BLE001
+            logger.debug("Sessão da reunião indisponível", exc_info=True)
+            self._sessao_ativa = None
         if titulo:
             # Slug já sanitizado (ex: Reuniao_Bolsistas_PROINOVE)
             self._status(f"Reunião detectada ({fontes}) — {titulo}. Iniciando gravação...")
@@ -120,6 +151,17 @@ class CicloReuniaoMixin:
             # callback pode rodar sob `self._lock`. A corrida com Pausar é
             # fechada depois, desfazendo, e não segurando o lock durante o start.
             self.transcritor.start()
+            try:
+                import time as _time
+
+                from sessao_reuniao import registrar_primeiro_frame
+
+                if getattr(self, "_sessao_ativa", None) is not None:
+                    self._sessao_ativa = registrar_primeiro_frame(
+                        self._sessao_ativa, _time.monotonic_ns()
+                    )
+            except Exception:  # noqa: BLE001
+                logger.debug("Instante zero da sessão indisponível", exc_info=True)
             if self._pausou_durante_o_start():
                 self._status("Detecção pausada; encerrando a gravação recém-iniciada.")
                 self._parar_transcricao()
