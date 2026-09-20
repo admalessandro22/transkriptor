@@ -36,3 +36,6 @@ websockets>=12.0
 
 # Criptografia em repouso (F3)
 cryptography>=42.0
+
+# Áudio longo protegido TKAS/1 (T-13.E1; G1 fixa versão/hash após a matriz)
+PyNaCl>=1.6.2,<2

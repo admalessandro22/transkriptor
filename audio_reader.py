@@ -39,6 +39,107 @@ class AudioChunk:
 
 
 _LARGURAS_SUPORTADAS = (2, 3, 4)
+_MAGIC_TKS = b"TKAS"
+
+
+def _eh_tks(path: Path) -> bool:
+    if path.name.lower().endswith(".tks"):
+        return True
+    try:
+        with open(path, "rb") as arquivo:
+            return arquivo.read(4) == _MAGIC_TKS
+    except OSError:
+        return False
+
+
+def _parse_cabecalho_wav(buf: bytes):
+    """RIFF manual: (sr, canais, largura, offset_dados, bytes_dados) ou None."""
+    import struct
+
+    if len(buf) < 16 or buf[:4] != b"RIFF":
+        return None
+    pos = 12
+    sr = canais = largura = None
+    while pos + 8 <= len(buf):
+        tag, tamanho = buf[pos : pos + 4], struct.unpack("<I", buf[pos + 4 : pos + 8])[0]
+        corpo = pos + 8
+        if tag == b"fmt " and tamanho >= 16 and corpo + 16 <= len(buf):
+            formato, canais, sr = struct.unpack("<HHI", buf[corpo : corpo + 8])
+            largura = struct.unpack("<H", buf[corpo + 14 : corpo + 16])[0] // 8
+            if formato != 1:
+                raise UnsupportedAudioFormat("WAV não-PCM rejeitado")
+        elif tag == b"data":
+            if sr is None or largura not in _LARGURAS_SUPORTADAS:
+                if sr is not None:
+                    raise UnsupportedAudioFormat(
+                        f"PCM {(largura or 0) * 8}-bit não implementado"
+                    )
+                return None
+            return sr, canais, largura, corpo, tamanho
+        pos = corpo + tamanho + (tamanho % 2)
+        if pos > len(buf):
+            return None
+    return None
+
+
+def _chave_tks() -> bytes:
+    from crypto_storage import obter_chave_mestra
+
+    return obter_chave_mestra()
+
+
+def _iter_tks(path: Path, source: AudioSource, max_seconds: float) -> Iterator[AudioChunk]:
+    """Blocos de WAV dentro de TKAS sem materializar o plaintext (T-13.E1)."""
+    from crypto_stream import iter_decrypt_file
+
+    acumulador = bytearray()
+    cabecalho = None
+    resto = b""
+    inicio_frame = 0
+    for pedaco in iter_decrypt_file(path, _chave_tks()):
+        acumulador.extend(pedaco)
+        if cabecalho is None:
+            parsed = _parse_cabecalho_wav(bytes(acumulador))
+            if parsed is None:
+                continue
+            cabecalho = parsed
+            resto = bytes(acumulador[cabecalho[3] :])
+            acumulador.clear()
+        else:
+            resto = resto + bytes(acumulador)
+            acumulador.clear()
+        sr, canais, largura, _, _ = cabecalho
+        quadros_bloco = max(1, int(sr * max_seconds))
+        bloco_bytes = quadros_bloco * canais * largura
+        while len(resto) >= bloco_bytes:
+            yield AudioChunk(
+                start_frame=inicio_frame,
+                samples=_converter_para_float32(resto[:bloco_bytes], largura, canais),
+            )
+            inicio_frame += quadros_bloco
+            resto = resto[bloco_bytes:]
+    if cabecalho is None:
+        raise UnsupportedAudioFormat("TKAS sem WAV válido")
+    if resto:
+        sr, canais, largura, _, _ = cabecalho
+        yield AudioChunk(
+            start_frame=inicio_frame,
+            samples=_converter_para_float32(resto, largura, canais),
+        )
+
+
+def _inspect_tks(path: Path, source: AudioSource) -> AudioInfo:
+    from crypto_stream import iter_decrypt_file
+
+    acumulador = bytearray()
+    for pedaco in iter_decrypt_file(path, _chave_tks()):
+        acumulador.extend(pedaco)
+        parsed = _parse_cabecalho_wav(bytes(acumulador))
+        if parsed is not None:
+            sr, canais, largura, _, bytes_dados = parsed
+            quadro = canais * largura
+            return AudioInfo(sr, canais, largura, bytes_dados // max(1, quadro), source)
+    raise UnsupportedAudioFormat("TKAS sem WAV válido")
 
 
 def _abrir_wav_plano(path: Path) -> tuple[object, object | None]:
@@ -86,6 +187,8 @@ def _converter_para_float32(raw: bytes, sample_width: int, channels: int) -> np.
 
 
 def inspect_audio(path: Path, source: AudioSource) -> AudioInfo:
+    if _eh_tks(Path(path)):
+        return _inspect_tks(Path(path), source)
     wav, detentor = _abrir_wav_plano(Path(path))
     try:
         canais = wav.getnchannels()
@@ -112,6 +215,9 @@ def inspect_audio(path: Path, source: AudioSource) -> AudioInfo:
 def iter_audio(
     path: Path, source: AudioSource, max_seconds: float = AUDIO_BLOCO_MAX_SEG
 ) -> Iterator[AudioChunk]:
+    if _eh_tks(Path(path)):
+        yield from _iter_tks(Path(path), source, max_seconds)
+        return
     info = inspect_audio(Path(path), source)
     tamanho_bloco = max(1, int(info.sample_rate * max_seconds))
     wav, detentor = _abrir_wav_plano(Path(path))

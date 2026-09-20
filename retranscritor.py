@@ -63,11 +63,16 @@ def listar_audios(pasta_audio: str | None = None) -> list[dict]:
         if not path.is_file():
             continue
         nome = path.name.lower()
-        if not (nome.endswith(".wav") or nome.endswith(".wav.enc")):
+        if not (nome.endswith(".wav") or nome.endswith(".wav.enc") or nome.endswith(".tks")):
             continue
         dur = 0.0
         try:
-            if nome.endswith(".wav.enc"):
+            if nome.endswith(".tks"):
+                from audio_reader import AudioSource, inspect_audio
+
+                info = inspect_audio(path, AudioSource.LOOPBACK)
+                dur = info.total_frames / float(info.sample_rate or SAMPLE_RATE)
+            elif nome.endswith(".wav.enc"):
                 from crypto_storage import ler_bytes_arquivo
 
                 plano = ler_bytes_arquivo(str(path))

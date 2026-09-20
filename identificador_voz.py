@@ -29,7 +29,16 @@ def _usar_criptografia_voz() -> bool:
         return False
 
 
+def _exigir_cifra_ou_falhar() -> None:
+    """Modo protegido sem chave: falha fechado, sem plaintext (SEC-13.E1)."""
+    from politica_privacidade import ProtectionMode, ProtectionUnavailable, modo_efetivo
+
+    if modo_efetivo() == ProtectionMode.PROTECTED and not _usar_criptografia_voz():
+        raise ProtectionUnavailable("sem chave: biometria não será salva em claro")
+
+
 def salvar_perfil(embedding: np.ndarray, path, path_enc=None) -> None:
+    _exigir_cifra_ou_falhar()
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     if path_enc is None:
@@ -181,6 +190,7 @@ def salvar_voz_conhecida(
     arquivo,
     rotulo_origem: str | None = None,
 ) -> None:
+    _exigir_cifra_ou_falhar()
     path = Path(arquivo)
     vozes = carregar_vozes_conhecidas(path)
     vozes[nome] = {

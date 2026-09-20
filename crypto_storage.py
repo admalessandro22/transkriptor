@@ -175,6 +175,11 @@ def _exigir_chave() -> bytes:
     return _chave_mestra
 
 
+def obter_chave_mestra() -> bytes:
+    """Expõe a chave mestra para derivação (ex.: TKAS/1). Nunca a persiste."""
+    return _exigir_chave()
+
+
 def criptografar_bytes(plano: bytes) -> bytes:
     chave = _exigir_chave()
     nonce = secrets.token_bytes(NONCE_SIZE)

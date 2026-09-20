@@ -1,6 +1,6 @@
 # Tasks — confiabilidade e identificação de participantes
 
-**28 tarefas propostas; 14 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1, T-13.D3–D7) e 14 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
+**28 tarefas propostas; 15 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1, T-13.D3–D7, T-13.E1) e 13 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
 
 Para execução por outra LLM, `interfaces.md` e `executor-llm.md` são leitura obrigatória. Os blocos **Arquivos**, **Implementação**, **RED**, **Teste final** e **Aceite** de cada task são cumulativos, não alternativas. O agente não pode trocar nomes de interfaces, tecnologia decidida, ordem, thresholds ou comportamento de falha sem primeiro emendar os documentos e obter revisão.
 
@@ -155,7 +155,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.E1 — política única de proteção e falha explícita
 
-- [ ] **Requisito:** SEC-13.E1. **Depende de:** D7.
+- [x] **Requisito:** SEC-13.E1. **Depende de:** D7. **Estado:** `DONE`; evidência: `evidencias/T-13.E1.md`.
 - **Arquivos:** criar `politica_privacidade.py`, `crypto_stream.py`, `tests/test_politica_privacidade.py`, `tests/test_crypto_stream.py`; modificar `requirements.txt`, `crypto_storage.py`, `identificador_voz.py`, `perfil_voz_flow.py`, `audio_reader.py`, `retranscritor.py`, `app_bandeja_menu.py`.
 - **Implementação:** modo compatível/protegido e estado efetivo por artefato. Configuração existente sem campo de política migra semanticamente para `compatible`; ausência de configuração (instalação nova) inicia `protected`. `ProtectionUnavailable` impede cadastro novo em claro quando se exige cifra. Falha no áudio preserva material já gravado em área restrita e mostra pendência de proteção. Adicionar provisoriamente `PyNaCl>=1.6.2,<2` ao requisito da v1.8; G1 fixa versão/hash após a matriz. Implementar o formato TKAS/1 definido em `interfaces.md` com bindings SecretStream XChaCha20-Poly1305 do PyNaCl; não reimplementar a primitiva. Se PyNaCl/libsodium não carregar na matriz Windows, o modo protegido de áudio longo fica bloqueado com erro explícito — não criar cifra alternativa. Não gerar nova chave sobre blob existente ilegível. Migração sempre começa em dry-run; remoção real exige lista exata confirmada. Cópias divergentes são preservadas.
 - **RED:** instalação nova protegida, instalação existente sem campo compatível, DPAPI indisponível, gravação de cifra falhando, preferências trocadas durante captura, `.enc` antigo e plaintext novo, chave corrompida; TKAS truncado, chunk alterado/reordenado/duplicado e ausência de tag final; dry-run não remove alvo.

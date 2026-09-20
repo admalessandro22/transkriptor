@@ -64,6 +64,15 @@ def cadastrar_perfil_voz(
         _status("Perfil de voz salvo.")
         return True
     except Exception as e:
+        try:
+            from politica_privacidade import ProtectionUnavailable
+
+            if isinstance(e, ProtectionUnavailable):
+                _toast("Transkriptor", "Proteção indisponível: cadastro bloqueado sem expor biometria.")
+                _status("Cadastro bloqueado: sem cifra, sem plaintext.")
+                return False
+        except ImportError:
+            pass
         logger.exception("Erro ao cadastrar voz")
         _toast("Transkriptor", f"Erro no cadastro: {e}")
         _status(f"Erro no cadastro de voz: {e}")

@@ -286,11 +286,18 @@ class MenuBandejaMixin:
         )
 
     def _texto_criptografia(self, _item=None):
-        return (
+        try:
+            from politica_privacidade import modo_efetivo
+
+            modo = modo_efetivo().value
+        except Exception:  # noqa: BLE001 — menu nunca quebra por política
+            modo = "?"
+        base = (
             "✓ Criar cópia criptografada (.tkpt)"
             if self.criptografar_transcricoes
             else "Criar cópia criptografada (.tkpt)"
         )
+        return f"{base} [{modo}]"
 
     def _texto_startup(self, _item=None):
         return (
