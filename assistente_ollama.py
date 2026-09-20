@@ -75,28 +75,37 @@ def chamar_ollama_sync(
 
 def stream_chat_ollama(req) -> Response:
     def stream():
+        resp = None
         try:
-            with urllib.request.urlopen(
+            resp = urllib.request.urlopen(
                 req, timeout=_config.OLLAMA_TIMEOUT_LEITURA
-            ) as resp:
-                for linha in resp:
-                    linha = linha.decode("utf-8").strip()
-                    if not linha:
-                        continue
-                    try:
-                        bloco = json.loads(linha)
-                        conteudo = bloco.get("message", {}).get("content", "")
-                        if conteudo:
-                            yield conteudo
-                        if bloco.get("done"):
-                            break
-                    except json.JSONDecodeError:
-                        continue
+            )
+            for linha in resp:
+                linha = linha.decode("utf-8").strip()
+                if not linha:
+                    continue
+                try:
+                    bloco = json.loads(linha)
+                    conteudo = bloco.get("message", {}).get("content", "")
+                    if conteudo:
+                        yield conteudo
+                    if bloco.get("done"):
+                        break
+                except json.JSONDecodeError:
+                    continue
+        except GeneratorExit:
+            raise
         except Exception as e:
             yield (
                 "\n[Não foi possível contatar o Ollama. "
                 f"Verifique se está em execução. ({e})]"
             )
+        finally:
+            if resp is not None:
+                try:
+                    resp.close()
+                except Exception:
+                    pass
 
     return Response(stream(), mimetype="text/plain; charset=utf-8")
 

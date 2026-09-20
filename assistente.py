@@ -21,6 +21,7 @@ from assistente_ollama import (
 )
 from config import (
     BASE_DIR,
+    CHAT_MAX_CONCORRENTES,
     MAX_CHARS_TRANSCRICAO,
     MAX_CORPO_CHAT_BYTES,
     MAX_HISTORICO_CHAT,
@@ -33,6 +34,9 @@ from config import (
 )
 
 app = Flask(__name__, root_path=str(BASE_DIR))
+app.config["MAX_CONTENT_LENGTH"] = MAX_CORPO_CHAT_BYTES
+
+_semaforo_chat = threading.BoundedSemaphore(CHAT_MAX_CONCORRENTES)
 
 HEADER_TOKEN = "X-Transkriptor-Token"
 COOKIE_TOKEN = "tkpt_token"
@@ -57,6 +61,26 @@ def verificar_token():
             return jsonify({"erro": "Token inválido"}), 403
         if not token_requisicao_valido():
             return jsonify({"erro": "Token inválido"}), 403
+
+
+@app.after_request
+def cabecalhos_privacidade(resposta):
+    resposta.headers["Cache-Control"] = "no-store"
+    resposta.headers["Referrer-Policy"] = "no-referrer"
+    resposta.headers["X-Content-Type-Options"] = "nosniff"
+    resposta.headers["X-Frame-Options"] = "DENY"
+    resposta.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'"
+    return resposta
+
+
+@app.errorhandler(413)
+def corpo_grande_demais(_erro):
+    return jsonify({"erro": "Corpo da requisição muito grande"}), 413
+
+
+@app.errorhandler(429)
+def concorrencia_excedida(_erro):
+    return jsonify({"erro": "Muitas requisições simultâneas"}), 429
 
 
 def _extensao_transcricao_permitida(nome: str) -> bool:
@@ -302,35 +326,45 @@ def api_modelos():
 
 @app.route("/api/chat", methods=["POST"])
 def api_chat():
-    cl = request.content_length or 0
-    if cl > MAX_CORPO_CHAT_BYTES:
-        return jsonify({"erro": "Corpo da requisição muito grande"}), 413
+    from assistente_validacao import (
+        PayloadInvalido,
+        hosts_locais_aceitos,
+        origem_permitida_chat,
+        validar_chat_payload,
+    )
 
-    dados = request.get_json(silent=True) or {}
-    modelo = dados.get("modelo", "")
-    nome = dados.get("transcricao", "")
-    pergunta = dados.get("pergunta", "")
-    historico = dados.get("historico", [])
-
-    if not modelo:
-        return jsonify({"erro": "Selecione um modelo Ollama na barra lateral."}), 400
-    if isinstance(historico, list) and len(historico) > MAX_HISTORICO_CHAT:
-        return jsonify({"erro": "Histórico excede o limite permitido"}), 400
+    if not hosts_locais_aceitos(request.host):
+        return jsonify({"erro": "Host não permitido"}), 403
+    if not origem_permitida_chat(request.headers.get("Origin")):
+        return jsonify({"erro": "Origem não permitida"}), 403
+    try:
+        pedido = validar_chat_payload(request.get_json(silent=True))
+    except PayloadInvalido as exc:
+        return jsonify({"erro": str(exc)}), 400
+    modelo = pedido["modelo"]
+    nome = pedido["transcricao"]
+    pergunta = pedido["pergunta"]
+    historico = [{"role": m.role, "content": m.content} for m in pedido["historico"]]
 
     transcricao = ler_conteudo_transcricao(nome)
     if transcricao is None:
         return jsonify({"erro": "Acesso negado"}), 403
 
-    return processar_chat(
-        modelo,
-        transcricao,
-        pergunta,
-        historico if isinstance(historico, list) else [],
-        orcamento_fn=orcamento_chars,
-        ctx_fn=consultar_context_length,
-        sync_fn=_chamar_ollama_sync,
-        max_chars=MAX_CHARS_TRANSCRICAO,
-    )
+    if not _semaforo_chat.acquire(blocking=False):
+        return jsonify({"erro": "Muitas requisições simultâneas"}), 429
+    try:
+        return processar_chat(
+            modelo,
+            transcricao,
+            pergunta,
+            historico,
+            orcamento_fn=orcamento_chars,
+            ctx_fn=consultar_context_length,
+            sync_fn=_chamar_ollama_sync,
+            max_chars=MAX_CHARS_TRANSCRICAO,
+        )
+    finally:
+        _semaforo_chat.release()
 
 
 def porta_livre(preferida=PORTAS_FALLBACK[0]):
