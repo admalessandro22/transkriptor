@@ -34,7 +34,8 @@ definição de pronto nem altera a ordem obrigatória das tarefas.
 | T-13.D1 | DONE | commit de fechamento; evidência `T-13.D1.md` |
 | T-13.D2 | BLOCKED | implementação commitada (`765ef1d`); evidência `T-13.D2.md`; demo Chrome+Edge pendente de autorização |
 | T-13.D3 | DONE | commit de fechamento; evidência `T-13.D3.md` (exceção: iniciado com D2 BLOCKED, só fixtures/JS) |
-| T-13.D4 | PRÓXIMA | depende de D3 DONE; sem coleta real sem autorização |
+| T-13.D4 | DONE | commit de fechamento; evidência `T-13.D4.md` |
+| T-13.D5 | PRÓXIMA | depende de D4 DONE (e B1); sem dados reais |
 
 ### Base e árvore de trabalho
 

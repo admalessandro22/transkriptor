@@ -151,6 +151,13 @@ MEET_WS_BURST = 40                     # rajada máxima por conexão
 MEET_WS_MAX_CONEXOES = 4               # conexões autenticadas simultâneas
 MEET_CONVITE_SEG = 300                 # validade do convite de pareamento
 MEET_SESSAO_SEG = 12 * 3600            # validade da credencial da sessão
+
+# ---- Spool de eventos Meet (SEC-13.D4) ----
+MEET_EVENTOS_BUFFER = 500             # eventos em RAM antes do dreno
+MEET_EVENTOS_DRENO_SEG = 1.0          # dreno contínuo no máximo a cada 1 s
+MEET_EVENTOS_SEGMENTO_BYTES = 1024 * 1024  # segmento JSONL antes do selo
+MEET_EVENTOS_SPOOL_MAX_BYTES = 256 * 1024 * 1024  # teto do spool cifrado/sessão
+MEET_EVENTOS_RAIZ = "eventos_privados"
 TIMEOUT_JOIN_STOP_SEG = 30
 
 # ---- Watchdog ----

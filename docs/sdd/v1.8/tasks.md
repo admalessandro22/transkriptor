@@ -1,6 +1,6 @@
 # Tasks — confiabilidade e identificação de participantes
 
-**28 tarefas propostas; 10 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1, T-13.D3) e 18 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
+**28 tarefas propostas; 11 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1, T-13.D3–D4) e 17 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
 
 Para execução por outra LLM, `interfaces.md` e `executor-llm.md` são leitura obrigatória. Os blocos **Arquivos**, **Implementação**, **RED**, **Teste final** e **Aceite** de cada task são cumulativos, não alternativas. O agente não pode trocar nomes de interfaces, tecnologia decidida, ordem, thresholds ou comportamento de falha sem primeiro emendar os documentos e obter revisão.
 
@@ -117,7 +117,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.D4 — persistir eventos privados continuamente
 
-- [ ] **Requisito:** SEC-13.D4. **Depende de:** D1–D3.
+- [x] **Requisito:** SEC-13.D4. **Depende de:** D1–D3 (implementação; D2 BLOCKED pela demo). **Estado:** `DONE`; evidência: `evidencias/T-13.D4.md`.
 - **Arquivos:** criar `eventos_meet_store.py`, `tests/test_eventos_meet_store.py`; modificar `meet_bridge.py`, `app_ciclo_reuniao.py`, `config.py`.
 - **Implementação:** `EventStore` usa `ArtifactRef`/`ArtifactCipher` de `artefatos.py`; drenar a fila ao menos a cada segundo; journal cifrado e ACK durável. O adaptador inicial encapsula `crypto_storage.salvar_bytes_arquivo`/`ler_bytes_arquivo`, sem duplicar AES-GCM. Guardar evento por sessão/seq, recuperar último registro íntegro após crash, contar descartes e bloquear nova coleta de conteúdo se cifra indisponível. Consentimento/revogação filtra antes de persistir; heartbeat mínimo continua independente. Evento bruto só fica elegível para exclusão sete dias após `ResultManifest` válido; antes disso e durante reprocessamento é preservado.
 - **RED:** `test_mil_eventos_preserva_o_final`, `test_ack_exige_durabilidade`, `test_crash_recupera_prefixo_integro`, `test_sem_chave_nao_grava_legenda`, `test_revogacao_interrompe_conteudo`, `test_eventos_expiram_so_sete_dias_apos_resultado_valido`.

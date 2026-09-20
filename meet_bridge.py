@@ -214,6 +214,11 @@ class MeetBridge:
         self._sessao_por_conexao: dict[str, str] = {}
         self._conexoes_autenticadas = 0
         self.contador_descarte_rajada = 0
+        self._store = None
+
+    def definir_store(self, store) -> None:
+        """Liga o spool cifrado da sessão (T-13.D4; envelopes v1 vão ao store)."""
+        self._store = store
 
     def reuniao_ativa(self, agora: float | None = None, validade: float = 20.0) -> bool:
         """FR-9.3: a extensão reportou reunião ativa há menos de `validade` s.
@@ -260,6 +265,12 @@ class MeetBridge:
         if eh_evento_estado(dados):
             titulo = dados.get("titulo") if isinstance(dados, dict) else None
             self.registrar_estado_reuniao(estado_reuniao_do_evento(dados), titulo=titulo)
+            return
+        if isinstance(dados, dict) and "event_id" in dados and self._store is not None:
+            try:
+                self._store.append(dados)
+            except Exception:  # noqa: BLE001 — EnvelopeRejeitado/ColetaBloqueada
+                logger.debug("Envelope v1 fora da sessão; descartado.")
             return
         ev = normalizar_evento(dados)
         if ev is None:

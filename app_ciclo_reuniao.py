@@ -133,9 +133,26 @@ class CicloReuniaoMixin:
                 _dt.datetime.now(_dt.timezone.utc).isoformat().replace("+00:00", "Z"),
                 "padrao",
             )
+            try:
+                from pathlib import Path as _Path
+
+                from config import MEET_EVENTOS_RAIZ, PASTA_TRANSCRICOES
+                from eventos_meet_store import EventStore
+
+                _store = EventStore(
+                    _Path(PASTA_TRANSCRICOES) / MEET_EVENTOS_RAIZ, self._sessao_ativa
+                )
+                self._eventos_store = _store
+                ponte = getattr(self, "meet_bridge", None)
+                if ponte is not None and hasattr(ponte, "definir_store"):
+                    ponte.definir_store(_store)
+            except Exception:  # noqa: BLE001
+                logger.debug("Spool de eventos indisponível", exc_info=True)
+                self._eventos_store = None
         except Exception:  # noqa: BLE001
             logger.debug("Sessão da reunião indisponível", exc_info=True)
             self._sessao_ativa = None
+            self._eventos_store = None
         if titulo:
             # Slug já sanitizado (ex: Reuniao_Bolsistas_PROINOVE)
             self._status(f"Reunião detectada ({fontes}) — {titulo}. Iniciando gravação...")
@@ -214,6 +231,21 @@ class CicloReuniaoMixin:
                         "Transkriptor",
                         "Ative legendas no Meet para identificar participantes",
                     )
+            try:
+                _store = getattr(self, "_eventos_store", None)
+                if _store is not None:
+                    _refs = _store.seal()
+                    logger.info("Eventos Meet selados: %d segmento(s).", len(_refs))
+            except Exception:  # noqa: BLE001
+                logger.debug("Selo de eventos indisponível", exc_info=True)
+            finally:
+                self._eventos_store = None
+                ponte = getattr(self, "meet_bridge", None)
+                if ponte is not None and hasattr(ponte, "definir_store"):
+                    try:
+                        ponte.definir_store(None)
+                    except Exception:  # noqa: BLE001
+                        pass
             caminho = t.stop()
             with self._lock:
                 if self.transcritor is t:
