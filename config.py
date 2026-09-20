@@ -158,6 +158,11 @@ MEET_EVENTOS_DRENO_SEG = 1.0          # dreno contínuo no máximo a cada 1 s
 MEET_EVENTOS_SEGMENTO_BYTES = 1024 * 1024  # segmento JSONL antes do selo
 MEET_EVENTOS_SPOOL_MAX_BYTES = 256 * 1024 * 1024  # teto do spool cifrado/sessão
 MEET_EVENTOS_RAIZ = "eventos_privados"
+
+# ---- Recuperação de sessão (SEC-13.E2) ----
+RECUPERACAO_SESSOES = "sessoes"
+RECUPERACAO_REGISTRO = "registro.json"
+RECUPERACAO_RESTRITO = "restrito"
 TIMEOUT_JOIN_STOP_SEG = 30
 
 # ---- Watchdog ----

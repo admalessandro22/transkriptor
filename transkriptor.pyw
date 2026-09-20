@@ -315,7 +315,32 @@ class AppTranskriptor(CicloReuniaoMixin, ProcessamentoReuniaoMixin, MenuBandejaM
             _mostrar_erro_fatal("Não foi possível preparar a bandeja do Transkriptor.")
             icon.stop()
 
+    def executar_recuperacao_startup(self) -> None:
+        """Inventário + recuperação no arranque real (nunca em import/init de teste).
+
+        Ação automática SÓ com posse provada (registro de sessão); órfãos
+        legados são apenas inventariados (sinalizar), nunca movidos sem dono.
+        """
+        try:
+            from recuperacao_sessao import inventariar as _inventariar_rec
+            from recuperacao_sessao import recuperar as _recuperar_rec
+
+            _itens_rec = _inventariar_rec(PASTA_TRANSCRICOES, set())
+            _com_posse = [i for i in _itens_rec if i.owner_session_id]
+            _feitos_rec = _recuperar_rec(PASTA_TRANSCRICOES, _com_posse, dry_run=False)
+            _recuperar_rec(PASTA_TRANSCRICOES, [i for i in _itens_rec if not i.owner_session_id], dry_run=True)
+            _n_rec = sum(1 for _i in _feitos_rec if _i.state in ("recuperado", "consolidado"))
+            if _itens_rec:
+                logging.info(
+                    "Recuperação de sessão: %d item(ns), %d recuperado(s).",
+                    len(_itens_rec),
+                    _n_rec,
+                )
+        except Exception:
+            logging.debug("Inventário de recuperação indisponível", exc_info=True)
+
     def rodar(self):
+        self.executar_recuperacao_startup()
         criar_ico()
         if self.iniciar_com_windows and not _startup_ativo():
             _criar_atalho_startup()

@@ -130,7 +130,7 @@ def test_retranscrever_nome_deterministico_txt_e_escrita_atomica(
     )
 
     assert Path(saida).name == "reuniao_cliente.txt"
-    assert replaces and replaces[-1][1] == Path(saida)
+    assert replaces and any(dst == Path(saida) for _, dst in replaces)
     assert not list(pasta_tr.glob("*.tmp"))
 
 

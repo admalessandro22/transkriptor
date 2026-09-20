@@ -21,6 +21,7 @@ import soundcard as sc
 
 from captura_leve import CapturaLeveMixin
 from com_audio import com_inicializada
+from recuperacao_sessao import registrar_wavs_abertos, selar_transcritor
 
 from config import (
     SAMPLE_RATE,
@@ -174,6 +175,7 @@ class Transcritor(CapturaLeveMixin):
         if self.capturar_mic:
             self._caminho_wav_mic = base + "_mic.wav"
             self._wav_mic = self._abrir_wav(self._caminho_wav_mic)
+        registrar_wavs_abertos(self)
 
     def _abrir_loopback(self):
         if self.dispositivo:
@@ -458,6 +460,7 @@ class Transcritor(CapturaLeveMixin):
             )
         self._caminho_saida = None
         self.finalizando = False
+        selar_transcritor(self, caminho)
         self.on_status("Gravação descartada." if descartado else "Transcrição encerrada.")
         return caminho
 

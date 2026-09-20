@@ -1,6 +1,6 @@
 # Tasks — confiabilidade e identificação de participantes
 
-**28 tarefas propostas; 15 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1, T-13.D3–D7, T-13.E1) e 13 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
+**28 tarefas propostas; 16 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1, T-13.D3–D7, T-13.E1–E2) e 12 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
 
 Para execução por outra LLM, `interfaces.md` e `executor-llm.md` são leitura obrigatória. Os blocos **Arquivos**, **Implementação**, **RED**, **Teste final** e **Aceite** de cada task são cumulativos, não alternativas. O agente não pode trocar nomes de interfaces, tecnologia decidida, ordem, thresholds ou comportamento de falha sem primeiro emendar os documentos e obter revisão.
 
@@ -164,7 +164,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.E2 — recuperação de todos os artefatos de sessão
 
-- [ ] **Requisito:** SEC-13.E2. **Depende de:** E1, B1.
+- [x] **Requisito:** SEC-13.E2. **Depende de:** E1, B1. **Estado:** `DONE`; evidência: `evidencias/T-13.E2.md`.
 - **Arquivos:** criar `recuperacao_sessao.py`, `tests/test_recuperacao_sessao.py`; modificar `transcricao_core.py`, `retranscritor.py`, `crypto_storage.py`, bootstrap e retenção.
 - **Implementação:** diretório privado por sessão com registro de arquivos ativos e lease. Recuperar raiz legada, `audio/` e `diarizacao_*` conhecidos; resolver contenção/junction antes de qualquer ação. Encerramento abrupto preserva áudio em área restrita, cifra/recupera quando possível e publica resultado do inventário. Nunca varrer TEMP inteiro nem remover arquivo sem provar posse e ausência de escritor.
 - **RED:** crash antes do move, durante diarização, após cifra antes do unlink; sessão viva; junction externo; arquivo desconhecido com nome semelhante.

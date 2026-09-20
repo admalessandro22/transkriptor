@@ -180,6 +180,13 @@ def aplicar_exclusao_confirmada(
             continue
         if not caminho.is_file() or not caminho.is_relative_to(raiz_audio):
             continue
+        try:
+            from recuperacao_sessao import sob_recuperacao_ativa
+
+            if sob_recuperacao_ativa(caminho):
+                continue
+        except Exception:  # noqa: BLE001 — guarda indisponível não libera
+            continue
         if caminho in confirmacoes and caminho not in selecionados:
             selecionados.append(caminho)
     if dry_run:

@@ -138,7 +138,11 @@ class CicloReuniaoMixin:
 
                 from config import MEET_EVENTOS_RAIZ, PASTA_TRANSCRICOES
                 from eventos_meet_store import EventStore
+                from recuperacao_sessao import registrar_inicio
 
+                registrar_inicio(
+                    _Path(PASTA_TRANSCRICOES), self._sessao_ativa.session_id
+                )
                 _store = EventStore(
                     _Path(PASTA_TRANSCRICOES) / MEET_EVENTOS_RAIZ,
                     self._sessao_ativa,
@@ -161,6 +165,17 @@ class CicloReuniaoMixin:
         else:
             self._status(f"Reunião detectada ({fontes}). Iniciando gravação...")
         self.transcritor = self._construir_transcritor()
+        try:
+            from pathlib import Path as _Path
+
+            from config import PASTA_TRANSCRICOES
+
+            self.transcritor._recuperacao = (
+                _Path(PASTA_TRANSCRICOES),
+                self._sessao_ativa.session_id if self._sessao_ativa else "sem-sessao",
+            )
+        except Exception:  # noqa: BLE001
+            logger.debug("Vínculo de recuperação indisponível", exc_info=True)
         try:
             with self._lock:
                 if not getattr(self, "deteccao_ativa", True):
