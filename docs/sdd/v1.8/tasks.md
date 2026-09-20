@@ -1,6 +1,6 @@
 # Tasks — confiabilidade e identificação de participantes
 
-**28 tarefas propostas; 13 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1, T-13.D3–D6) e 15 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
+**28 tarefas propostas; 14 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1, T-13.D3–D7) e 14 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
 
 Para execução por outra LLM, `interfaces.md` e `executor-llm.md` são leitura obrigatória. Os blocos **Arquivos**, **Implementação**, **RED**, **Teste final** e **Aceite** de cada task são cumulativos, não alternativas. O agente não pode trocar nomes de interfaces, tecnologia decidida, ordem, thresholds ou comportamento de falha sem primeiro emendar os documentos e obter revisão.
 
@@ -144,7 +144,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.D7 — resultado nomeado e correção por reunião
 
-- [ ] **Requisito:** FR-13.D7. **Depende de:** D6, B2.
+- [x] **Requisito:** FR-13.D7. **Depende de:** D6, B2. **Estado:** `DONE` (automatizado); evidência: `evidencias/T-13.D7.md`. Gate F13.D com participantes pendente.
 - **Arquivos:** ampliar `resultado_reuniao.py`; modificar `renomear_falante_flow.py`, `transkriptor_menu_flows.py`, `assistente.py`, `templates/assistente.html`, `static/assistente.js`; criar `tests/test_resultado_reuniao.py`, `tests/e2e/participants.spec.js`.
 - **Implementação:** manifesto/segmentos/participantes persistidos; JSON estruturado é canônico e TXT derivado usa exatamente `[HH:MM:SS] Nome: texto`, uma linha por segmento. Sem atribuição qualificada, usar literalmente `Identificação pendente`. UI escolhe reunião, mostra nome/origem/incerteza e permite editar mapeamento com revisão/hash esperado, undo e reexportação. Centroides não dependem de `app.transcritor` vivo; biometria persistente só em ação separada. Falha parcial de diarização preserva STT e é visível, nunca resultado globalmente completo.
 - **RED:** correção após restart, duas reuniões com FALANTE_00, edição concorrente, desfazer, falha de diarização, formato exato do TXT e exportação com `Identificação pendente` sem nome inventado.

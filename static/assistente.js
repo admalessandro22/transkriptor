@@ -577,3 +577,127 @@ document.addEventListener('keydown', (e)=>{
 });
 input.focus();
 loadList();
+
+// ===== Participantes por reunião (D7) =====
+const btnParticipantes = document.getElementById('abrir-participantes');
+const drawerParticipantes = document.getElementById('participantes-drawer');
+const selReuniao = document.getElementById('reuniao-participantes');
+const listaParticipantes = document.getElementById('lista-participantes');
+const selCluster = document.getElementById('correcao-cluster');
+const inputNome = document.getElementById('correcao-nome');
+const inputRevisao = document.getElementById('correcao-revisao');
+const estadoParticipantes = document.getElementById('participantes-estado');
+const formCorrecao = document.getElementById('form-correcao');
+const btnDesfazer = document.getElementById('desfazer-correcao');
+const btnFecharPart = document.getElementById('fechar-participantes');
+let ultimoFocoParticipantes = null;
+
+function dizerParticipantes(texto) {
+  if (estadoParticipantes) estadoParticipantes.textContent = texto;
+}
+
+async function carregarReunioes() {
+  if (!selReuniao) return;
+  const r = await fetch('/api/reunioes', {...fetchOpts, headers: apiHeaders()});
+  const ids = await r.json();
+  selReuniao.innerHTML = '';
+  (ids || []).forEach((id) => {
+    const op = document.createElement('option');
+    op.value = id; op.textContent = id;
+    selReuniao.appendChild(op);
+  });
+  if (selReuniao.value) await carregarResultado();
+  else if (listaParticipantes) listaParticipantes.innerHTML = '';
+}
+
+async function carregarResultado() {
+  if (!selReuniao || !selReuniao.value) return;
+  const r = await fetch('/api/reunioes/' + encodeURIComponent(selReuniao.value) + '/resultado', {...fetchOpts, headers: apiHeaders()});
+  if (!r.ok) { dizerParticipantes('Reunião não encontrada.'); return; }
+  const dados = await r.json();
+  if (inputRevisao) inputRevisao.value = dados.revision || '';
+  renderParticipantes(dados);
+}
+
+function nomeExibido(cluster, mapeamento) {
+  const entrada = (mapeamento || {})[cluster];
+  if (entrada && entrada.display_name) {
+    return { nome: entrada.display_name, origem: entrada.origem || 'manual', incerto: false };
+  }
+  return { nome: 'Identificação pendente', origem: 'pendente', incerto: true };
+}
+
+function renderParticipantes(dados) {
+  if (!listaParticipantes) return;
+  listaParticipantes.innerHTML = '';
+  const mapa = dados.mapeamento || {};
+  (dados.segmentos || []).forEach((seg) => {
+    const info = nomeExibido(seg.speaker_cluster_id, mapa);
+    const div = document.createElement('div');
+    div.className = 'participante-seg';
+    div.innerHTML = '<span class="p-nome">' + escapeHtml(info.nome) + '</span> ' +
+      '<span class="p-origem">(' + escapeHtml(info.origem + (info.incerto ? ', incerto' : '')) + ')</span> ' +
+      '<span class="p-texto">' + escapeHtml(seg.text || '') + '</span>';
+    listaParticipantes.appendChild(div);
+  });
+  if (selCluster) {
+    selCluster.innerHTML = '';
+    const clusters = [...new Set((dados.segmentos || []).map((s) => s.speaker_cluster_id))];
+    clusters.forEach((c) => {
+      const op = document.createElement('option');
+      op.value = c; op.textContent = c;
+      selCluster.appendChild(op);
+    });
+  }
+}
+
+function abrirParticipantes(aberto) {
+  if (!drawerParticipantes) return;
+  if (aberto) {
+    ultimoFocoParticipantes = document.activeElement;
+    drawerParticipantes.hidden = false;
+    carregarReunioes();
+    if (selReuniao) selReuniao.focus();
+  } else {
+    drawerParticipantes.hidden = true;
+    if (ultimoFocoParticipantes && ultimoFocoParticipantes.focus) ultimoFocoParticipantes.focus();
+  }
+}
+
+async function salvarCorrecao(ev) {
+  if (ev) ev.preventDefault();
+  if (!selReuniao || !selReuniao.value) return;
+  const r = await fetch('/api/reunioes/' + encodeURIComponent(selReuniao.value) + '/correcao', {
+    ...fetchOpts, method: 'POST', headers: apiHeaders({'Content-Type': 'application/json'}),
+    body: JSON.stringify({
+      expected_revision: inputRevisao ? inputRevisao.value : '',
+      speaker_cluster_id: selCluster ? selCluster.value : '',
+      display_name: inputNome ? inputNome.value : ''
+    })
+  });
+  const dados = await r.json();
+  if (!r.ok) { dizerParticipantes(dados.erro || 'Falha ao salvar.'); return; }
+  dizerParticipantes('Correção salva (' + dados.revision + ').');
+  await carregarResultado();
+}
+
+async function desfazerCorrecao() {
+  if (!selReuniao || !selReuniao.value) return;
+  const r = await fetch('/api/reunioes/' + encodeURIComponent(selReuniao.value) + '/desfazer', {
+    ...fetchOpts, method: 'POST', headers: apiHeaders({'Content-Type': 'application/json'}),
+    body: JSON.stringify({ expected_revision: inputRevisao ? inputRevisao.value : '' })
+  });
+  const dados = await r.json();
+  if (!r.ok) { dizerParticipantes(dados.erro || 'Nada a desfazer.'); return; }
+  dizerParticipantes('Desfeito (' + dados.revision + ').');
+  await carregarResultado();
+}
+
+if (btnParticipantes) btnParticipantes.onclick = () => abrirParticipantes(true);
+if (btnFecharPart) btnFecharPart.onclick = () => abrirParticipantes(false);
+if (selReuniao) selReuniao.addEventListener('change', carregarResultado);
+if (formCorrecao) formCorrecao.addEventListener('submit', salvarCorrecao);
+if (btnDesfazer) btnDesfazer.onclick = desfazerCorrecao;
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && drawerParticipantes && !drawerParticipantes.hidden) abrirParticipantes(false);
+});

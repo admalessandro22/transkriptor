@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -15,6 +16,9 @@ from artefatos import ArtifactRef, criar_referencia, referencia_integra, sha256_
 
 
 VERSAO_MANIFESTO = 1
+NOME_PENDENTE = "Identificação pendente"
+VERSAO_SEGMENTOS = 1
+_PADRAO_LINHA_TXT = re.compile(r"^\[\d{2}:\d{2}:\d{2}\] .+: .+$")
 
 
 class StageState(StrEnum):
@@ -36,6 +40,17 @@ class ResultManifest:
     exports: tuple[ArtifactRef, ...]
     created_at: str
     pipeline_version: str
+
+
+@dataclass(frozen=True)
+class SegmentoResultado:
+    segment_id: str
+    start_ms: int
+    end_ms: int
+    audio_source: str
+    text: str
+    speaker_cluster_id: str
+    overlap: bool = False
 
 
 def _agora_utc() -> str:
@@ -288,3 +303,29 @@ def criar_manifesto_inicial(
         created_at=created_at or _agora_utc(),
         pipeline_version=config.VERSAO,
     )
+
+
+# Reexportações D7 (implementação em resultado_edicao para o limite de linhas).
+from resultado_edicao import (
+    NOME_PENDENTE,
+    VERSAO_SEGMENTOS,
+    SegmentoResultado,
+    aplicar_correcao,
+    carregar_segmentos,
+    desfazer_correcao,
+    exportar_txt,
+    format_segment_txt,
+    salvar_segmentos,
+)
+
+
+def resultado_global(manifesto: ResultManifest) -> str:
+    """Estado global honesto: parcial nunca se apresenta como completo."""
+    estados = {str(e.value if isinstance(e, StageState) else e) for e in manifesto.stage_status.values()}
+    if not estados:
+        return StageState.FAILED.value
+    if estados == {"complete"}:
+        return StageState.COMPLETE.value
+    if "failed" in estados:
+        return StageState.FAILED.value
+    return StageState.PARTIAL.value

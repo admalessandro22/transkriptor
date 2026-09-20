@@ -37,7 +37,8 @@ definição de pronto nem altera a ordem obrigatória das tarefas.
 | T-13.D4 | DONE | commit de fechamento; evidência `T-13.D4.md` |
 | T-13.D5 | DONE | commit de fechamento; evidência `T-13.D5.md` |
 | T-13.D6 | DONE | commit de fechamento; evidência `T-13.D6.md` |
-| T-13.D7 | PRÓXIMA | depende de D6+B2; gate F13.D com autorização própria |
+| T-13.D7 | DONE | commit de fechamento; evidência `T-13.D7.md` (gate F13.D pendente) |
+| T-13.E1 | PRÓXIMA | depende de D7; sem migração de dados reais |
 
 ### Base e árvore de trabalho
 

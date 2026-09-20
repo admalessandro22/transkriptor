@@ -63,6 +63,102 @@ def _extensao_transcricao_permitida(nome: str) -> bool:
     return nome.endswith(".txt") or nome.endswith(".tkpt")
 
 
+_PADRAO_REUNIAO = None
+
+
+def _reuniao_id_valido(meeting_id: str) -> bool:
+    global _PADRAO_REUNIAO
+    if _PADRAO_REUNIAO is None:
+        import re as _re
+
+        _PADRAO_REUNIAO = _re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$")
+    return bool(_PADRAO_REUNIAO.fullmatch(str(meeting_id or "")))
+
+
+def _pasta_resultados():
+    from pathlib import Path as _Path
+
+    pasta = _Path(PASTA_TRANSCRICOES) / "resultados"
+    pasta.mkdir(parents=True, exist_ok=True)
+    return pasta
+
+
+def _caminho_resultado(meeting_id: str):
+    from pathlib import Path as _Path
+
+    if not _reuniao_id_valido(meeting_id):
+        return None
+    caminho = (_pasta_resultados() / f"{meeting_id}.json").resolve()
+    try:
+        base = _pasta_resultados().resolve()
+    except OSError:
+        return None
+    if caminho.parent != base:
+        return None
+    return caminho
+
+
+@app.route("/api/reunioes")
+def api_reunioes():
+    return jsonify(sorted(p.stem for p in _pasta_resultados().glob("*.json")))
+
+
+@app.route("/api/reunioes/<meeting_id>/resultado")
+def api_resultado_reuniao(meeting_id: str):
+    from resultado_reuniao import carregar_segmentos
+
+    caminho = _caminho_resultado(meeting_id)
+    if caminho is None or not caminho.is_file():
+        return jsonify({"erro": "Reunião não encontrada"}), 404
+    try:
+        return jsonify(carregar_segmentos(caminho))
+    except ValueError:
+        return jsonify({"erro": "Resultado inválido"}), 422
+
+
+@app.route("/api/reunioes/<meeting_id>/correcao", methods=["POST"])
+def api_corrigir_reuniao(meeting_id: str):
+    from renomear_falante_flow import corrigir_nome_reuniao
+
+    if (request.content_length or 0) > MAX_CORPO_CHAT_BYTES:
+        return jsonify({"erro": "Corpo da requisição muito grande"}), 413
+    caminho = _caminho_resultado(meeting_id)
+    if caminho is None or not caminho.is_file():
+        return jsonify({"erro": "Reunião não encontrada"}), 404
+    dados = request.get_json(silent=True) or {}
+    try:
+        revisao = corrigir_nome_reuniao(
+            str(caminho),
+            expected_revision=str(dados.get("expected_revision", "")),
+            cluster_falante=str(dados.get("speaker_cluster_id", "")),
+            novo_nome=str(dados.get("display_name", "")),
+        )
+    except ValueError as exc:
+        codigo = 409 if "divergente" in str(exc) else 400
+        return jsonify({"erro": str(exc)}), codigo
+    return jsonify({"revision": revisao})
+
+
+@app.route("/api/reunioes/<meeting_id>/desfazer", methods=["POST"])
+def api_desfazer_reuniao(meeting_id: str):
+    from resultado_reuniao import desfazer_correcao
+
+    if (request.content_length or 0) > MAX_CORPO_CHAT_BYTES:
+        return jsonify({"erro": "Corpo da requisição muito grande"}), 413
+    caminho = _caminho_resultado(meeting_id)
+    if caminho is None or not caminho.is_file():
+        return jsonify({"erro": "Reunião não encontrada"}), 404
+    dados = request.get_json(silent=True) or {}
+    try:
+        revisao = desfazer_correcao(
+            caminho, expected_revision=str(dados.get("expected_revision", ""))
+        )
+    except ValueError as exc:
+        codigo = 409 if "divergente" in str(exc) else 400
+        return jsonify({"erro": str(exc)}), codigo
+    return jsonify({"revision": revisao})
+
+
 def caminho_transcricao_seguro(nome: str):
     """Retorna path absoluto seguro ou None se inválido/inexistente."""
     if not nome or ".." in nome.replace("\\", "/"):

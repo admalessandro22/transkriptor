@@ -409,6 +409,13 @@ def iniciar_renomear_falante_ui(app) -> None:
         app._status(f"Erro ao renomear: {e}")
 
 
+def iniciar_corrigir_nome_reuniao_ui(app) -> None:
+    """Corrige nome só nesta reunião (T-13.D7): sem cadastrar biometria."""
+    from renomear_falante_flow import corrigir_nome_reuniao_ui
+
+    corrigir_nome_reuniao_ui(app)
+
+
 def iniciar_assistente_ui(app) -> None:
     """Inicia o servidor Flask do assistente em segundo plano e abre o navegador."""
     if getattr(app, "_assistente_rodando", False):
