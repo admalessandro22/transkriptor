@@ -171,6 +171,15 @@ AUDIO_BLOCO_MAX_SEG = 30.0            # leitura/STT em blocos; nunca materializa
 AUDIO_CIFRADO_LEGADO_MAX_BYTES = 256 * 1024 * 1024  # .wav.enc AES-GCM monolítico
 ECO_SIMILARIDADE_MIN = 0.5            # Jaccard lexical mínimo p/ deduplicar eco
 
+# ---- Identidade conservadora (FR-13.D6) ----
+IDENTIDADE_LIMIAR_LEGENDA = 0.5       # Jaccard mínimo p/ legenda provar autoria
+IDENTIDADE_EPSILON_EMPATE = 0.05      # diferença mínima p/ desempatar candidatos
+IDENTIDADE_PRECISAO_MIN = 0.98        # precisão seletiva p/ modo automático
+IDENTIDADE_COBERTURA_MIN = 0.80       # cobertura elegível p/ modo automático
+CALIBRACAO_IDENTIDADE_VERSAO = "d6-1"
+MODO_AUTO_NOMES = False               # sem corpus não há nome automático
+INCERTEZA_TEMPO_MAX_MS = 1500         # acima disso, tempo sozinho não nomeia
+
 # ---- Worker pós-reunião (FR-13.B3) ----
 # Orçamentos injetáveis; não derivam da duração da reunião.
 WORKER_HEARTBEAT_SEG = 5

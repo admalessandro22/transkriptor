@@ -186,11 +186,16 @@ def reforcar_rotulo_por_mic(
 
     Guarda anti-eco: se `rms_loopback_por_segmento` estiver disponível, o segmento
     só vira VOCÊ se `rms_mic >= limiar` e `rms_mic > rms_loopback * margem_anti_eco`.
+    Guarda D6: rótulo já confirmado (nome próprio, não `FALANTE_XX`) nunca é
+    trocado por energia — conflito vira pendência nas camadas de identidade.
     """
     if not caminho_mic:
         return resultado
     reforcado = []
     for i, (rot, start, end, texto) in enumerate(resultado):
+        if not str(rot).startswith("FALANTE"):
+            reforcado.append((rot, start, end, texto))
+            continue
         trecho = ler_trecho_wav(caminho_mic, start, end, sample_rate)
         rms_mic = _rms(trecho)
         if rms_mic < limiar_rms:

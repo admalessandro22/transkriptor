@@ -1,6 +1,6 @@
 # Tasks — confiabilidade e identificação de participantes
 
-**28 tarefas propostas; 12 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1, T-13.D3–D5) e 16 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
+**28 tarefas propostas; 13 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1, T-13.D3–D6) e 15 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
 
 Para execução por outra LLM, `interfaces.md` e `executor-llm.md` são leitura obrigatória. Os blocos **Arquivos**, **Implementação**, **RED**, **Teste final** e **Aceite** de cada task são cumulativos, não alternativas. O agente não pode trocar nomes de interfaces, tecnologia decidida, ordem, thresholds ou comportamento de falha sem primeiro emendar os documentos e obter revisão.
 
@@ -135,7 +135,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.D6 — atribuição conservadora e calibrada
 
-- [ ] **Requisito:** FR-13.D6. **Depende de:** D5.
+- [x] **Requisito:** FR-13.D6. **Depende de:** D5. **Estado:** `DONE`; evidência: `evidencias/T-13.D6.md`.
 - **Arquivos:** criar `identidade_reuniao.py`, `tests/test_identidade_reuniao.py`; modificar `correlacionador.py`, `diarizador.py`, `config.py`.
 - **Implementação:** retornar `Atribuicao`, não string arbitrária. Considerar janela/offset, texto, duração de atividade, origem e conflitos; restringir fallback de atividade a evento do tipo correto. Legenda lexicalmente incompatível não vira prova temporal. Confirmado manual prevalece; conflito com mic/voz produz pendência. Calibrar limiares em conjunto separado e gravar versão de calibração. Só emitir nome automático com precisão seletiva ≥98% e cobertura elegível ≥80%; abaixo disso retornar `suggested`/`unknown`, exibido como `Identificação pendente`.
 - **RED:** `test_legenda_sem_match_nao_substitui_voce`, `test_empate_produz_unknown`, `test_homonimos_exigem_id`, `test_sobreposicao_nao_forca_um_nome`, `test_evidencia_suficiente_nomeia`.

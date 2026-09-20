@@ -129,23 +129,43 @@ def aplicar_nomes_meet(
     janela_margem: float = JANELA_CORRELACAO_SEG,
     sobrescrever_voce: bool = True,
 ) -> list[tuple]:
-    """Aplica nomes do Meet: legenda (texto) tem prioridade sobre frequência (FR-5.2/5.3)."""
+    """Aplica nomes do Meet somente com confirmação (FR-13.D6).
+
+    Cada segmento passa pelo resolvedor conservador; só `CONFIRMED` (ex.:
+    revisão manual) troca o rótulo. Sugestão/incerteza/conflito preservam o
+    rótulo original — nunca frequência, nunca adivinhação. Legenda sem match
+    não substitui `VOCÊ`; voz conhecida não é sobrescrita sem confirmação.
+    """
+    from audio_fontes import AudioSource, SegmentoSTT
+    from identidade_reuniao import AssignmentStatus, resolver_atribuicao
+
     rotulado: list[tuple] = []
-    for rot, start, end, texto in resultado:
-        # Prioridade: legenda com texto > falante ativo (frequência)
-        nome = correlacionar_por_legenda(
-            start, end, texto or "", eventos, janela_margem=janela_margem
+    for idx, (rot, start, end, texto) in enumerate(resultado):
+        segmento = SegmentoSTT(
+            segment_id=f"legado-{idx}",
+            start_ms=int(float(start) * 1000),
+            end_ms=int(float(end) * 1000),
+            source=AudioSource.LOOPBACK,
+            text=str(texto or ""),
+            overlap=False,
         )
-        if not nome:
-            nome = correlacionar_segmento(start, end, eventos, janela_margem)
-        if not nome:
+        try:
+            atribuicao = resolver_atribuicao(
+                segmento,
+                eventos,
+                clock_uncertainty_ms=0,
+                calibration_version=None,
+            )
+        except Exception:  # noqa: BLE001 — em dúvida, preserva o original
             rotulado.append((rot, start, end, texto))
             continue
-        if rot == "VOCÊ" and not sobrescrever_voce:
-            rotulado.append((rot, start, end, texto))
+        if atribuicao.status == AssignmentStatus.CONFIRMED and atribuicao.display_name:
+            if rot == "VOCÊ" and not sobrescrever_voce:
+                rotulado.append((rot, start, end, texto))
+            else:
+                rotulado.append((atribuicao.display_name, start, end, texto))
         else:
-            # Nome Meet vence FALANTE_XX, VOCÊ e nomes de vozes_conhecidas.
-            rotulado.append((nome, start, end, texto))
+            rotulado.append((rot, start, end, texto))
     return rotulado
 
 
@@ -156,11 +176,13 @@ def mesclar_prioridade_rotulos(
     centroides_por_rotulo: dict[str, np.ndarray] | None = None,
     janela_margem: float = JANELA_CORRELACAO_SEG,
 ) -> list[tuple]:
-    """Prioridade FR-5.3: legenda > falante ativo > voz conhecida > VOCÊ > FALANTE_XX.
+    """Prioridade FR-13.D6: confirmação manual > voz conhecida/VOCÊ > FALANTE_XX.
 
-    Ordem de aplicação (camadas de cima sobrescrevem as de baixo):
-      1. vozes conhecidas (embedding)
-      2. nomes Meet (legenda por texto, senão frequência de falante ativo)
+    Camadas:
+      1. vozes conhecidas (embedding) e VOCÊ existente são preservados;
+      2. nomes Meet só entram com confirmação (revisão manual); sugestão,
+         empate, homônimos e sobreposição mantêm o rótulo original.
+    Frequência de tile nunca nomeia sozinha.
     """
     mesclado = resultado
     if vozes_conhecidas and centroides_por_rotulo:

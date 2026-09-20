@@ -33,11 +33,12 @@ def test_correlacionar_voto_por_frequencia():
     assert correlacionar_segmento(10.0, 12.0, eventos) == "Ana"
 
 
-def test_aplicar_nomes_meet_substitui_falante():
+def test_aplicar_nomes_meet_preserva_falante_sem_confirmacao():
+    """FR-13.D6: evento 'ativo' sozinho nunca confirma nome."""
     resultado = [("FALANTE_00", 10.0, 12.0, "ola")]
     eventos = [{"nome": "Ana Silva", "ts_sec": 10.5, "tipo": "ativo"}]
     rotulado = aplicar_nomes_meet(resultado, eventos)
-    assert rotulado[0][0] == "Ana Silva"
+    assert rotulado[0][0] == "FALANTE_00"
 
 
 def test_aplicar_nomes_meet_nao_substitui_voce():
@@ -47,22 +48,24 @@ def test_aplicar_nomes_meet_nao_substitui_voce():
     assert rotulado[0][0] == "VOCÊ"
 
 
-def test_mesclar_prioridade_meet_sobre_voce():
+def test_mesclar_prioridade_preserva_voce_sem_confirmacao():
+    """FR-13.D6: sem confirmação manual, VOCÊ prevalece sobre palpite."""
     resultado = [("VOCÊ", 10.0, 12.0, "texto")]
     eventos = [{"nome": "Ana Silva", "ts_sec": 10.5, "tipo": "ativo"}]
     mesclado = mesclar_prioridade_rotulos(resultado, eventos, vozes_conhecidas={})
-    assert mesclado[0][0] == "Ana Silva"
+    assert mesclado[0][0] == "VOCÊ"
 
 
-def test_aplicar_nomes_meet_substitui_voz_conhecida():
+def test_aplicar_nomes_meet_preserva_voz_conhecida():
+    """FR-13.D6: nome de voz persistida não cai por palpite de tile."""
     resultado = [("Carlos", 10.0, 12.0, "ola")]
     eventos = [{"nome": "Ana Silva", "ts_sec": 10.5, "tipo": "ativo"}]
     rotulado = aplicar_nomes_meet(resultado, eventos)
-    assert rotulado[0][0] == "Ana Silva"
+    assert rotulado[0][0] == "Carlos"
 
 
-def test_mesclar_prioridade_meet_sobre_voz_conhecida():
-    """Meet deve vencer nome persistido (Carlos) na mesma janela temporal."""
+def test_mesclar_prioridade_preserva_voz_conhecida():
+    """FR-13.D6: confirmação ausente mantém o nome persistido (Carlos)."""
     resultado = [("Carlos", 10.0, 12.0, "ola")]
     eventos = [{"nome": "Ana Silva", "ts_sec": 10.5, "tipo": "ativo"}]
     vozes = {
@@ -78,7 +81,7 @@ def test_mesclar_prioridade_meet_sobre_voz_conhecida():
         vozes_conhecidas=vozes,
         centroides_por_rotulo=centroides,
     )
-    assert mesclado[0][0] == "Ana Silva"
+    assert mesclado[0][0] == "Carlos"
 
 
 def test_renomear_falante_persiste_voz_conhecida(tmp_path):
@@ -140,8 +143,8 @@ def test_correlacionar_por_legenda_abaixo_do_limiar_retorna_none():
     assert correlacionar_por_legenda(10.0, 12.0, "xyz completamente diferente", eventos) is None
 
 
-def test_aplicar_nomes_meet_legenda_vence_frequencia():
-    """FR-5.2/5.3: legenda com texto vence voto por frequência de falante ativo."""
+def test_aplicar_nomes_meet_sugestao_nao_autoaplica():
+    """FR-13.D6: legenda forte vira sugestão (D7), não rótulo automático."""
     resultado = [
         ("FALANTE_00", 10.0, 12.0, "vamos fechar o orcamento hoje"),
         ("FALANTE_01", 12.0, 14.0, "preciso de mais prazo no projeto"),
@@ -165,12 +168,12 @@ def test_aplicar_nomes_meet_legenda_vence_frequencia():
         {"nome": "Bruno", "ts_sec": 11.2, "tipo": "ativo"},
     ]
     rotulado = aplicar_nomes_meet(resultado, eventos)
-    assert rotulado[0][0] == "Ana"
-    assert rotulado[1][0] == "Bruno"
+    assert rotulado[0][0] == "FALANTE_00"
+    assert rotulado[1][0] == "FALANTE_01"
 
 
-def test_mesclar_prioridade_legenda_sobre_tudo():
-    """FR-5.3: prioridade legenda > ativo > voz conhecida > VOCÊ > FALANTE."""
+def test_mesclar_prioridade_preserva_voce_sem_confirmacao():
+    """FR-13.D6: nem legenda forte toma VOCÊ sem confirmação manual."""
     resultado = [("VOCÊ", 10.0, 12.0, "bom dia equipe reuniao")]
     eventos = [
         {
@@ -194,11 +197,11 @@ def test_mesclar_prioridade_legenda_sobre_tudo():
         vozes_conhecidas=vozes,
         centroides_por_rotulo=centroides,
     )
-    assert mesclado[0][0] == "Ana Silva"
+    assert mesclado[0][0] == "VOCÊ"
 
 
-def test_sem_legendas_mantem_comportamento_frequencia():
-    """FR-5.2: sem legendas, cai na regra atual de frequência."""
+def test_sem_legendas_sem_frequencia():
+    """FR-13.D6: sem legendas, atividade sozinha nunca nomeia."""
     resultado = [("FALANTE_00", 10.0, 12.0, "qualquer texto")]
     eventos = [
         {"nome": "Ana", "ts_sec": 10.2, "tipo": "ativo"},
@@ -206,4 +209,4 @@ def test_sem_legendas_mantem_comportamento_frequencia():
         {"nome": "Bob", "ts_sec": 11.0, "tipo": "ativo"},
     ]
     rotulado = aplicar_nomes_meet(resultado, eventos)
-    assert rotulado[0][0] == "Ana"
+    assert rotulado[0][0] == "FALANTE_00"
