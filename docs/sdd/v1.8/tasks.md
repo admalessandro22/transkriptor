@@ -1,6 +1,6 @@
 # Tasks — confiabilidade e identificação de participantes
 
-**28 tarefas propostas; 6 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1) e 22 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
+**28 tarefas propostas; 7 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C2) e 21 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
 
 Para execução por outra LLM, `interfaces.md` e `executor-llm.md` são leitura obrigatória. Os blocos **Arquivos**, **Implementação**, **RED**, **Teste final** e **Aceite** de cada task são cumulativos, não alternativas. O agente não pode trocar nomes de interfaces, tecnologia decidida, ordem, thresholds ou comportamento de falha sem primeiro emendar os documentos e obter revisão.
 
@@ -70,7 +70,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.C2 — transcrever microfone e loopback
 
-- [ ] **Requisito:** FR-13.C2. **Depende de:** C1.
+- [x] **Requisito:** FR-13.C2. **Depende de:** C1. **Estado:** `DONE`; evidência: `evidencias/T-13.C2.md` (gate de mic humano APROVADO em 19/09/2026).
 - **Arquivos:** modificar `retranscritor.py`, `diarizador.py`, `audio_utils.py`, `processador_reuniao.py`; criar `audio_reader.py`, `audio_fontes.py`, `tests/test_audio_duas_fontes.py`.
 - **Implementação:** STT por fonte, origem temporal explícita e fusão cronológica de segmentos; não apenas rotular segmentos do loopback. Leitor unificado WAV/WAV cifrado evita `wave.open` sobre ciphertext. Deduplicar somente eco confirmado por alinhamento acústico/textual; fala simultânea independente permanece. Retornar segmentos com `audio_source` e `overlap`.
 - **RED:** `test_frase_exclusiva_mic_aparece`, `test_mic_cifrado_aceito`, `test_eco_nao_duplica_frase`, `test_falas_simultaneas_preservadas`, `test_offset_de_inicio_alinha_fontes`.
