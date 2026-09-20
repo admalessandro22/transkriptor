@@ -11,7 +11,7 @@ from typing import Iterator
 
 import numpy as np
 
-from config import AUDIO_BLOCO_MAX_SEG, AUDIO_CIFRADO_LEGADO_MAX_BYTES
+from config import AUDIO_BLOCO_MAX_SEG, AUDIO_CIFRADO_LEGADO_MAX_BYTES, SAMPLE_RATE
 
 
 class UnsupportedAudioFormat(ValueError):
@@ -132,3 +132,21 @@ def iter_audio(
         finally:
             if detentor is not None:
                 detentor.close()
+
+
+def iter_audio_16k(
+    path: Path, source: AudioSource, max_seconds: float = AUDIO_BLOCO_MAX_SEG
+) -> Iterator[AudioChunk]:
+    """Blocos reamostrados para 16 kHz; a origem temporal segue a taxa do arquivo."""
+    info = inspect_audio(Path(path), source)
+    for bloco in iter_audio(path, source, max_seconds):
+        if info.sample_rate == SAMPLE_RATE or bloco.samples.size == 0:
+            yield bloco
+            continue
+        n_out = max(1, int(bloco.samples.size * SAMPLE_RATE / info.sample_rate))
+        x_old = np.linspace(0, 1, num=bloco.samples.size, endpoint=False)
+        x_new = np.linspace(0, 1, num=n_out, endpoint=False)
+        yield AudioChunk(
+            start_frame=bloco.start_frame,
+            samples=np.interp(x_new, x_old, bloco.samples).astype(np.float32),
+        )

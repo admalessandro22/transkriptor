@@ -62,7 +62,7 @@ def test_frase_exclusiva_mic_aparece(tmp_path):
 
     chamadas = []
 
-    def _fake_transcrever_fonte(path, source, *, model):
+    def _fake_transcrever_fonte(path, source, *, model, **_kwargs):
         chamadas.append(source)
         if source == AudioSource.MICROPHONE:
             return [

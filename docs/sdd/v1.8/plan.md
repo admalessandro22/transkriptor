@@ -30,7 +30,8 @@ definição de pronto nem altera a ordem obrigatória das tarefas.
 | T-13.B3 | DONE | `c9a7255`, `8ca0f8e`, `0a175fb`; evidência `T-13.B3.md` |
 | T-13.C1 | DONE | `8a65132` (C1) + commit de fechamento; evidência `T-13.C1.md` (gates 25 s e 600 s APROVADOS) |
 | T-13.C2 | DONE | `846d52a` (automatizada) + commit de fechamento; evidência `T-13.C2.md` (gate mic humano APROVADO) |
-| T-13.C3 | PRÓXIMA | depende de C2 DONE; não iniciada nesta sessão além do planejamento |
+| T-13.C3 | DONE | commit de fechamento; evidência `T-13.C3.md` (F13.C encerrada) |
+| T-13.D1 | PRÓXIMA | depende de C3 DONE; não iniciada nesta sessão além do planejamento |
 
 ### Base e árvore de trabalho
 

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
-from audio_reader import AudioSource, inspect_audio, iter_audio
+from audio_reader import AudioSource, inspect_audio, iter_audio_16k
 from config import AUDIO_BLOCO_MAX_SEG, ECO_SIMILARIDADE_MIN
 
 
@@ -52,18 +52,29 @@ def _eco_confirmado(a: SegmentoSTT, b: SegmentoSTT) -> bool:
 
 
 def transcrever_fonte(
-    path: Path, source: AudioSource, *, model: object
+    path: Path,
+    source: AudioSource,
+    *,
+    model: object,
+    max_seconds: float = AUDIO_BLOCO_MAX_SEG,
+    idioma: str = "pt",
+    on_status=None,
 ) -> list[SegmentoSTT]:
     caminho = Path(path)
     info = inspect_audio(caminho, source)
     if info.total_frames <= 0:
         return []
+    avisar = on_status or (lambda _m: None)
     segmentos: list[SegmentoSTT] = []
-    for bloco_idx, bloco in enumerate(iter_audio(caminho, source, AUDIO_BLOCO_MAX_SEG)):
+    for bloco_idx, bloco in enumerate(iter_audio_16k(caminho, source, max_seconds)):
         if bloco.samples.size == 0:
             continue
+        # Origem temporal explícita na taxa real do arquivo (C3).
         base_ms = int(bloco.start_frame * 1000 / info.sample_rate)
-        encontrados, _info = model.transcribe(bloco.samples, language="pt")
+        avisar(f"transcribe:{bloco.start_frame}")
+        encontrados, _info = model.transcribe(
+            bloco.samples, language=None if idioma == "auto" else idioma
+        )
         for seg_idx, segmento in enumerate(list(encontrados)):
             texto = str(getattr(segmento, "text", "")).strip()
             if not texto:

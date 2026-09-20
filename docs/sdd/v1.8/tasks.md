@@ -1,6 +1,6 @@
 # Tasks — confiabilidade e identificação de participantes
 
-**28 tarefas propostas; 7 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C2) e 21 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
+**28 tarefas propostas; 8 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3) e 20 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
 
 Para execução por outra LLM, `interfaces.md` e `executor-llm.md` são leitura obrigatória. Os blocos **Arquivos**, **Implementação**, **RED**, **Teste final** e **Aceite** de cada task são cumulativos, não alternativas. O agente não pode trocar nomes de interfaces, tecnologia decidida, ordem, thresholds ou comportamento de falha sem primeiro emendar os documentos e obter revisão.
 
@@ -79,7 +79,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.C3 — áudio longo e formatos explícitos
 
-- [ ] **Requisito:** NFR-13.C3. **Depende de:** C2.
+- [x] **Requisito:** NFR-13.C3. **Depende de:** C2. **Estado:** `DONE`; evidência: `evidencias/T-13.C3.md` (F13.C encerrada; gate 600 s reaproveitado de C1).
 - **Arquivos:** modificar `retranscritor.py`, `audio_reader.py`, `audio_utils.py`, `crypto_storage.py`, `diarizacao_final.py`; criar `tests/test_audio_streaming.py` e ADR `docs/adr/0001-audio-cifrado-em-blocos.md`.
 - **Implementação:** ampliar o reader de C2 para iteração por blocos ≤30 s com leitura de RIFF/chunks correta; suportar PCM 16/24/32 explicitamente ou rejeitar formato não implementado. Resampling usa taxa do arquivo. Evitar `readframes(total)` e conversões globais. Para `.enc` legado AES-GCM monolítico, declarar limite de tamanho e rota de migração. C3 **não implementa um container criptográfico novo**: documenta no ADR requisitos, alternativas e riscos; a decisão/implementação fica em E1 após revisão de segurança.
 - **RED:** `test_audio_duas_horas_nao_le_completo`, `test_pcm24_nao_vira_uint8`, `test_chunk_riff_extra_preserva_duracao`, `test_cifrado_legado_excede_limite_com_erro_claro`.

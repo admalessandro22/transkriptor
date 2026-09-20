@@ -205,64 +205,48 @@ def retranscrever(
     if criptografar is not None:
         gerar_copia_tkpt = gerar_copia_tkpt or bool(criptografar)
 
-    audio, sr = _ler_audio_pcm(caminho_audio)
-    if sr != SAMPLE_RATE and audio.size:
-        n_out = int(audio.size * SAMPLE_RATE / sr)
-        x_old = np.linspace(0, 1, num=audio.size, endpoint=False)
-        x_new = np.linspace(0, 1, num=n_out, endpoint=False)
-        audio = np.interp(x_new, x_old, audio).astype(np.float32)
+    # T-13.C2/C3: STT por fonte em blocos (nunca readframes(total)) com
+    # origem temporal explícita e fusão cronológica; sem mic, só loopback.
+    import audio_fontes
+    from audio_reader import AudioSource, inspect_audio, iter_audio_16k
 
     modelo = _carregar_modelo(modelo_whisper, pasta, on_status, modelo_nome)
+    bloco_seg = float(chunk or CHUNK_SEGUNDOS)
+    info_lb = inspect_audio(Path(caminho_audio), AudioSource.LOOPBACK)
+    duracao = info_lb.total_frames / float(info_lb.sample_rate or SAMPLE_RATE)
+    segs_lb = audio_fontes.transcrever_fonte(
+        Path(caminho_audio),
+        AudioSource.LOOPBACK,
+        model=modelo,
+        max_seconds=bloco_seg,
+        idioma=idioma,
+        on_status=on_status,
+    )
     if caminho_mic:
-        # T-13.C2: STT separado por fonte com origem temporal explícita e
-        # fusão cronológica; nunca apenas rotular segmentos do loopback.
-        import audio_fontes
-        from audio_reader import AudioSource
-
-        segs_lb = audio_fontes.transcrever_fonte(
-            Path(caminho_audio), AudioSource.LOOPBACK, model=modelo
-        )
         try:
             segs_mic = audio_fontes.transcrever_fonte(
-                Path(caminho_mic), AudioSource.MICROPHONE, model=modelo
+                Path(caminho_mic),
+                AudioSource.MICROPHONE,
+                model=modelo,
+                max_seconds=bloco_seg,
+                idioma=idioma,
+                on_status=on_status,
             )
         except (FileNotFoundError, OSError):
             logger.warning("Áudio do mic indisponível; seguindo só com loopback")
             segs_mic = []
         fundidos = audio_fontes.mesclar_segmentos(segs_lb, segs_mic)
-        linhas = [
-            f"[{_timestamp_relativo(s.start_ms / 1000.0)}] {s.text}" for s in fundidos
-        ]
-        segmentos = [
-            (s.start_ms / 1000.0, s.end_ms / 1000.0, s.text) for s in fundidos
-        ]
         on_status(f"transcribe:fontes:{len(segs_lb)}+{len(segs_mic)}")
     else:
-        tamanho_bloco = max(SAMPLE_RATE, int(SAMPLE_RATE * chunk))
-        linhas, segmentos = [], []
-        for inicio_frame in range(0, audio.size, tamanho_bloco):
-            fim_frame = min(audio.size, inicio_frame + tamanho_bloco)
-            pedaco = audio[inicio_frame:fim_frame]
-            inicio_bloco = inicio_frame / SAMPLE_RATE
-            on_status(f"transcribe:{inicio_frame}")
-            encontrados, _info = modelo.transcribe(
-                pedaco,
-                language=None if idioma == "auto" else idioma,
-                vad_filter=True,
-                beam_size=1,
-                vad_parameters={"min_silence_duration_ms": 600},
-            )
-            for segmento in list(encontrados):
-                texto = str(segmento.text).strip()
-                if not texto:
-                    continue
-                inicio_abs = inicio_bloco + float(segmento.start)
-                fim_abs = inicio_bloco + float(segmento.end)
-                linhas.append(f"[{_timestamp_relativo(inicio_abs)}] {texto}")
-                segmentos.append((inicio_abs, fim_abs, texto))
+        fundidos = audio_fontes.mesclar_segmentos(segs_lb, [])
+    linhas = [
+        f"[{_timestamp_relativo(s.start_ms / 1000.0)}] {s.text}" for s in fundidos
+    ]
+    segmentos = [
+        (s.start_ms / 1000.0, s.end_ms / 1000.0, s.text) for s in fundidos
+    ]
 
     metadados = dict(metadados or {})
-    duracao = audio.size / float(SAMPLE_RATE)
     texto_final = _texto_transcricao(linhas, metadados, duracao)
     caminho_final = Path(pasta) / f"{base}.txt"
     _escrever_texto_atomico(caminho_final, texto_final)
@@ -272,11 +256,18 @@ def retranscrever(
             temporario_txt = Path(tmp_dir) / f"{base}.txt"
             temporario_wav = Path(tmp_dir) / f"{base}_audio.wav"
             temporario_txt.write_text(texto_final, encoding="utf-8")
+            # WAV temporário em streaming (blocos 16 kHz); sem waveform completo.
             with wave.open(str(temporario_wav), "wb") as wav:
                 wav.setnchannels(1)
                 wav.setsampwidth(2)
                 wav.setframerate(SAMPLE_RATE)
-                wav.writeframes((audio * 32767).astype(np.int16).tobytes())
+                for bloco in iter_audio_16k(
+                    Path(caminho_audio), AudioSource.LOOPBACK, bloco_seg
+                ):
+                    if bloco.samples.size:
+                        wav.writeframes(
+                            (bloco.samples * 32767).astype(np.int16).tobytes()
+                        )
             transcritor = Transcritor(
                 pasta_saida=tmp_dir,
                 diarizar_ao_final=True,
