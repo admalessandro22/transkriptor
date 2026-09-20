@@ -32,7 +32,9 @@ definição de pronto nem altera a ordem obrigatória das tarefas.
 | T-13.C2 | DONE | `846d52a` (automatizada) + commit de fechamento; evidência `T-13.C2.md` (gate mic humano APROVADO) |
 | T-13.C3 | DONE | commit de fechamento; evidência `T-13.C3.md` (F13.C encerrada) |
 | T-13.D1 | DONE | commit de fechamento; evidência `T-13.D1.md` |
-| T-13.D2 | PRÓXIMA | depende de D1 DONE; gates Chrome+Edge exigem autorização própria |
+| T-13.D2 | BLOCKED | implementação commitada (`765ef1d`); evidência `T-13.D2.md`; demo Chrome+Edge pendente de autorização |
+| T-13.D3 | DONE | commit de fechamento; evidência `T-13.D3.md` (exceção: iniciado com D2 BLOCKED, só fixtures/JS) |
+| T-13.D4 | PRÓXIMA | depende de D3 DONE; sem coleta real sem autorização |
 
 ### Base e árvore de trabalho
 

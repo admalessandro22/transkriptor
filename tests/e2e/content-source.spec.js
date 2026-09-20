@@ -8,6 +8,7 @@ const manifest = JSON.parse(
   readFileSync(resolve(raiz, "extension/meet/manifest.json"), "utf8")
 );
 const contentScript = readFileSync(resolve(raiz, "extension/meet/content.js"), "utf8");
+const parserScript = readFileSync(resolve(raiz, "extension/meet/parser.js"), "utf8");
 
 
 test("a extensão referencia e executa content.js real em contexto isolado", async ({ page }) => {
@@ -26,6 +27,7 @@ test("a extensão referencia e executa content.js real em contexto isolado", asy
     };
     window.setInterval = () => 0;
   });
+  await page.addScriptTag({ content: parserScript });
   await page.addScriptTag({ content: contentScript });
   await page.evaluate(() => {
     const bloco = document.createElement("section");

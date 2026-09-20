@@ -1,6 +1,6 @@
 # Tasks — confiabilidade e identificação de participantes
 
-**28 tarefas propostas; 9 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1) e 19 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
+**28 tarefas propostas; 10 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1, T-13.D3) e 18 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
 
 Para execução por outra LLM, `interfaces.md` e `executor-llm.md` são leitura obrigatória. Os blocos **Arquivos**, **Implementação**, **RED**, **Teste final** e **Aceite** de cada task são cumulativos, não alternativas. O agente não pode trocar nomes de interfaces, tecnologia decidida, ordem, thresholds ou comportamento de falha sem primeiro emendar os documentos e obter revisão.
 
@@ -108,7 +108,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.D3 — roster e parser de legendas confiável
 
-- [ ] **Requisito:** FR-13.D3. **Depende de:** D2.
+- [x] **Requisito:** FR-13.D3. **Depende de:** D2 (implementação; gate de navegadores pendente). **Estado:** `DONE` (automatizado+fixtures); evidência: `evidencias/T-13.D3.md`.
 - **Arquivos:** criar `extension/meet/parser.js`, `tests/js/meet-parser.test.js`, fixtures HTML anonimizadas versionadas; modificar `extension/meet/content.js` e README.
 - **Implementação:** exportar funções reais de extração, preferir atributos semânticos, separar roster de speaker activity. Capturar IDs quando disponíveis, marcar IDs locais como efêmeros e não fundir homônimos. Eventos de legenda possuem ID/revisão; observar alterações relevantes com debounce e emitir última revisão sem repetir o mesmo bloco indefinidamente. Opacidade não prova fala. Seletor desconhecido emite capacidade indisponível.
 - **RED:** tile visível silencioso, homônimos, fala com câmera desligada, revisão de legenda, duplicação de MutationObserver, DOM sem seletores e legenda desligada.

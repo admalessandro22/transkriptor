@@ -7,6 +7,10 @@ const contentScript = readFileSync(
   resolve(process.cwd(), "extension/meet/content.js"),
   "utf8"
 );
+const parserScript = readFileSync(
+  resolve(process.cwd(), "extension/meet/parser.js"),
+  "utf8"
+);
 
 
 const mensagens = [];
@@ -23,7 +27,9 @@ function carregarContentScriptReal() {
   mensagens.length = 0;
   document.body.replaceChildren();
 
-  // Executa o arquivo de produção sem reimplementar o parser no teste.
+  // Executa os arquivos de produção na ordem do manifest, sem
+  // reimplementar o parser no teste.
+  Function(parserScript)();
   Function(contentScript)();
   if (document.readyState === "loading") {
     document.dispatchEvent(new Event("DOMContentLoaded"));

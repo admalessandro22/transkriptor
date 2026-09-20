@@ -8,6 +8,7 @@ const manifest = JSON.parse(
   readFileSync(resolve(raiz, "extension/meet/manifest.json"), "utf8")
 );
 const contentScript = readFileSync(resolve(raiz, "extension/meet/content.js"), "utf8");
+const parserScript = readFileSync(resolve(raiz, "extension/meet/parser.js"), "utf8");
 const fundoScript = readFileSync(resolve(raiz, "extension/meet/background.js"), "utf8");
 const pairingHtml = readFileSync(resolve(raiz, "extension/meet/pairing.html"), "utf8");
 const pairingJs = readFileSync(resolve(raiz, "extension/meet/pairing.js"), "utf8");
@@ -17,7 +18,7 @@ test("manifesto MV3: service worker, sem segredo no content script", async () =>
   expect(manifest.manifest_version).toBe(3);
   expect(manifest.background.service_worker).toBe("background.js");
   expect(manifest.permissions).toContain("storage");
-  expect(manifest.content_scripts[0].js).toEqual(["content.js"]);
+  expect(manifest.content_scripts[0].js).toEqual(["parser.js", "content.js"]);
   expect(contentScript).not.toMatch(/new\s+WebSocket/);
   expect(contentScript).not.toMatch(/MEET_WS_TOKEN/);
 });
@@ -98,6 +99,7 @@ test("content real entrega legenda ao fundo no navegador", async ({ page }) => {
     };
     window.setInterval = () => 0;
   });
+  await page.addScriptTag({ content: parserScript });
   await page.addScriptTag({ content: contentScript });
   await page.evaluate(() => {
     const bloco = document.createElement("section");

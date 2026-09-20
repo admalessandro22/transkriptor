@@ -9,7 +9,7 @@ Extensão **opcional** do Google Chrome que envia nomes dos participantes do Mee
 | Entra na reunião como bot? | **Não** — nenhum participante extra aparece na call |
 | Mostra botão ou painel no Meet? | **Não** — é silenciosa na interface da reunião |
 | Onde aparece? | Só em `chrome://extensions`, como **Transkriptor Meet Bridge** |
-| Como funciona? | Lê a página do Meet (tiles e legendas CC) e envia nomes para `ws://127.0.0.1:5051` |
+| Como funciona? | `parser.js` lê tiles e legendas CC; `background.js` envia ao app via `ws://127.0.0.1:5051` |
 
 A transcrição automática funciona **sem** a extensão. Instale-a apenas se quiser **nomes do Meet** na transcrição diarizada.
 
@@ -26,9 +26,14 @@ A transcrição automática funciona **sem** a extensão. Instale-a apenas se qu
 
 ## Instalação passo a passo
 
-### 1. Inicie o Transkriptor
+### 1. Inicie o Transkriptor e pareie a extensão
 
-Abra o app (`transkriptor.pyw`). Ele gera o token de segurança e grava em `config.js` desta pasta. **Não edite `config.js` manualmente.**
+Abra o app (`transkriptor.pyw`). Ele gera um código de pareamento de uso
+único (Diagnóstico). **Não há mais segredo em `config.js`.**
+
+1. Abra a página `pairing.html` da extensão (ou `chrome://extensions` → detalhes → página de pareamento)
+2. Cole o código e clique em **Parear**
+3. O service worker (`background.js`) guarda a credencial da sessão e conecta
 
 ### 2. Ative a ponte no menu da bandeja
 
@@ -84,11 +89,12 @@ Nome do Meet  >  Nome cadastrado (vozes conhecidas)  >  VOCÊ  >  FALANTE_XX
 
 ### Extensão instalada antes do Transkriptor
 
-O `config.js` pode estar com token inválido (`placeholder`).
+A credencial pode estar ausente ou expirada.
 
-1. Abra o Transkriptor (ele regrava o token)
-2. Em `chrome://extensions`, clique em **Recarregar** na extensão
-3. Atualize a aba do Meet (F5)
+1. Abra o Transkriptor e gere um novo código de pareamento
+2. Abra `pairing.html` e pareie novamente
+3. Em `chrome://extensions`, clique em **Recarregar** na extensão
+4. Atualize a aba do Meet (F5)
 
 ### Nomes não aparecem na transcrição
 
@@ -106,6 +112,14 @@ O `config.js` pode estar com token inválido (`placeholder`).
 ### Atualizou o projeto / copiou pasta nova
 
 Repita o passo **Carregar sem compactação** ou use **Recarregar** em `chrome://extensions` após abrir o Transkriptor uma vez.
+
+## Parser versionado (D3)
+
+`parser.js` (v1) separa **roster** (tiles, sem alegar fala) de **legendas**
+(nome+texto com id/revisão) e de **atividade** (sinal auxiliar). Tile visível
+não prova fala; homônimos mantêm ids distintos; sem seletores conhecidos, a
+capacidade é reportada como indisponível. Fixtures anonimizadas versionadas em
+`tests/js/fixtures/meet-*-v1.html`; suíte em `tests/js/meet-parser.test.js`.
 
 ---
 
