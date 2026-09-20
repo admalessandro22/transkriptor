@@ -145,6 +145,12 @@ MAX_MENSAGEM_MEET_WS = 4096
 MAX_NOME_PARTICIPANTE = 80
 MAX_TEXTO_LEGENDA = 500
 MAX_FILA_MEET_WS = 500
+MEET_WS_MAX_BYTES = 16 * 1024          # envelope máximo no socket (spec: 4 KiB)
+MEET_WS_EVENTOS_POR_SEG = 20           # taxa sustentada por conexão
+MEET_WS_BURST = 40                     # rajada máxima por conexão
+MEET_WS_MAX_CONEXOES = 4               # conexões autenticadas simultâneas
+MEET_CONVITE_SEG = 300                 # validade do convite de pareamento
+MEET_SESSAO_SEG = 12 * 3600            # validade da credencial da sessão
 TIMEOUT_JOIN_STOP_SEG = 30
 
 # ---- Watchdog ----

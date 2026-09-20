@@ -9,31 +9,18 @@ const contentScript = readFileSync(
 );
 
 
-class WebSocketFalsa {
-  static OPEN = 1;
-  static instancias = [];
-
-  constructor(url) {
-    this.url = url;
-    this.readyState = WebSocketFalsa.OPEN;
-    this.mensagens = [];
-    WebSocketFalsa.instancias.push(this);
-  }
-
-  send(mensagem) {
-    this.mensagens.push(mensagem);
-  }
-
-  close() {
-    this.readyState = 3;
-  }
-}
-
+const mensagens = [];
 
 function carregarContentScriptReal() {
-  vi.stubGlobal("WebSocket", WebSocketFalsa);
+  vi.stubGlobal("chrome", {
+    runtime: {
+      sendMessage: (msg) => {
+        mensagens.push(msg);
+      }
+    }
+  });
   vi.spyOn(globalThis, "setInterval").mockImplementation(() => 0);
-  WebSocketFalsa.instancias = [];
+  mensagens.length = 0;
   document.body.replaceChildren();
 
   // Executa o arquivo de produção sem reimplementar o parser no teste.
@@ -52,7 +39,9 @@ afterEach(() => {
 
 
 describe("content.js real", () => {
-  it("envia a legenda extraída do DOM pelo parser de produção", async () => {
+  it("entrega a legenda ao service worker sem segredo nem WebSocket direto", async () => {
+    expect(contentScript).not.toMatch(/new\s+WebSocket/);
+    expect(contentScript).not.toMatch(/MEET_WS_TOKEN/);
     carregarContentScriptReal();
     const legenda = document.createElement("section");
     legenda.setAttribute("data-caption-block", "");
@@ -64,13 +53,14 @@ describe("content.js real", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    const socket = WebSocketFalsa.instancias.at(-1);
-    expect(socket).toBeDefined();
-    expect(socket.mensagens).toHaveLength(1);
-    expect(JSON.parse(socket.mensagens[0])).toMatchObject({
-      nome: "Pessoa Sintética",
-      tipo: "legenda",
-      texto: "vamos revisar o cronograma"
+    expect(mensagens).toHaveLength(1);
+    expect(mensagens[0]).toMatchObject({
+      tipo: "meet-evento",
+      evento: {
+        nome: "Pessoa Sintética",
+        tipo: "legenda",
+        texto: "vamos revisar o cronograma"
+      }
     });
   });
 });

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Parear Transkriptor Meet</title>
+<style>
+  body { font-family: sans-serif; margin: 24px; max-width: 420px; }
+  input { width: 100%; padding: 8px; margin: 8px 0; }
+  button { padding: 8px 16px; }
+  #estado { margin-top: 12px; min-height: 1.5em; }
+</style>
+</head>
+<body>
+<h1>Parear com o Transkriptor</h1>
+<p>Cole o código de uso único exibido no Diagnóstico do aplicativo e clique em Parear.</p>
+<input id="codigo" type="text" autocomplete="off" spellcheck="false" placeholder="pair-...">
+<button id="parear" type="button">Parear</button>
+<p id="estado" role="status"></p>
+<script src="pairing.js"></script>
+</body>
+</html>

@@ -14,24 +14,16 @@ test("a extensão referencia e executa content.js real em contexto isolado", asy
   expect(manifest.content_scripts[0].js).toContain("content.js");
   await page.setContent("<main></main>");
   await page.evaluate(() => {
-    class WebSocketFalsa {
-      static OPEN = 1;
-
-      constructor() {
-        this.readyState = WebSocketFalsa.OPEN;
-      }
-
-      send(payload) {
-        window.__eventosMeetTeste.push(JSON.parse(payload));
-      }
-
-      close() {
-        this.readyState = 3;
-      }
-    }
-
     window.__eventosMeetTeste = [];
-    window.WebSocket = WebSocketFalsa;
+    window.chrome = {
+      runtime: {
+        sendMessage: (msg) => {
+          if (msg && msg.tipo === "meet-evento") {
+            window.__eventosMeetTeste.push(msg.evento);
+          }
+        }
+      }
+    };
     window.setInterval = () => 0;
   });
   await page.addScriptTag({ content: contentScript });

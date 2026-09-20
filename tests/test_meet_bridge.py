@@ -76,7 +76,7 @@ def test_servidor_recebe_evento_via_websocket():
 
     async def _enviar():
         uri = f"ws://127.0.0.1:{porta}?token={bridge.token}"
-        async with websockets.connect(uri) as ws:
+        async with websockets.connect(uri, origin=f"http://127.0.0.1:{porta}") as ws:
             await ws.send(json.dumps({"nome": "Ana", "ts_ms": 10500, "tipo": "ativo"}))
 
     asyncio.run(_enviar())

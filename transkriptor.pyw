@@ -59,7 +59,7 @@ from monitor_reuniao import (
 )
 from estado_icone import resolver_estado_icone
 from fila_processamento import fila_padrao
-from meet_bridge import MeetBridge, iniciar_bridge_em_thread, sincronizar_token_extensao
+from meet_bridge import MeetBridge, Pareador, iniciar_bridge_em_thread, sincronizar_token_extensao
 from notificador import (
     configurar_icone,
     notificar,
@@ -132,7 +132,8 @@ class AppTranskriptor(CicloReuniaoMixin, ProcessamentoReuniaoMixin, MenuBandejaM
         if not meet_token:
             meet_token = secrets.token_urlsafe(24)
             _atualizar_config_user(meet_bridge_token=meet_token)
-        self.meet_bridge = MeetBridge(token=meet_token)
+        self.meet_bridge = MeetBridge(token=meet_token, pareador=Pareador())
+        self.convite_pareamento_meet = self.meet_bridge.pareador.gerar_convite()
         sincronizar_token_extensao(meet_token, BASE_DIR)
         # FR-9.B1: fusão de fontes. Qualquer uma mantém a reunião viva; assim
         # trocar de aba no meio da chamada não encerra mais a gravação.

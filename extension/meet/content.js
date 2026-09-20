@@ -1,6 +1,8 @@
 /**
  * Transkriptor Meet Bridge — falante ativo e legendas com nome+texto (FR-5.1).
- * Envia eventos para ws://127.0.0.1:5051
+ * Transporte T-13.D2: content script extrai e entrega ao service worker via
+ * chrome.runtime; SÓ o background.js abre o WebSocket local. Nenhum segredo
+ * neste arquivo (a credencial vive em chrome.storage.session, via pairing).
  *
  * Camadas de extração de legendas (extrairLegendas):
  *   1. região ARIA + data-caption-block / data-speaker-name / data-caption-text
@@ -11,19 +13,21 @@
  * (sem runner JS no projeto).
  */
 (function () {
-  const WS_URL =
-    "ws://127.0.0.1:5051?token=" +
-    encodeURIComponent(typeof MEET_WS_TOKEN !== "undefined" ? MEET_WS_TOKEN : "");
   const DEBOUNCE_MS = 400;
   const MAX_TEXTO = 500;
 
   const HEARTBEAT_MS = 5000;
 
-  let ws = null;
   let ultimoNome = "";
   let ultimoTexto = "";
   let ultimoEnvio = 0;
-  let timerReconectar = null;
+
+  /** Entrega ao service worker; ele detém o WebSocket e a credencial. */
+  function canalEnviar(payload) {
+    try {
+      chrome.runtime.sendMessage({ tipo: "meet-evento", evento: payload });
+    } catch (_e) {}
+  }
 
   /**
    * Estamos dentro de uma chamada (e não na tela inicial / sala de espera)?
@@ -48,29 +52,9 @@
 
   /** FR-9.3: heartbeat de estado — a fonte mais confiável de detecção. */
   function enviarEstado() {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
     try {
-      ws.send(JSON.stringify({ tipo: "reuniao", ativa: emChamada(), ts_ms: Date.now(), titulo: (document.title || "").slice(0, 120) }));
+      canalEnviar({ tipo: "reuniao", ativa: emChamada(), ts_ms: Date.now(), titulo: (document.title || "").slice(0, 120) });
     } catch (_e) {}
-  }
-
-  function conectar() {
-    try {
-      ws = new WebSocket(WS_URL);
-      ws.onopen = function () {
-        enviarEstado();
-      };
-      ws.onclose = function () {
-        timerReconectar = setTimeout(conectar, 3000);
-      };
-      ws.onerror = function () {
-        try {
-          ws.close();
-        } catch (_e) {}
-      };
-    } catch (_e) {
-      timerReconectar = setTimeout(conectar, 3000);
-    }
   }
 
   function textoLimpo(el) {
@@ -78,7 +62,7 @@
   }
 
   function enviar(nome, tipo, texto) {
-    if (!nome || !ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!nome) return;
     const agora = Date.now();
     const txt = (texto || "").trim().slice(0, MAX_TEXTO);
     if (
@@ -99,7 +83,7 @@
     if (txt) {
       payload.texto = txt;
     }
-    ws.send(JSON.stringify(payload));
+    canalEnviar(payload);
   }
 
   /**
@@ -251,14 +235,11 @@
   }
 
   window.addEventListener("beforeunload", function () {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      try {
-        ws.send(JSON.stringify({ tipo: "reuniao", ativa: false, ts_ms: Date.now() }));
-      } catch (_e) {}
-    }
+    try {
+      canalEnviar({ tipo: "reuniao", ativa: false, ts_ms: Date.now() });
+    } catch (_e) {}
   });
 
-  conectar();
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", iniciarObserver);
   } else {
