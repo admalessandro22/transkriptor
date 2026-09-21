@@ -38,9 +38,17 @@ if errorlevel 1 (
 )
 
 echo [4/5] Dependencias do projeto + warm-up opcional...
-%VENV_PY% -m pip install -r requirements.txt
+%VENV_PY% scripts\instalar_helper.py --check gpu
+for /f "delims=" %%R in ('%VENV_PY% -c "from scripts.instalar_helper import tem_gpu_nvidia; print(\"cuda\" if tem_gpu_nvidia() else \"cpu\")"') do set "ROTA=%%R"
+%VENV_PY% scripts\instalar_helper.py --check deps --rota %ROTA%
 if errorlevel 1 (
-  echo [ERRO] Falha ao instalar requirements.txt
+  echo [ERRO] Combinacao de dependencias invalida para a rota %ROTA%.
+  pause
+  exit /b 1
+)
+%VENV_PY% -m pip install -r requirements.txt -c requirements\constraints-%ROTA%.txt
+if errorlevel 1 (
+  echo [ERRO] Falha ao instalar requirements.txt (rota %ROTA%)
   pause
   exit /b 1
 )

@@ -1,6 +1,6 @@
 # Tasks — confiabilidade e identificação de participantes
 
-**28 tarefas propostas; 21 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1, T-13.D3–D7, T-13.E1–E4, T-13.F1–F3) e 7 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
+**28 tarefas propostas; 22 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1, T-13.D3–D7, T-13.E1–E4, T-13.F1–F3, T-13.G1) e 6 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
 
 Para execução por outra LLM, `interfaces.md` e `executor-llm.md` são leitura obrigatória. Os blocos **Arquivos**, **Implementação**, **RED**, **Teste final** e **Aceite** de cada task são cumulativos, não alternativas. O agente não pode trocar nomes de interfaces, tecnologia decidida, ordem, thresholds ou comportamento de falha sem primeiro emendar os documentos e obter revisão.
 
@@ -222,7 +222,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.G1 — dependências reproduzíveis e CI
 
-- [ ] **Requisito:** NFR-13.G1. **Depende de:** F3.
+- [x] **Requisito:** NFR-13.G1. **Depende de:** F3. **Estado:** `DONE`; evidência: `evidencias/T-13.G1.md`.
 - **Arquivos:** modificar requisitos/pyproject; criar constraints/locks CPU e CUDA, `.github/workflows/tests.yml`, `docs/DEPENDENCIAS.md`; atualizar instalador para consumir a seleção validada.
 - **Implementação:** ambiente virtual limpo com matrizes CPU e CUDA suportadas; fixar API websockets compatível, casal torch/torchaudio e wheel PyNaCl/libsodium para Python 3.12/Windows. Executar auditoria de dependências transitivas e gerar SBOM sem credenciais. CI Windows roda pytest, JS, contratos e artefatos de falha nas rotas possíveis; gate físico é separado e não é falsamente simulado pelo CI. Não corrigir pacotes globais não pertencentes ao produto.
 - **RED:** instalar conjunto não compatível deve falhar na pré-checagem com mensagem clara; resolver locks reproduz exatamente a árvore aprovada.

@@ -59,10 +59,23 @@ def comando_torch(tem_gpu: bool) -> list[str]:
     return [sys.executable, "-m", "pip", "install", "torch", "torchaudio"]
 
 
+def combinacao_valida(selecao: dict) -> tuple[bool, str]:
+    """Pré-checagem de conjunto (T-13.G1): incompatível reprova com motivo claro."""
+    torch_cuda = bool(selecao.get("torch_cuda"))
+    tem_gpu = bool(selecao.get("tem_gpu"))
+    if torch_cuda and not tem_gpu:
+        return False, "ERRO: rota torch CUDA sem GPU NVIDIA detectada — use a rota CPU"
+    return True, "OK combinação de dependências"
+
+
+def _rota_detectada() -> str:
+    return "cuda" if tem_gpu_nvidia() else "cpu"
+
+
 def main(argv=None):
     argv = list(argv or sys.argv[1:])
     if not argv or argv[0] != "--check":
-        print("Uso: instalar_helper.py --check python|gpu|ollama|torch")
+        print("Uso: instalar_helper.py --check python|gpu|ollama|torch|deps")
         return 2
     oque = argv[1] if len(argv) > 1 else ""
     if oque == "python":
@@ -84,6 +97,17 @@ def main(argv=None):
         cmd = comando_torch(gpu)
         print(" ".join(cmd))
         return 0
+    if oque == "deps":
+        rota = ""
+        for i, parte in enumerate(argv):
+            if parte == "--rota" and i + 1 < len(argv):
+                rota = argv[i + 1]
+        if rota not in ("cpu", "cuda"):
+            print("ERRO: informe --rota cpu|cuda")
+            return 2
+        ok, msg = combinacao_valida({"torch_cuda": rota == "cuda", "tem_gpu": tem_gpu_nvidia()})
+        print(f"{msg} (rota {rota})")
+        return 0 if ok else 1
     print("ERRO: check desconhecido")
     return 2
 

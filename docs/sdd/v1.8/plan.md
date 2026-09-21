@@ -45,7 +45,8 @@ definição de pronto nem altera a ordem obrigatória das tarefas.
 | T-13.F1 | DONE | commit de fechamento; evidência `T-13.F1.md` |
 | T-13.F2 | DONE | commit de fechamento; evidência `T-13.F2.md` |
 | T-13.F3 | DONE | commit de fechamento; evidência `T-13.F3.md` |
-| T-13.G1 | PRÓXIMA | depende de F3; sem corrigir ambiente global |
+| T-13.G1 | DONE | commit de fechamento; evidência `T-13.G1.md` |
+| T-13.G2 | PRÓXIMA | depende de G1; sem alterar atalhos reais |
 
 ### Base e árvore de trabalho
 

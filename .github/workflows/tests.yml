@@ -1,0 +1,50 @@
+name: tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  python-js-cpu:
+    name: Python + JS (CPU, Windows)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Instalar dependências (trava CPU)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt -c requirements/constraints-cpu.txt
+          python -m pip check
+      - name: Pré-checagem do instalador
+        run: python scripts/instalar_helper.py --check deps --rota cpu
+      - name: Python — suíte completa
+        run: python -m pytest tests/ -q --tb=short --junitxml=test-results/pytest.xml
+      - name: JS — unidade e e2e
+        run: |
+          npm ci
+          npm run test:unit
+          npx playwright install --with-deps chromium
+          npm run test:e2e
+      - name: Diff limpo
+        run: git diff --check
+      - name: Artefatos de falha
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: falha-${{ github.run_id }}
+          path: |
+            test-results/
+            test-results*/**/*
+            playwright-report/

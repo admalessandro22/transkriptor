@@ -1,0 +1,89 @@
+{
+  "ferramenta": "transkriptor-sbom-local",
+  "pacotes": [
+    {
+      "nome": "torch",
+      "versao": "2.11.0+cu128"
+    },
+    {
+      "nome": "torchaudio",
+      "versao": "2.11.0+cu128"
+    },
+    {
+      "nome": "faster-whisper",
+      "versao": "1.1.1"
+    },
+    {
+      "nome": "soundcard",
+      "versao": "0.4.6"
+    },
+    {
+      "nome": "numpy",
+      "versao": "2.4.2"
+    },
+    {
+      "nome": "pystray",
+      "versao": "0.19.5"
+    },
+    {
+      "nome": "pygetwindow",
+      "versao": "0.0.9"
+    },
+    {
+      "nome": "pillow",
+      "versao": "12.1.0"
+    },
+    {
+      "nome": "speechbrain",
+      "versao": "1.1.0"
+    },
+    {
+      "nome": "scikit-learn",
+      "versao": "1.9.0"
+    },
+    {
+      "nome": "flask",
+      "versao": "3.1.2"
+    },
+    {
+      "nome": "websockets",
+      "versao": "16.0"
+    },
+    {
+      "nome": "cryptography",
+      "versao": "49.0.0"
+    },
+    {
+      "nome": "pynacl",
+      "versao": "1.6.2"
+    },
+    {
+      "nome": "ctranslate2",
+      "versao": "4.8.1"
+    },
+    {
+      "nome": "onnxruntime",
+      "versao": "1.27.0"
+    },
+    {
+      "nome": "tokenizers",
+      "versao": "0.23.1"
+    },
+    {
+      "nome": "scipy",
+      "versao": "1.18.0"
+    },
+    {
+      "nome": "tqdm",
+      "versao": "4.67.3"
+    },
+    {
+      "nome": "av",
+      "versao": "18.0.0"
+    },
+    {
+      "nome": "pywin32",
+      "versao": "311"
+    }
+  ]
+}
