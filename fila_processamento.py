@@ -8,6 +8,7 @@ import os
 import re
 import tempfile
 import threading
+import time
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -130,7 +131,16 @@ class FilaProcessamento:
                 arquivo.write("\n")
                 arquivo.flush()
                 os.fsync(arquivo.fileno())
-            os.replace(temporario, destino)
+            # Windows trava replace com leitor concorrente/AV: retenta sem
+            # mudar a atomicidade (ou tudo ou nada, no máximo 5 tentativas).
+            for tentativa in range(5):
+                try:
+                    os.replace(temporario, destino)
+                    break
+                except PermissionError:
+                    if tentativa >= 4:
+                        raise
+                    time.sleep(0.05 * (tentativa + 1))
             temporario = None
         finally:
             if temporario and os.path.isfile(temporario):

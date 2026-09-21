@@ -14,11 +14,19 @@ echo Dados do usuario (transcricoes/, audio/, _modelo_voz/, config_user.json)
 echo serao PRESERVADOS por padrao.
 echo.
 
-set /p CONF=Continuar? (S/N): 
+set /p CONF=Continuar? (S/N):
 if /I not "%CONF%"=="S" (
-  echo Cancelado.
+  echo Cancelado. Nenhum arquivo foi tocado.
   pause
   exit /b 0
+)
+
+echo Verificando processo em execucao...
+python scripts\instalar_helper.py --check processo
+if errorlevel 1 (
+  echo Feche o Transkriptor e aguarde o fim da gravacao antes de desinstalar.
+  pause
+  exit /b 1
 )
 
 echo Removendo atalho Desktop...

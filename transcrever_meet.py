@@ -9,7 +9,7 @@ from transcricao_core import Transcritor
 
 def main():
     p = argparse.ArgumentParser(description="Transcreve audio de reunioes para .txt (offline, gratis).")
-    p.add_argument("--modelo", default=MODELO_WHISPER, choices=["tiny", "base", "small", "medium", "large-v3"])
+    p.add_argument("--modelo", default=MODELO_WHISPER, choices=["auto", "tiny", "base", "small", "medium", "large-v3"])
     p.add_argument("--idioma", default=IDIOMA, help="Use 'auto' para detectar.")
     p.add_argument("--chunk", type=float, default=CHUNK_SEGUNDOS)
     p.add_argument("--dispositivo", default="", help="Nome/id do alto-falante (loopback).")

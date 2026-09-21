@@ -407,10 +407,20 @@ def porta_livre(preferida=PORTAS_FALLBACK[0]):
     raise RuntimeError("Nenhuma porta livre encontrada para o assistente.")
 
 
-if __name__ == "__main__":
-    porta = porta_livre()
-    print(f"Assistente rodando em http://localhost:{porta}")
+def iniciar_standalone(porta=None):
+    """Sobe o Flask, aguarda pronto e só então abre o navegador (G2)."""
     import webbrowser
 
-    webbrowser.open(f"http://localhost:{porta}")
-    app.run(host="127.0.0.1", port=porta, debug=False)
+    porta = porta if porta is not None else porta_livre()
+    thread = iniciar_servidor_em_thread(app, "127.0.0.1", porta)
+    url = f"http://localhost:{porta}/?token={obter_token_sessao()}"
+    if not aguardar_servidor(url):
+        raise RuntimeError("assistente não respondeu a tempo")
+    webbrowser.open(url)
+    thread.join()
+    return url
+
+
+if __name__ == "__main__":
+    print(f"Assistente em http://localhost:{porta_livre()}")
+    iniciar_standalone()

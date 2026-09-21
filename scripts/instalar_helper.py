@@ -2,6 +2,7 @@
 """Pré-checagens testáveis do instalador (FR-7.*)."""
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -72,6 +73,38 @@ def _rota_detectada() -> str:
     return "cuda" if tem_gpu_nvidia() else "cpu"
 
 
+def processo_ativo(runner: Runner | None = None) -> bool:
+    """Detecta app/gravação em curso via tasklist (desinstalador aborta)."""
+    runner = runner or (lambda cmd: subprocess.run(cmd, capture_output=True, text=True))
+    try:
+        r = runner(["tasklist", "/FO", "CSV", "/NH"])
+    except Exception:
+        return False
+    if r.returncode != 0:
+        return False
+    texto = ((r.stdout or "") + "\n" + (r.stderr or "")).lower()
+    return ("transkriptor.pyw" in texto) or ("processador_reuniao" in texto)
+
+
+def alvos_desinstalacao() -> dict:
+    """Alvos exatos do desinstalador; dados nunca listados aqui (preservados)."""
+    import os as _os
+
+    perfil = _os.environ.get("USERPROFILE", "")
+    appdata = _os.environ.get("APPDATA", "")
+    return {
+        "atalhos": [
+            os.path.join(perfil, "Desktop", "Transkriptor.lnk"),
+            os.path.join(perfil, "OneDrive", "Desktop", "Transkriptor.lnk"),
+            os.path.join(
+                appdata, "Microsoft", "Windows", "Start Menu", "Programs",
+                "Startup", "transkriptor.lnk",
+            ),
+        ],
+        "venv": os.path.join(os.getcwd(), ".venv"),
+    }
+
+
 def main(argv=None):
     argv = list(argv or sys.argv[1:])
     if not argv or argv[0] != "--check":
@@ -108,6 +141,12 @@ def main(argv=None):
         ok, msg = combinacao_valida({"torch_cuda": rota == "cuda", "tem_gpu": tem_gpu_nvidia()})
         print(f"{msg} (rota {rota})")
         return 0 if ok else 1
+    if oque == "processo":
+        if processo_ativo():
+            print("ERRO: Transkriptor em execução ou gravando — encerre antes de desinstalar")
+            return 1
+        print("OK nenhum processo do Transkriptor em execução")
+        return 0
     print("ERRO: check desconhecido")
     return 2
 

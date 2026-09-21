@@ -1,6 +1,6 @@
 # Tasks — confiabilidade e identificação de participantes
 
-**28 tarefas propostas; 22 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1, T-13.D3–D7, T-13.E1–E4, T-13.F1–F3, T-13.G1) e 6 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
+**28 tarefas propostas; 23 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1, T-13.D3–D7, T-13.E1–E4, T-13.F1–F3, T-13.G1–G2) e 5 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
 
 Para execução por outra LLM, `interfaces.md` e `executor-llm.md` são leitura obrigatória. Os blocos **Arquivos**, **Implementação**, **RED**, **Teste final** e **Aceite** de cada task são cumulativos, não alternativas. O agente não pode trocar nomes de interfaces, tecnologia decidida, ordem, thresholds ou comportamento de falha sem primeiro emendar os documentos e obter revisão.
 
@@ -231,7 +231,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.G2 — entrada, instalação e versão coerentes
 
-- [ ] **Requisito:** NFR-13.G2. **Depende de:** G1.
+- [x] **Requisito:** NFR-13.G2. **Depende de:** G1. **Estado:** `DONE`; evidência: `evidencias/T-13.G2.md`.
 - **Arquivos:** modificar `instalar.bat`, `iniciar.bat`, `iniciar_bandeja.bat`, `desinstalar.bat`, `scripts/resolver_pythonw.py`, `scripts/instalar_helper.py`, `assistente.py`, `transcrever_meet.py`; criar `tests/test_instalacao_caminhos.py`.
 - **Implementação:** argumentos corretamente citados, cwd explícito e uso do mesmo venv em todos os caminhos; CLI aceita auto de forma coerente; standalone faz bootstrap de autenticação antes de abrir navegador. Desinstalador detecta processo/gravação e apresenta alvos exatos, preservando dados por padrão. Versão de manifesto/extensão pode ser independente, mas sua relação com release é documentada e gerada.
 - **RED:** diretório com espaço/acentos, ausência de Python, venv incompleto, porta ocupada, atalho existente e desinstalação cancelada.
