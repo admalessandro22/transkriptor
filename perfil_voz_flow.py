@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import datetime
 import logging
 import os
 from typing import Callable
@@ -25,15 +26,30 @@ def apagar_arquivos_perfil(
             os.remove(caminho)
 
 
+def revogar_perfil_voz(
+    caminho_npz: str = ARQUIVO_PERFIL_VOZ,
+    caminho_enc: str = ARQUIVO_PERFIL_VOZ_ENC,
+) -> bool:
+    """Remove o perfil e confirma a ausência (revogação verificável)."""
+    apagar_arquivos_perfil(caminho_npz, caminho_enc)
+    return not os.path.isfile(caminho_npz) and not os.path.isfile(caminho_enc)
+
+
 def cadastrar_perfil_voz(
     *,
     duracao_seg: int = DURACAO_CADASTRO_SEG,
     caminho_npz: str = ARQUIVO_PERFIL_VOZ,
     caminho_enc: str = ARQUIVO_PERFIL_VOZ_ENC,
+    finalidade: str = "",
+    consentimento: bool = False,
     on_status: Callable[[str], None] | None = None,
     notificar_fn: Callable[[str, str], None] | None = None,
 ) -> bool:
-    """Grava mic, extrai embedding ECAPA e salva perfil. Retorna True se ok."""
+    """Grava mic, extrai embedding ECAPA e salva perfil. Retorna True se ok.
+
+    Cadastro persistente exige finalidade e consentimento próprios (opt-in
+    explícito, T-13.E4); sem eles, nada é gravado nem cadastrado.
+    """
     from identificador_voz import gravar_audio_microfone, perfil_de_chunks, salvar_perfil
     from diarizador import _carregar_encoder
 
@@ -49,6 +65,9 @@ def cadastrar_perfil_voz(
         "Transkriptor",
         f"Fale por {duracao_seg}s após o sinal. Leia um texto em voz alta.",
     )
+    if not consentimento or not str(finalidade or "").strip():
+        _status("Cadastro recusado: exige finalidade e consentimento explícitos.")
+        return False
     _status(f"Gravando perfil de voz ({duracao_seg}s)...")
     try:
         chunks = gravar_audio_microfone(duracao_seg)
@@ -60,6 +79,15 @@ def cadastrar_perfil_voz(
             return False
         os.makedirs(os.path.dirname(caminho_npz) or ".", exist_ok=True)
         salvar_perfil(embedding, caminho_npz, caminho_enc)
+        try:
+            import config_user as _config_user
+
+            _config_user.atualizar(
+                voz_finalidade=str(finalidade).strip()[:120],
+                voz_consentimento_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            )
+        except Exception:  # noqa: BLE001 — consentimento já foi exigido acima
+            logger.debug("Registro de consentimento indisponível", exc_info=True)
         _toast("Transkriptor", "Perfil de voz salvo.")
         _status("Perfil de voz salvo.")
         return True

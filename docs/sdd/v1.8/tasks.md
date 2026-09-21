@@ -1,6 +1,6 @@
 # Tasks — confiabilidade e identificação de participantes
 
-**28 tarefas propostas; 17 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1, T-13.D3–D7, T-13.E1–E3) e 11 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
+**28 tarefas propostas; 18 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1, T-13.D3–D7, T-13.E1–E4) e 10 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
 
 Para execução por outra LLM, `interfaces.md` e `executor-llm.md` são leitura obrigatória. Os blocos **Arquivos**, **Implementação**, **RED**, **Teste final** e **Aceite** de cada task são cumulativos, não alternativas. O agente não pode trocar nomes de interfaces, tecnologia decidida, ordem, thresholds ou comportamento de falha sem primeiro emendar os documentos e obter revisão.
 
@@ -182,7 +182,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.E4 — eventos de log e ciclo de biometria
 
-- [ ] **Requisito:** SEC-13.E4. **Depende de:** E3.
+- [x] **Requisito:** SEC-13.E4. **Depende de:** E3. **Estado:** `DONE`; evidência: `evidencias/T-13.E4.md`.
 - **Arquivos:** modificar `status_seguro.py`, `transkriptor.pyw`, `perfil_voz_flow.py`, `renomear_falante_flow.py`, `diagnostico.py`, manual; criar `tests/test_privacidade_eventos.py`.
 - **Implementação:** log recebe código de evento e campos operacionais permitidos; texto de fala não compartilha API de status. Exportação de diagnóstico remove nomes, títulos, tokens, paths pessoais e conteúdo. Perfil de voz começa desligado; cadastro persistente exige finalidade/consentimento próprios e ação de exclusão verificável; correção de nome na sessão permanece independente. Perfil permanece até revogação, eventos obedecem sete dias após resultado válido e resultados só saem por exclusão manual. Registrar política aplicada sem dados de fala.
 - **RED:** fala começando por “Erro”/“Reunião” ou contendo `.txt`; exceção com token; voz desligada por padrão; correção nominal sem cadastro; revogação remove apenas perfil selecionado e confirma ausência.

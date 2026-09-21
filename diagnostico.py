@@ -319,3 +319,32 @@ def salvar_relatorio(texto, pasta=None):
     with open(caminho, "w", encoding="utf-8") as f:
         f.write(texto)
     return caminho
+
+
+def exportar_diagnostico(itens) -> str:
+    """Relatório exportável sem PII (T-13.E4).
+
+    Remove paths pessoais, credenciais e títulos/nomes de detecção;
+    preserva estados e contagens para diagnóstico.
+    """
+    import re as _re
+
+    pastas = set()
+    for var in ("USERPROFILE", "APPDATA", "HOMEPATH", "HOMEDRIVE"):
+        valor = os.environ.get(var)
+        if valor:
+            pastas.add(valor)
+    texto = formatar_texto(list(itens))
+    for pasta in sorted(pastas, key=len, reverse=True):
+        texto = _re.sub(_re.escape(pasta), "<pasta-pessoal>", texto, flags=_re.IGNORECASE)
+    texto = _re.sub(r"(?i)\btoken\s*[:=]\s*\S+", "token=<credencial>", texto)
+    texto = _re.sub(r"\bsess-[A-Za-z0-9_-]+", "<credencial>", texto)
+    texto = _re.sub(r"\bpair-[A-Za-z0-9_-]+", "<credencial>", texto)
+    texto = _re.sub(r"MEET_WS_TOKEN\s*=\s*\"[^\"]*\"", "MEET_WS_TOKEN=<credencial>", texto)
+    linhas = []
+    for linha in texto.splitlines():
+        if "Fonte: " in linha and " — " in linha:
+            prefixo, _resto = linha.split(" — ", 1)
+            linha = prefixo + " — [detalhe omitido]"
+        linhas.append(linha)
+    return "\n".join(linhas)

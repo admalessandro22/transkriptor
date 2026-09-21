@@ -138,7 +138,12 @@ class MenuBandejaMixin:
     def _cadastrar_voz_thread(self):
         import config_user
 
-        ok = cadastrar_perfil_voz(on_status=self._status, notificar_fn=notificar)
+        ok = cadastrar_perfil_voz(
+            on_status=self._status,
+            notificar_fn=notificar,
+            finalidade="identificar a sua voz nas suas reuniões",
+            consentimento=True,
+        )
         if ok:
             self.identificar_minha_voz = True
             ativar_identificacao_apos_cadastro(

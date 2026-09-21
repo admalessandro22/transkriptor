@@ -123,6 +123,16 @@ class AppTranskriptor(CicloReuniaoMixin, ProcessamentoReuniaoMixin, MenuBandejaM
         self.identificar_minha_voz, cfg = _resolver_identificar_minha_voz(cfg, tem_perfil)
         if antes and not tem_perfil:
             _atualizar_config_user(identificar_minha_voz=False)
+        try:
+            from politica_privacidade import modo_efetivo as _modo_efetivo
+
+            logging.info(
+                "Política de proteção efetiva: %s; voz ativa: %s.",
+                _modo_efetivo().value,
+                bool(self.identificar_minha_voz),
+            )
+        except Exception:
+            logging.debug("Política efetiva indisponível", exc_info=True)
         self.rotulo_usuario = cfg.get("rotulo_usuario", ROTULO_USUARIO)
         self.capturar_mic = cfg.get("capturar_mic", CAPTURAR_MIC)
         self.usar_nomes_meet = cfg.get("usar_nomes_meet", USAR_NOMES_MEET)

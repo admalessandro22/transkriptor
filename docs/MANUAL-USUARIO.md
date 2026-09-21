@@ -293,6 +293,22 @@ A transcrição continua funcionando; apenas o assistente fica indisponível.
 - Feche o assistente quando não estiver em uso (aba do navegador).
 - Mantenha o Windows e o Chrome atualizados.
 
+### Voz, retenção e responsabilidade
+
+- **Perfil de voz desligado por padrão.** O cadastro exige finalidade e
+  consentimento explícitos no ato; sem cifra disponível, o cadastro é
+  recusado em vez de salvar em claro. A correção de um nome numa reunião
+  nunca cadastra biometria (ação separada e revogável).
+- **Revogação verificável.** Apagar o perfil remove os dois arquivos e
+  confirma a ausência; só o perfil selecionado é removido.
+- **Retenção.** Áudio e eventos brutos: 7 dias após resultado válido.
+  Transcrições/resultados: até exclusão manual. Perfil de voz: até revogação.
+- **Diagnóstico sem PII.** A exportação remove paths pessoais, credenciais,
+  títulos e nomes de detecção; logs usam códigos de evento, nunca fala.
+- **Responsável e base.** O operador que consente cada gravação é o
+  responsável pelos dados; use o app conforme a legislação aplicável
+  (ex.: LGPD no Brasil). Nenhum checkbox substitui essa avaliação.
+
 ---
 
 ## 9. Configurações (`config_user.json`)
