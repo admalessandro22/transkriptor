@@ -211,14 +211,6 @@ def retranscrever(
         raise ValueError("nome base de saída inválida")
     if criptografar is not None:
         gerar_copia_tkpt = gerar_copia_tkpt or bool(criptografar)
-    _sid_recuperacao = f"worker-{base}"
-    try:
-        from recuperacao_sessao import finalizar_sessao, registrar_ativo, registrar_inicio
-
-        registrar_inicio(pasta, _sid_recuperacao, estado="retranscrevendo")
-        registrar_ativo(pasta, _sid_recuperacao, caminho_audio)
-    except Exception:  # noqa: BLE001 — registro nunca quebra o worker
-        logger.debug("Registro de recuperação indisponível", exc_info=True)
 
     # T-13.C2/C3: STT por fonte em blocos (nunca readframes(total)) com
     # origem temporal explícita e fusão cronológica; sem mic, só loopback.
@@ -314,10 +306,4 @@ def retranscrever(
             logger.warning("Cópia TKPT indisponível (%s)", type(exc).__name__)
 
     on_status(f"Retranscrição concluída: {caminho_final.name}")
-    try:
-        from recuperacao_sessao import finalizar_sessao
-
-        finalizar_sessao(pasta, _sid_recuperacao)
-    except Exception:  # noqa: BLE001
-        logger.debug("Selo de recuperação indisponível", exc_info=True)
     return str(caminho_final)

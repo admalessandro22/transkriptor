@@ -17,6 +17,16 @@ def _ollama_url() -> str:
     return _config.OLLAMA_URL
 
 
+def tamanho_mensagens(mensagens) -> int:
+    """Soma chars de role+content para contabilidade de orçamento (F2)."""
+    total = 0
+    for msg in mensagens or []:
+        if not isinstance(msg, dict):
+            continue
+        total += len(str(msg.get("role") or "")) + len(str(msg.get("content") or ""))
+    return total
+
+
 def orcamento_chars(context_length: int) -> int:
     """FR-4.2: ~75% do contexto em chars (3.2 chars/token PT)."""
     n = min(int(context_length or 0), _config.OLLAMA_NUM_CTX_MAX)
@@ -127,6 +137,10 @@ def processar_chat(
     sync_fn = sync_fn or chamar_ollama_sync
     limite = _config.MAX_CHARS_TRANSCRICAO if max_chars is None else max_chars
 
+    if not str(transcricao or "").strip():
+        return "Sem evidência na transcrição para responder."
+    pergunta = str(pergunta or "")
+
     ctx = ctx_fn(modelo)
     if ctx:
         orcamento = orcamento_fn(ctx)
@@ -134,6 +148,10 @@ def processar_chat(
     else:
         orcamento = limite
         num_ctx = None
+
+    historico = [m for m in (historico or []) if isinstance(m, dict)]
+    while historico and tamanho_mensagens(historico) + len(pergunta) > orcamento:
+        historico.pop(0)
 
     if len(transcricao) > orcamento:
         from resumo_longo import dividir_em_blocos, responder_longo

@@ -1,6 +1,6 @@
 # Tasks — confiabilidade e identificação de participantes
 
-**28 tarefas propostas; 19 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1, T-13.D3–D7, T-13.E1–E4, T-13.F1) e 9 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
+**28 tarefas propostas; 20 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1, T-13.D3–D7, T-13.E1–E4, T-13.F1–F2) e 8 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
 
 Para execução por outra LLM, `interfaces.md` e `executor-llm.md` são leitura obrigatória. Os blocos **Arquivos**, **Implementação**, **RED**, **Teste final** e **Aceite** de cada task são cumulativos, não alternativas. O agente não pode trocar nomes de interfaces, tecnologia decidida, ordem, thresholds ou comportamento de falha sem primeiro emendar os documentos e obter revisão.
 
@@ -202,7 +202,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.F2 — orçamento e fundamentação de respostas longas
 
-- [ ] **Requisito:** FR-13.F2. **Depende de:** F1.
+- [x] **Requisito:** FR-13.F2. **Depende de:** F1. **Estado:** `DONE`; evidência: `evidencias/T-13.F2.md`.
 - **Arquivos:** modificar `assistente_ollama.py`, `resumo_longo.py`; criar `tests/test_resumo_orcamento.py`.
 - **Implementação:** reservar tokens de sistema/pergunta/histórico/saída; fallback conservador quando contexto do modelo é desconhecido. Map/reduce recursivo com teto de rodadas/chamadas e verificação de tamanho do consolidado. Preserve IDs/tempos das evidências; erro de Ollama é estado, não resumo a ser resumido. Transcrição é dado delimitado em mensagem separada; instruções nela não acionam ferramentas nem mudam escopo.
 - **RED:** resumos intermediários maiores que contexto, pergunta longa, modelo sem metadata, falha no bloco 2, cancelamento e pedido sem evidência; fala tentando instruir o assistente é tratada como conteúdo.

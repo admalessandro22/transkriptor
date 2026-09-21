@@ -43,7 +43,8 @@ definição de pronto nem altera a ordem obrigatória das tarefas.
 | T-13.E3 | DONE | commit de fechamento; evidência `T-13.E3.md` |
 | T-13.E4 | DONE | commit de fechamento; evidência `T-13.E4.md` |
 | T-13.F1 | DONE | commit de fechamento; evidência `T-13.F1.md` |
-| T-13.F2 | PRÓXIMA | depende de F1; sem exceder orçamento |
+| T-13.F2 | DONE | commit de fechamento; evidência `T-13.F2.md` |
+| T-13.F3 | PRÓXIMA | depende de F2; sem decifrar conteúdo p/ listar |
 
 ### Base e árvore de trabalho
 
