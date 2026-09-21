@@ -330,7 +330,7 @@ def api_chat():
         PayloadInvalido,
         hosts_locais_aceitos,
         origem_permitida_chat,
-        validar_chat_payload,
+        validar_chat_request,
     )
 
     if not hosts_locais_aceitos(request.host):
@@ -338,13 +338,13 @@ def api_chat():
     if not origem_permitida_chat(request.headers.get("Origin")):
         return jsonify({"erro": "Origem não permitida"}), 403
     try:
-        pedido = validar_chat_payload(request.get_json(silent=True))
+        pedido = validar_chat_request(request.get_json(silent=True))
     except PayloadInvalido as exc:
         return jsonify({"erro": str(exc)}), 400
-    modelo = pedido["modelo"]
-    nome = pedido["transcricao"]
-    pergunta = pedido["pergunta"]
-    historico = [{"role": m.role, "content": m.content} for m in pedido["historico"]]
+    modelo = pedido.model
+    nome = pedido.meeting_id
+    pergunta = pedido.question
+    historico = [{"role": m.role, "content": m.content} for m in pedido.history]
 
     transcricao = ler_conteudo_transcricao(nome)
     if transcricao is None:

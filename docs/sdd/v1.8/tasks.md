@@ -1,6 +1,6 @@
 # Tasks — confiabilidade e identificação de participantes
 
-**28 tarefas propostas; 18 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1, T-13.D3–D7, T-13.E1–E4) e 10 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
+**28 tarefas propostas; 19 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1, T-13.D3–D7, T-13.E1–E4, T-13.F1) e 9 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
 
 Para execução por outra LLM, `interfaces.md` e `executor-llm.md` são leitura obrigatória. Os blocos **Arquivos**, **Implementação**, **RED**, **Teste final** e **Aceite** de cada task são cumulativos, não alternativas. O agente não pode trocar nomes de interfaces, tecnologia decidida, ordem, thresholds ou comportamento de falha sem primeiro emendar os documentos e obter revisão.
 
@@ -193,7 +193,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.F1 — histórico isolado por reunião e limitado
 
-- [ ] **Requisito:** UX-13.F1. **Depende de:** E4.
+- [x] **Requisito:** UX-13.F1. **Depende de:** E4. **Estado:** `DONE`; evidência: `evidencias/T-13.F1.md`.
 - **Arquivos:** modificar `static/assistente.js`, `assistente.py`; criar `tests/e2e/chat-context.spec.js` e testes Python de contrato.
 - **Implementação:** associar conversa ao meeting_id e revisão; trocar seleção cancela geração anterior e restaura/limpa histórico do destino. Limitar janela antes de enviar, respeitando orçamento de tokens. Não apagar pergunta digitada antes da validação de envio. Limpar durante stream invalida a resposta tardia por generation_id.
 - **RED:** 12ª pergunta recebe resposta; A→B não inclui histórico de A; stream A concluído após seleção B não aparece em B; limpar durante geração não reintroduz mensagens.

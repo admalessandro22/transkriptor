@@ -36,6 +36,48 @@ let transcricoesLista = [];
 let transcricoesFiltradas = [];
 let ultimaRespostaIA = '';
 let ultimaRespostaEl = null;
+// ===== Conversa por reunião (F1): histórico e DOM isolados por meeting_id,
+// geração invalida respostas tardias após troca/limpeza. =====
+let estadosReuniao = {};
+let idGeracao = 0;
+let idReuniaoAberta = '';
+const MAX_HISTORICO_ENVIO = 20;
+
+function reuniaoAtual() {
+  return (typeof selTrans !== 'undefined' && selTrans && selTrans.value) || '';
+}
+
+function estadoReuniao(id) {
+  if (!estadosReuniao[id]) estadosReuniao[id] = { historico: [], html: null };
+  return estadosReuniao[id];
+}
+
+function revisaoDaReuniao(id) {
+  const item = (transcricoesLista || []).find((t) => t.arquivo === id);
+  if (!item) return '';
+  return (item.data || '') + '|' + (item.tamanho_kb ?? '');
+}
+
+function trocarReuniao(novaId) {
+  if (!idReuniaoAberta) idReuniaoAberta = novaId || '';
+  const anterior = idReuniaoAberta;
+  if (anterior) {
+    estadosReuniao[anterior] = { historico, html: chat.innerHTML };
+  }
+  if (abortController) abortController.abort();
+  idGeracao += 1;
+  const destino = estadoReuniao(novaId || '');
+  historico = destino.historico;
+  idReuniaoAberta = novaId || '';
+  if (destino.html !== null && destino.html !== undefined) {
+    chat.innerHTML = destino.html;
+  } else {
+    chat.innerHTML = '';
+  }
+  ultimaRespostaIA = '';
+  ultimaRespostaEl = null;
+  if (copiarBtn) copiarBtn.disabled = true;
+}
 
 const API_TOKEN = new URLSearchParams(window.location.search).get('token') || '';
 function apiHeaders(extra = {}) {
@@ -367,7 +409,13 @@ async function pergunta(prompt) {
   const modelo = selMod.value;
   if (!transc) { mostrarToastInline('Selecione uma transcrição primeiro.'); showToast('Selecione uma transcrição na lista à esquerda.', 'error'); return; }
   if (!modelo || busy) return;
+  if (!idReuniaoAberta && transc) idReuniaoAberta = transc;
+  if (typeof input !== 'undefined' && input && input.value === prompt) input.value = '';
   busy = true; mostrarBotoes(true);
+  const minhaGeracao = ++idGeracao;
+  const geracaoId = 'g' + Date.now().toString(36) + minhaGeracao.toString(36);
+  const historicoEnvio = historico.slice(-MAX_HISTORICO_ENVIO);
+  const revisao = revisaoDaReuniao(transc);
   addMsg('user', prompt, { renderMarkdown: false });
   const typingBubble = addTyping();
   iniciarTimer();
@@ -376,8 +424,9 @@ async function pergunta(prompt) {
   abortController = new AbortController();
   try {
     const res = await fetch('/api/chat', {...fetchOpts, method:'POST', headers:apiHeaders({'Content-Type':'application/json'}),
-      body: JSON.stringify({modelo, transcricao:transc, pergunta:prompt, historico}),
+      body: JSON.stringify({modelo, transcricao:transc, pergunta:prompt, historico:historicoEnvio, meeting_id:transc, transcript_revision:revisao, generation_id:geracaoId}),
       signal: abortController.signal});
+    if (minhaGeracao !== idGeracao || selTrans.value !== transc) return;
     if (!res.ok) {
       let msg = `Erro ${res.status}`;
       try { const j = await res.json(); if (j.erro) msg = j.erro; } catch(_){}
@@ -386,6 +435,7 @@ async function pergunta(prompt) {
     const reader = res.body.getReader(); const dec = new TextDecoder(); let txt='';
     while (true) {
       const {done, value} = await reader.read(); if (done) break;
+      if (minhaGeracao !== idGeracao || selTrans.value !== transc) return;
       txt += dec.decode(value, {stream:true});
       if (firstToken) {
         // Replace typing bubble with real bubble content
@@ -449,6 +499,7 @@ async function pergunta(prompt) {
       ultimaRespostaIA = accumulated;
       copiarBtn.disabled = false;
     }
+    if (minhaGeracao !== idGeracao || selTrans.value !== transc) return;
     if (accumulated.trim()) {
       historico.push({role:'user', content:prompt});
       historico.push({role:'assistant', content:accumulated});
@@ -516,6 +567,10 @@ function navegarActionCards(e) {
 }
 
 function limparConversa() {
+  idGeracao += 1;
+  if (idReuniaoAberta) {
+    estadosReuniao[idReuniaoAberta] = { historico: [], html: null };
+  }
   historico = [];
   ultimaRespostaIA = '';
   ultimaRespostaEl = null;
@@ -529,7 +584,7 @@ function limparConversa() {
   input.focus();
 }
 
-sendBtn.onclick = ()=>{ const t = input.value.trim(); if (!t) return; input.value=''; input.style.height='auto'; pergunta(t); };
+sendBtn.onclick = ()=>{ const t = input.value.trim(); if (!t) return; pergunta(t); };
 stopBtn.onclick = ()=>{ if (abortController) abortController.abort(); };
 limparBtn.onclick = limparConversa;
 copiarBtn.onclick = copiarUltimaResposta;
@@ -537,6 +592,7 @@ menuToggle.onclick = ()=> abrirDrawer(!sidebarEl.classList.contains('drawer-open
 if (sidebarClose) sidebarClose.onclick = ()=> abrirDrawer(false);
 drawerOverlay.onclick = ()=> abrirDrawer(false);
 selTrans.addEventListener('change', atualizarTamanhoKb);
+selTrans.addEventListener('change', () => trocarReuniao(selTrans.value));
 if (buscaInput) buscaInput.addEventListener('input', filtrarTranscricoes);
 input.addEventListener('keydown', e=>{
   if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendBtn.click(); }

@@ -73,7 +73,8 @@ def test_chat_historico_longo_400(tmp_path, monkeypatch, headers_token):
         json={"modelo": "m", "transcricao": "ok.txt", "pergunta": "q", "historico": hist},
         headers=headers_token,
     )
-    assert resp.status_code == 400
+    # F1: janela corta as mais antigas em vez de rejeitar a pergunta.
+    assert resp.status_code == 200
 
 
 def test_api_saude_ollama_off(monkeypatch, headers_token):
