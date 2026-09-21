@@ -1,6 +1,6 @@
 # Tasks — confiabilidade e identificação de participantes
 
-**28 tarefas propostas; 20 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1, T-13.D3–D7, T-13.E1–E4, T-13.F1–F2) e 8 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
+**28 tarefas propostas; 21 DONE (T-13.A1–A2, T-13.B1–B3, T-13.C1–C3, T-13.D1, T-13.D3–D7, T-13.E1–E4, T-13.F1–F3) e 7 pendentes/bloqueadas.** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
 
 Para execução por outra LLM, `interfaces.md` e `executor-llm.md` são leitura obrigatória. Os blocos **Arquivos**, **Implementação**, **RED**, **Teste final** e **Aceite** de cada task são cumulativos, não alternativas. O agente não pode trocar nomes de interfaces, tecnologia decidida, ordem, thresholds ou comportamento de falha sem primeiro emendar os documentos e obter revisão.
 
@@ -211,7 +211,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.F3 — índice e acessibilidade comportamental
 
-- [ ] **Requisito:** UX-13.F3. **Depende de:** F2.
+- [x] **Requisito:** UX-13.F3. **Depende de:** F2. **Estado:** `DONE`; evidência: `evidencias/T-13.F3.md`.
 - **Arquivos:** criar `indice_transcricoes.py`, `tests/test_indice_transcricoes.py`, `tests/e2e/accessibility.spec.js`; modificar API, HTML/CSS/JS.
 - **Implementação:** índice de metadados sem preview de fala por padrão, paginação e invalidação por versão de manifesto; não decifrar todos os arquivos para listar. Drawer com foco inicial/restaurado, navegação por teclado, estados de carregamento/erro, versão da reunião explícita e clipboard com erro visível. Substituir testes frágeis de string por interação real, mantendo verificações estáticas úteis.
 - **RED:** 1.000 reuniões sem leitura de texto integral, índice desatualizado após job, teclado preso/fora do drawer, seleção perdida ao filtrar, clipboard negado.

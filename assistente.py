@@ -127,6 +127,31 @@ def api_reunioes():
     return jsonify(sorted(p.stem for p in _pasta_resultados().glob("*.json")))
 
 
+@app.route("/api/reunioes-indice")
+def api_reunioes_indice():
+    """Índice paginado sem abrir conteúdo (T-13.F3): cursor opaco, limite 1–100."""
+    from dataclasses import asdict as _asdict
+
+    from indice_transcricoes import listar_reunioes
+
+    limite_bruto = request.args.get("limit", "20")
+    try:
+        limite = int(limite_bruto)
+    except (TypeError, ValueError):
+        return jsonify({"erro": "Limite inválido"}), 400
+    try:
+        pagina, proximo = listar_reunioes(
+            _pasta_resultados().parent / "indice.json",
+            cursor=request.args.get("cursor"),
+            limit=limite,
+        )
+    except ValueError as exc:
+        return jsonify({"erro": str(exc)}), 400
+    return jsonify(
+        {"reunioes": [_asdict(s) for s in pagina], "proximo": proximo}
+    )
+
+
 @app.route("/api/reunioes/<meeting_id>/resultado")
 def api_resultado_reuniao(meeting_id: str):
     from resultado_reuniao import carregar_segmentos

@@ -420,3 +420,20 @@ select option { background: #12121a; }
 @media (forced-colors: active) {
   .sidebar, .input-wrap, .bubble, .action-card, .context-bar { border: 1px solid CanvasText; }
 }
+
+/* Drawer de participantes (F3): foco visível, sem overflow em 375/860/1366 */
+#participantes-drawer {
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+#participantes-drawer button:focus-visible,
+#participantes-drawer select:focus-visible,
+#participantes-drawer input:focus-visible,
+#abrir-participantes:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+#lista-participantes .participante-seg {
+  overflow-wrap: anywhere;
+}

@@ -668,10 +668,13 @@ async function carregarReunioes() {
 
 async function carregarResultado() {
   if (!selReuniao || !selReuniao.value) return;
+  dizerParticipantes('Carregando...');
   const r = await fetch('/api/reunioes/' + encodeURIComponent(selReuniao.value) + '/resultado', {...fetchOpts, headers: apiHeaders()});
   if (!r.ok) { dizerParticipantes('Reunião não encontrada.'); return; }
   const dados = await r.json();
   if (inputRevisao) inputRevisao.value = dados.revision || '';
+  const rotuloRevisao = document.getElementById('reuniao-revisao');
+  if (rotuloRevisao) rotuloRevisao.textContent = 'Versão: ' + (dados.revision || '—');
   renderParticipantes(dados);
 }
 
@@ -720,6 +723,25 @@ function abrirParticipantes(aberto) {
   }
 }
 
+// Armadilha de foco: Tab circula dentro do drawer aberto (F3).
+if (typeof document !== 'undefined') document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Tab' || !drawerParticipantes || drawerParticipantes.hidden) return;
+  const alvos = drawerParticipantes.querySelectorAll(
+    'button, select, input, textarea, a[href], [tabindex]:not([tabindex="-1"])'
+  );
+  const visiveis = [...alvos].filter((el) => !el.disabled && el.offsetParent !== null);
+  if (!visiveis.length) return;
+  const primeiro = visiveis[0];
+  const ultimo = visiveis[visiveis.length - 1];
+  if (e.shiftKey && document.activeElement === primeiro) {
+    e.preventDefault();
+    ultimo.focus();
+  } else if (!e.shiftKey && document.activeElement === ultimo) {
+    e.preventDefault();
+    primeiro.focus();
+  }
+});
+
 async function salvarCorrecao(ev) {
   if (ev) ev.preventDefault();
   if (!selReuniao || !selReuniao.value) return;
@@ -733,8 +755,8 @@ async function salvarCorrecao(ev) {
   });
   const dados = await r.json();
   if (!r.ok) { dizerParticipantes(dados.erro || 'Falha ao salvar.'); return; }
-  dizerParticipantes('Correção salva (' + dados.revision + ').');
   await carregarResultado();
+  dizerParticipantes('Correção salva (' + dados.revision + ').');
 }
 
 async function desfazerCorrecao() {
@@ -745,8 +767,8 @@ async function desfazerCorrecao() {
   });
   const dados = await r.json();
   if (!r.ok) { dizerParticipantes(dados.erro || 'Nada a desfazer.'); return; }
-  dizerParticipantes('Desfeito (' + dados.revision + ').');
   await carregarResultado();
+  dizerParticipantes('Desfeito (' + dados.revision + ').');
 }
 
 if (btnParticipantes) btnParticipantes.onclick = () => abrirParticipantes(true);
