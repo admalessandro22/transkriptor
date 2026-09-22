@@ -47,7 +47,7 @@ definição de pronto nem altera a ordem obrigatória das tarefas.
 | T-13.F3 | DONE | commit de fechamento; evidência `T-13.F3.md` |
 | T-13.G1 | DONE | commit de fechamento; evidência `T-13.G1.md` |
 | T-13.G2 | DONE | commit de fechamento; evidência `T-13.G2.md` |
-| T-13.G3 | PRÓXIMA | depende de tudo A–G2; gates físicos com autorização |
+| T-13.G3 | BLOCKED | parte automatizada commitada; evidência `T-13.G3.md`; demo D2 + gate identificação + bump pendentes |
 
 ### Base e árvore de trabalho
 
