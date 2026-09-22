@@ -92,7 +92,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 - [ ] **Requisito:** FR-13.D1. **Depende de:** C3. **Estado:** `REOPENED`; evidência histórica: `evidencias/T-13.D1.md`; remediação: Task 3.
 - **Arquivos:** criar `sessao_reuniao.py`, `tests/test_sessao_meet.py`; modificar `meet_bridge.py`, `app_ciclo_reuniao.py`, `deteccao_reuniao.py`.
-- **Implementação:** contratos `SessaoReuniao` e envelope da spec; um estado por conexão/aba/conferência. Selecionar a sessão consentida e não confundir recusa/reconexão. Capturar primeira amostra monotônica e âncora UTC; estimar offset/RTT no handshake; marcar tempo incerto em vez de aplicar nomes pelo relógio errado.
+- **Implementação:** contratos `SessaoReuniao` e envelope da spec; um estado por conexão/aba/conferência. Na remediação, `hello` mantém código/estado ativo só em memória; vincular a sessão consentida apenas ao código ativo único e recusar ambiguidade. Selecionar a sessão consentida e não confundir recusa/reconexão. Capturar primeira amostra monotônica e âncora UTC; estimar offset/RTT no handshake; marcar tempo incerto em vez de aplicar nomes pelo relógio errado.
 - **RED:** `test_duas_abas_nao_se_encerram`, `test_evento_antigo_nao_entra_sessao`, `test_mudanca_relogio_nao_desloca_audio`, `test_evento_antes_do_consentimento_descartado`.
 - **Teste final:** `python -m pytest tests/test_sessao_meet.py tests/test_deteccao_multi_fonte.py tests/test_portao_consentimento.py -v`.
 - **Aceite:** sequências fora de ordem/repetidas são rejeitadas/deduplicadas; uma conferência não recebe título ou nome da outra.

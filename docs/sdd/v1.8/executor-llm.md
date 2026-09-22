@@ -103,6 +103,7 @@ Quando surgir uma escolha não fechada:
 | Lock de job | `msvcrt.locking` em lockfile por job; identidade de processo via Win32 `GetProcessTimes`, encapsulados em `fila_lock.py` | Adicionar Redis/DB ou confiar apenas em `threading.Lock` |
 | Resultado | JSON estruturado é canônico; TXT é exportação derivada e versionada | Editar apenas TXT e perder proveniência |
 | Transporte Meet | Manifest V3: content script → service worker → WebSocket local autenticado/pareado | Implementar Native Messaging nesta versão ou pôr segredo no content script |
+| Vínculo da sala Meet | `hello` informa código normalizado e `active`; bridge vincula em memória somente código ativo único à `meeting_key` opaca após consentimento | Associar duas salas ambíguas ou persistir código bruto em job/log |
 | Eventos Meet | Segmentos JSONL ≤1 MiB ou ≤1 s, cifrados individualmente com primitives existentes; índice sem conteúdo | Manter tudo em RAM ou registrar legenda/nome em job/log |
 | Identidade | IDs e evidências primeiro; nome automático somente após calibração | Usar `display_name` como chave única ou fallback por frequência |
 | Áudio | STT separado por mic/loopback e fusão temporal; sobreposição preservada | Tratar energia RMS como transcrição ou remover fala simultânea como “eco” |

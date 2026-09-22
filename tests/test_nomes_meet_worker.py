@@ -48,6 +48,7 @@ def _sessao_snapshot(session_id="sess-d5", meeting="reuniao-d5"):
 
 def _evento(sessao_id, meeting, seq, nome, texto):
     return {
+        "schema_version": 1,
         "event_id": f"e-{seq}",
         "session_id": sessao_id,
         "connection_id": "c1",

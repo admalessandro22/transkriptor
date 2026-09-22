@@ -40,6 +40,17 @@ describe("background.js (transporte D2)", () => {
     expect(JSON.stringify(enviados)).not.toMatch(/Pessoa Sintética|fala|token/);
   });
 
+  it("atualiza estado ativo no hello antes do consentimento sem enviar conteúdo", () => {
+    const enviados = [];
+    const sender = { frameId: 0, tab: { id: 97 }, url: "https://meet.google.com/abc-defg-hij" };
+    const enviar = (mensagem) => enviados.push(mensagem);
+    fundo.aoReceberMensagem({ tipo: "meet-evento", evento: { tipo: "reuniao", ativa: false } }, sender, null, { enviar });
+    fundo.aoReceberMensagem({ tipo: "meet-evento", evento: { tipo: "reuniao", ativa: true } }, sender, null, { enviar });
+    expect(enviados).toHaveLength(2);
+    expect(enviados.map((mensagem) => mensagem.active)).toEqual([false, true]);
+    expect(enviados.every((mensagem) => mensagem.tipo === "hello")).toBe(true);
+  });
+
   it("gera envelope v1 isolado por aba, com relógio do cliente e sem campo do servidor", () => {
     const a = { frameId: 0, tab: { id: 92 }, url: "https://meet.google.com/abc-defg-hij" };
     const b = { frameId: 0, tab: { id: 93 }, url: "https://meet.google.com/xyz-abcd-efg" };

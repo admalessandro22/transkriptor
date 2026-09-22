@@ -150,7 +150,10 @@ class CicloReuniaoMixin:
                 )
                 self._eventos_store = _store
                 ponte = getattr(self, "meet_bridge", None)
-                if ponte is not None and hasattr(ponte, "definir_store"):
+                if ponte is not None and hasattr(ponte, "definir_sessao_ativa"):
+                    hint = ponte.hint_ativo_unico()
+                    ponte.definir_sessao_ativa(self._sessao_ativa, _store, meeting_hint=hint)
+                elif ponte is not None and hasattr(ponte, "definir_store"):
                     ponte.definir_store(_store)
             except Exception:  # noqa: BLE001
                 logger.debug("Spool de eventos indisponível", exc_info=True)
@@ -258,7 +261,12 @@ class CicloReuniaoMixin:
             finally:
                 self._eventos_store = None
                 ponte = getattr(self, "meet_bridge", None)
-                if ponte is not None and hasattr(ponte, "definir_store"):
+                if ponte is not None and hasattr(ponte, "definir_sessao_ativa"):
+                    try:
+                        ponte.definir_sessao_ativa(None, None)
+                    except Exception:  # noqa: BLE001
+                        pass
+                elif ponte is not None and hasattr(ponte, "definir_store"):
                     try:
                         ponte.definir_store(None)
                     except Exception:  # noqa: BLE001

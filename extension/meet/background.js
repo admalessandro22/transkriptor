@@ -45,7 +45,7 @@ function hintDaSala(sender) {
   }
 }
 
-function montarHello(sender, agora = {}) {
+function montarHello(sender, agora = {}, active = false) {
   const estado = estadoAba(sender.tab.id);
   estado.meetingHint = hintDaSala(sender);
   return {
@@ -53,6 +53,7 @@ function montarHello(sender, agora = {}) {
     connection_id: estado.connectionId,
     tab_id: String(sender.tab.id),
     meeting_hint: estado.meetingHint,
+    active: active === true,
     client_wall_ms: agora.wallMs ?? Date.now(),
     client_monotonic_ms: agora.monotonicMs ?? performance.now(),
   };
@@ -223,7 +224,9 @@ function aoReceberMensagem(mensagem, remetente, responder, dependencias = {}) {
     }
     const enviar = dependencias.enviar || enviarPonte;
     if (!estado.session) {
-      if (!estado.helloSent) estado.helloSent = enviar(montarHello(remetente)) !== false;
+      if (!estado.helloSent || (mensagem.evento && mensagem.evento.tipo === "reuniao")) {
+        estado.helloSent = enviar(montarHello(remetente, {}, mensagem.evento && mensagem.evento.ativa)) !== false;
+      }
       if (!estado.helloSent) (dependencias.conectar || conectar)();
       return false;
     }

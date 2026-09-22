@@ -22,6 +22,8 @@ Base auditada: `64b415bdc1ae26100b533cbd3c94abafa2dcb0e8`. O plano sequencial at
 
 Estados: `REOPENED` significa que a implementação existente não satisfaz o contrato auditado e exige novo RED→GREEN; `BLOCKED` significa que a implementação automatizável está verde, mas falta gate externo autorizado; `DONE` exige requisito, teste específico, regressão, aceite, evidência e SHA concordantes. `PENDING` e `IN_PROGRESS` continuam disponíveis durante execução. A dependência corrente é Task 1 → Task 2 → … → Task 12; nenhuma fase reaberta é declarada concluída com base no checkpoint histórico.
 
+Emenda de contrato aprovada com a ordem de continuação: o código de sala observado no `hello` é vinculado em memória à `meeting_key` opaca da sessão consentida somente quando houver uma única sala ativa. Ambiguidade ou ausência de código mantém nomes indisponíveis; o áudio local segue seu fluxo. Detalhes normativos: `spec.md` e `interfaces.md`.
+
 ## Checkpoint histórico de execução — 19/09/2026
 
 Este é o estado factual para retomada por outra LLM. Ele não substitui a

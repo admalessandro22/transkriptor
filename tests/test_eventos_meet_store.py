@@ -27,6 +27,7 @@ def _sessao(policy="padrao"):
 
 def _evento(sessao, seq, event_id=None, kind="caption", wall=None):
     return {
+        "schema_version": 1,
         "event_id": event_id or f"e-{seq}",
         "session_id": sessao.session_id,
         "connection_id": "c1",
@@ -72,6 +73,16 @@ def test_ack_exige_durabilidade(chave_teste, tmp_path):
     reaberta = EventStore(root, sessao)
     eventos = list(reaberta.read_events())
     assert [e["seq"] for e in eventos] == [0, 1, 2, 3, 4]
+
+
+def test_seal_impede_append_posterior(chave_teste, tmp_path):
+    store = _store(tmp_path, chave_teste)
+    store.append(_evento(store.sessao, 0))
+    refs = store.seal()
+    assert len(refs) == 1
+    with pytest.raises(ColetaBloqueada, match="fechad"):
+        store.append(_evento(store.sessao, 1))
+    assert [e["seq"] for e in store.read_events()] == [0]
 
 
 def test_crash_recupera_prefixo_integro(chave_teste, tmp_path):

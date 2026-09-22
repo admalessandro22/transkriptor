@@ -7,18 +7,21 @@ import json
 import logging
 import os
 import queue
+import re
 import secrets
 import threading
+import time
 from typing import Any
 from urllib.parse import parse_qs, urlparse
+
+from sessao_reuniao import EnvelopeRejeitado, SessaoReuniao, SessoesAtivas
+from meet_pareamento import ConviteInvalido, Pareador
 
 from config import (
     MAX_FILA_MEET_WS,
     MAX_MENSAGEM_MEET_WS,
     MAX_NOME_PARTICIPANTE,
     MAX_TEXTO_LEGENDA,
-    MEET_CONVITE_SEG,
-    MEET_SESSAO_SEG,
     MEET_WS_BURST,
     MEET_WS_EVENTOS_POR_SEG,
     MEET_WS_MAX_BYTES,
@@ -28,6 +31,7 @@ from config import (
 logger = logging.getLogger(__name__)
 
 _ORIGEM_EXTENSAO_RE = None
+_CODIGO_MEET_RE = re.compile(r"^[a-z]{3,4}-[a-z]{3,4}-[a-z]{3,4}$")
 
 
 def _origem_extensao_re():
@@ -37,81 +41,6 @@ def _origem_extensao_re():
 
         _ORIGEM_EXTENSAO_RE = _re.compile(r"^[a-p]{16,32}$")
     return _ORIGEM_EXTENSAO_RE
-
-
-class ConviteInvalido(ValueError):
-    """Convite de pareamento inexistente, expirado ou já utilizado."""
-
-
-class Pareador:
-    """Pareamento local de uso único (T-13.D2).
-
-    O app gera um convite e o exibe ao usuário; a página de pareamento da
-    extensão entrega o código ao service worker, que o troca pela credencial
-    da sessão no primeiro handshake. Convite não é reutilizável; a credencial
-    vale por sessão, aceita reconexões e pode ser revogada.
-    """
-
-    def __init__(
-        self,
-        validade_convite_seg: float = MEET_CONVITE_SEG,
-        validade_sessao_seg: float = MEET_SESSAO_SEG,
-    ) -> None:
-        self.validade_convite_seg = float(validade_convite_seg)
-        self.validade_sessao_seg = float(validade_sessao_seg)
-        self._lock = threading.Lock()
-        self._convites: dict[str, float] = {}
-        self._sessoes: dict[str, float] = {}
-
-    def gerar_convite(self, validade_seg: float | None = None) -> str:
-        import time as _time
-
-        codigo = "pair-" + secrets.token_urlsafe(18)
-        expira = _time.monotonic() + float(
-            self.validade_convite_seg if validade_seg is None else validade_seg
-        )
-        with self._lock:
-            self._convites[codigo] = expira
-        return codigo
-
-    def trocar_convite(self, codigo: str) -> str:
-        """Consome o convite e devolve a credencial da sessão (uso único)."""
-        import time as _time
-
-        with self._lock:
-            expira = self._convites.pop(str(codigo), None)
-            if expira is None or _time.monotonic() >= expira:
-                raise ConviteInvalido("convite inexistente, expirado ou já usado")
-            token = "sess-" + secrets.token_urlsafe(24)
-            self._sessoes[token] = _time.monotonic() + self.validade_sessao_seg
-            return token
-
-    def autenticar(self, credencial: str | None) -> tuple[str, bool]:
-        """Valida sessão ou troca convite; devolve (token, era_convite)."""
-        import time as _time
-
-        if not credencial:
-            raise ConviteInvalido("credencial ausente")
-        with self._lock:
-            expira = self._sessoes.get(str(credencial))
-            if expira is not None:
-                if _time.monotonic() <= expira:
-                    return str(credencial), False
-                del self._sessoes[str(credencial)]
-        if str(credencial).startswith("pair-"):
-            return self.trocar_convite(str(credencial)), True
-        raise ConviteInvalido("token de sessão inválido ou revogado")
-
-    def validar_token(self, token: str | None) -> bool:
-        try:
-            self.autenticar(token)
-            return True
-        except ConviteInvalido:
-            return False
-
-    def revogar_token(self, token: str) -> None:
-        with self._lock:
-            self._sessoes.pop(str(token), None)
 
 
 def sanitizar_nome_participante(nome: str) -> str:
@@ -215,6 +144,88 @@ class MeetBridge:
         self._conexoes_autenticadas = 0
         self.contador_descarte_rajada = 0
         self._store = None
+        self._sessao_ativa: SessaoReuniao | None = None
+        self._meeting_hint_ativo: str | None = None
+        self._hints: dict[str, dict] = {}
+        self._sessoes_ativas = SessoesAtivas()
+        self._sessao_lock = threading.RLock()
+
+    def registrar_hello(self, mensagem: dict) -> None:
+        """Guarda só o código de sala/estado em memória; nunca nome ou legenda."""
+        connection_id = mensagem.get("connection_id")
+        tab_id = mensagem.get("tab_id")
+        hint = mensagem.get("meeting_hint")
+        if not isinstance(connection_id, str) or not connection_id or not isinstance(tab_id, str) or not tab_id:
+            raise EnvelopeRejeitado("hello sem conexão/aba")
+        if hint is not None and (not isinstance(hint, str) or not _CODIGO_MEET_RE.fullmatch(hint)):
+            raise EnvelopeRejeitado("código de sala inválido")
+        if not isinstance(mensagem.get("active"), bool):
+            raise EnvelopeRejeitado("estado de sala inválido")
+        with self._sessao_lock:
+            anterior = self._hints.get(connection_id)
+            if anterior is not None and anterior["tab_id"] != tab_id:
+                raise EnvelopeRejeitado("conexão mudou de aba")
+            self._hints[connection_id] = {
+                "tab_id": tab_id, "hint": hint, "active": mensagem["active"], "seen": time.monotonic(),
+            }
+            ha_chamada = any(h["active"] and h["hint"] and time.monotonic() - h["seen"] <= 20.0
+                             for h in self._hints.values())
+        self.registrar_estado_reuniao(ha_chamada)
+
+    def hint_ativo_unico(self) -> str | None:
+        agora = time.monotonic()
+        with self._sessao_lock:
+            ativos = {h["hint"] for h in self._hints.values()
+                      if h["active"] and h["hint"] and agora - h["seen"] <= 20.0}
+        return next(iter(ativos)) if len(ativos) == 1 else None
+
+    def definir_sessao_ativa(
+        self, sessao: SessaoReuniao | None, store, *, meeting_hint: str | None = None
+    ) -> None:
+        if sessao is not None and store is not None and getattr(store, "sessao", None) != sessao:
+            raise EnvelopeRejeitado("store de outra sessão")
+        if meeting_hint is not None and meeting_hint != self.hint_ativo_unico():
+            raise EnvelopeRejeitado("sala ativa ambígua ou divergente")
+        with self._sessao_lock:
+            self._sessao_ativa = sessao
+            self._store = store
+            self._meeting_hint_ativo = meeting_hint if sessao is not None else None
+            self._sessoes_ativas = SessoesAtivas()
+
+    def iniciar_conexao_logica(
+        self, connection_id: str, tab_id: str, client_wall_ms: float,
+        *, meeting_hint: str | None = None
+    ) -> dict:
+        del client_wall_ms  # relógio do cliente não define o tempo do áudio
+        with self._sessao_lock:
+            sessao = self._sessao_ativa
+            observado = self._hints.get(connection_id)
+            if (sessao is None or self._store is None or self._meeting_hint_ativo is None or
+                    meeting_hint != self._meeting_hint_ativo or observado is None or
+                    observado["tab_id"] != tab_id or observado["hint"] != meeting_hint or
+                    not observado["active"] or time.monotonic() - observado["seen"] > 20.0):
+                raise EnvelopeRejeitado("aba sem reunião consentida correspondente")
+            self._sessoes_ativas.vincular(connection_id, tab_id, sessao)
+            return {"tipo": "sessao", "connection_id": connection_id, "tab_id": tab_id,
+                    "session_id": sessao.session_id, "meeting_key": sessao.meeting_key}
+
+    def registrar_envelope(self, connection_id: str, evento: dict) -> int:
+        with self._sessao_lock:
+            if self._store is None:
+                raise EnvelopeRejeitado("store indisponível")
+            canonico = dict(evento)
+            canonico["received_monotonic_ns"] = time.monotonic_ns()
+            valido = self._sessoes_ativas.aceitar_evento(connection_id, canonico, confirmar=False)
+            if valido["kind"] == "heartbeat":
+                self.registrar_estado_reuniao(bool(valido.get("active")))
+                self._sessoes_ativas.aceitar_evento(connection_id, valido)
+                return int(valido["seq"])
+            self._store.append(valido)
+            ack = self._store.descarregar(forcar=True)
+            if ack < int(valido["seq"]):
+                raise RuntimeError("evento Meet não durável")
+            self._sessoes_ativas.aceitar_evento(connection_id, valido)
+            return int(valido["seq"])
 
     def definir_store(self, store) -> None:
         """Liga o spool cifrado da sessão (T-13.D4; envelopes v1 vão ao store)."""
@@ -256,6 +267,8 @@ class MeetBridge:
     def desanexar_sessao(self, connection_id: str) -> None:
         with self._estado_lock:
             self._sessao_por_conexao.pop(str(connection_id), None)
+        with self._sessao_lock:
+            self._sessoes_ativas.encerrar_por_conexao(str(connection_id))
 
     def sessao_de_conexao(self, connection_id: str) -> str | None:
         with self._estado_lock:
@@ -266,9 +279,9 @@ class MeetBridge:
             titulo = dados.get("titulo") if isinstance(dados, dict) else None
             self.registrar_estado_reuniao(estado_reuniao_do_evento(dados), titulo=titulo)
             return
-        if isinstance(dados, dict) and "event_id" in dados and self._store is not None:
+        if isinstance(dados, dict) and ("event_id" in dados or dados.get("schema_version") == 1):
             try:
-                self._store.append(dados)
+                self.registrar_envelope(str(dados.get("connection_id", "")), dados)
             except Exception:  # noqa: BLE001 — EnvelopeRejeitado/ColetaBloqueada
                 logger.debug("Envelope v1 fora da sessão; descartado.")
             return
@@ -350,6 +363,7 @@ async def _servidor_ws(bridge: MeetBridge, host: str, porta: int) -> None:
             return
         janela_saldo = float(MEET_WS_BURST)
         janela_ultima = _time.monotonic()
+        conexoes_do_socket: set[str] = set()
         try:
             async for mensagem in websocket:
                 # Token bucket: rajada até BURST, sustentado EVENTOS_POR_SEG.
@@ -365,10 +379,44 @@ async def _servidor_ws(bridge: MeetBridge, host: str, porta: int) -> None:
                         bridge.contador_descarte_rajada += 1
                     continue
                 janela_saldo -= 1.0
-                bridge.processar_mensagem(mensagem)
+                try:
+                    dados = json.loads(mensagem)
+                except (json.JSONDecodeError, TypeError):
+                    continue
+                if not isinstance(dados, dict):
+                    continue
+                if dados.get("tipo") == "hello":
+                    try:
+                        bridge.registrar_hello(dados)
+                        connection_id = dados["connection_id"]
+                        conexoes_do_socket.add(connection_id)
+                        resposta = bridge.iniciar_conexao_logica(
+                            connection_id, dados["tab_id"], dados.get("client_wall_ms", 0),
+                            meeting_hint=dados.get("meeting_hint"),
+                        )
+                    except EnvelopeRejeitado:
+                        continue  # antes do consentimento, só heartbeat mínimo
+                    await websocket.send(json.dumps(resposta))
+                    continue
+                if dados.get("schema_version") == 1 or "event_id" in dados:
+                    connection_id = dados.get("connection_id")
+                    if connection_id not in conexoes_do_socket:
+                        await websocket.send(json.dumps({"tipo": "erro", "codigo": "conexao_nao_vinculada"}))
+                        continue
+                    try:
+                        seq = bridge.registrar_envelope(connection_id, dados)
+                    except (EnvelopeRejeitado, ValueError, RuntimeError):
+                        await websocket.send(json.dumps({"tipo": "erro", "codigo": "envelope_rejeitado"}))
+                        continue
+                    await websocket.send(json.dumps({"tipo": "ack", "connection_id": connection_id, "seq": seq}))
+                    continue
+                if bridge.pareador is None:
+                    bridge.registrar_evento(dados)
         except Exception:
             logger.debug("Cliente WebSocket desconectado", exc_info=True)
         finally:
+            for connection_id in conexoes_do_socket:
+                bridge.desanexar_sessao(connection_id)
             with bridge._estado_lock:
                 bridge._conexoes_autenticadas = max(0, bridge._conexoes_autenticadas - 1)
 
