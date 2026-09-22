@@ -43,14 +43,15 @@ Depois:
 
 ## 3. Estado: uma tarefa por vez
 
-Estados permitidos: `PENDING`, `IN_PROGRESS`, `BLOCKED`, `DONE`. O estado não é inferido da intenção.
+Estados permitidos: `PENDING`, `IN_PROGRESS`, `REOPENED`, `BLOCKED`, `DONE`. O estado não é inferido da intenção. Na remediação iniciada em 22/09/2026, a ordem obrigatória das Tasks 1–12 está em `docs/superpowers/plans/2026-09-22-remediacao-auditoria-v18.md` e substitui a ordem de implementação original abaixo para os requisitos reabertos.
 
 - `PENDING`: sem commit/evidência.
 - `IN_PROGRESS`: RED registrado, ainda sem todos os gates verdes.
+- `REOPENED`: implementação anterior não satisfaz o contrato auditado; requer novo RED→GREEN, regressão e evidência. A checkbox permanece desmarcada.
 - `BLOCKED`: depende de decisão/autorização/ambiente externo; código parcial deve permanecer identificável e sem checkbox concluída.
 - `DONE`: código + testes específicos + regressões + evidência + commit local existem e correspondem ao mesmo `HEAD`.
 
-Nunca iniciar a próxima tarefa se a atual estiver `IN_PROGRESS`. Nunca marcar fase concluída se uma tarefa obrigatória estiver `PENDING/BLOCKED`. F13.H é opcional; A–G são obrigatórias para a release proposta.
+Nunca iniciar a próxima tarefa se a atual estiver `IN_PROGRESS`. Nunca marcar fase concluída se uma tarefa obrigatória estiver `PENDING/IN_PROGRESS/REOPENED/BLOCKED`. F13.H é opcional; A–G são obrigatórias para a release proposta.
 
 DU-01–DU-15 estão decididas e não devem gerar nova pergunta. DU-16 é informação externa ausente e bloqueia somente H. Uma autorização futura para executar A–G não autoriza reunião real/OAuth; pedir autorização no momento exato de cada gate, conforme DU-12.
 
@@ -118,7 +119,7 @@ Quando surgir uma escolha não fechada:
 
 ## 7. Ordem exata e saídas mínimas
 
-Executar: `A1 → A2 → B1 → B2 → B3 → C1 → C2 → C3 → D1 → D2 → D3 → D4 → D5 → D6 → D7 → E1 → E2 → E3 → E4 → F1 → F2 → F3 → G1 → G2 → G3`. H1 → H2 → H3 somente por decisão explícita.
+Ordem histórica de implementação: `A1 → A2 → B1 → B2 → B3 → C1 → C2 → C3 → D1 → D2 → D3 → D4 → D5 → D6 → D7 → E1 → E2 → E3 → E4 → F1 → F2 → F3 → G1 → G2 → G3`. Para o estado auditado de 22/09, executar sequencialmente Tasks 1–12 do plano de remediação. H1 → H2 → H3 somente por decisão explícita.
 
 | Tarefa | Saída que deve existir ao final | Proibição específica |
 |---|---|---|
@@ -158,7 +159,7 @@ Cada `docs/sdd/v1.8/evidencias/T-13.Xn.md` deve conter:
 ```markdown
 # T-13.Xn — título
 
-- Estado: DONE | BLOCKED
+- Estado: PENDING | IN_PROGRESS | REOPENED | DONE | BLOCKED
 - Base: <SHA antes>
 - Resultado: <SHA do commit ou "sem commit — bloqueado">
 - Requisito: <ID>

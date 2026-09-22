@@ -75,7 +75,7 @@ class Atribuicao:
     status: str                # confirmed, suggested, unknown, conflict
 ```
 
-Envelope de evento `schema_version=1`: `event_id`, `session_id`, `connection_id`, `seq`, `tab_id`, `meeting_key`, `kind`, `client_wall_ms`, `client_monotonic_ms`, `received_monotonic_ns`, `participant_id?`, `display_name?`, `caption_id?`, `caption_revision?`, `text?`, `confidence_source`. `kind` pertence a `heartbeat|participant_join|participant_leave|caption|speaker_activity|capabilities`.
+Envelope de evento `schema_version=1`: `event_id`, `session_id`, `connection_id`, `seq`, `tab_id`, `meeting_key`, `kind`, `client_wall_ms`, `client_monotonic_ms`, `received_monotonic_ns`, `participant_id?`, `display_name?`, `caption_id?`, `caption_revision?`, `text?`, `confidence_source`. `kind` pertence a `heartbeat|participant_join|participant_leave|caption|speaker_activity|capabilities`. O WebSocket pode ser único, mas `connection_id` é lógico e exclusivo por aba. Após consentimento, o servidor é a autoridade de `session_id` e `meeting_key`; o cliente não escolhe outra sessão ao enviar evento. O cliente envia apenas seus relógios; o bridge acrescenta `received_monotonic_ns=time.monotonic_ns()` no recebimento, e só o envelope canônico persistido contém esse campo de servidor.
 
 Relógios: registrar handshake com ida/volta e amostras de offset; recalibrar na reconexão. Duração de áudio usa frames/sample rate. Se incerteza do alinhamento >1,5 s, não aplicar nome por tempo sozinho. Não usar `Date.now() - instante anterior ao start()` como única origem temporal.
 
@@ -84,6 +84,8 @@ Relógios: registrar handshake com ida/volta e amostras de offset; recalibrar na
 Job v2 preserva leitura de v1 e acrescenta `schema_version`, `session_id`, `artifact_refs`, `capture_metrics`, `stage`, `lease`, `attempt`, `warnings`. Referências sensíveis não carregam o conteúdo. Worker valida hash/formato antes de abrir artefato e escreve `ResultManifest` atomicamente antes de marcar `ready`.
 
 `ResultManifest`: `meeting_id`, `schema_version`, `source_audio_hashes`, `participants_ref`, `segments_ref`, `stage_status`, `warnings`, `exports`, `created_at`, `pipeline_version`. Segmento: `segment_id`, `start_ms`, `end_ms`, `audio_source`, `text`, `speaker_cluster_id`, `assignment`, `overlap`. Resultado parcial é utilizável, mas não libera retenção automática da única fonte necessária.
+
+O worker entrega `ResultadoProcessamento` com TXT, segmentos, atribuições, estados por etapa e avisos. `ResultadoStorage` salva/carrega o JSON canônico por `ArtifactRef`, com confinamento e integridade. A UI e as exportações consomem esse resultado persistido; não podem inferir nomes apenas do TXT legado.
 
 Estados de job: `pending`, `processing`, `ready`, `failed`, mais `cancelled`; qualidade por etapa em `stage_status` (`complete|partial|failed|skipped`). `ready` exige resultado íntegro, sem afirmar que todas as identificações são conhecidas.
 

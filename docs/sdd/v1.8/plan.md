@@ -16,7 +16,13 @@ Este plano está em execução na tarefa corrente registrada em `tasks.md`. Não
 bump de versão, instalação de extensão, OAuth, publicação ou migração sem a
 autorização específica exigida por `decisoes-usuario.md`.
 
-## Checkpoint de execução — 19/09/2026
+## Estado vigente da remediação — 22/09/2026
+
+Base auditada: `64b415bdc1ae26100b533cbd3c94abafa2dcb0e8`. O plano sequencial ativo é `docs/superpowers/plans/2026-09-22-remediacao-auditoria-v18.md`. As Tasks 1–12 desse plano reabrem D1, D2, D4–D7, E1, E4, F3, G1 e G2; G3 continua bloqueada até CI, gates físicos e release autorizada. O histórico abaixo registra o que foi observado em 19/09, sem comprovar os contratos de produção apontados pela auditoria.
+
+Estados: `REOPENED` significa que a implementação existente não satisfaz o contrato auditado e exige novo RED→GREEN; `BLOCKED` significa que a implementação automatizável está verde, mas falta gate externo autorizado; `DONE` exige requisito, teste específico, regressão, aceite, evidência e SHA concordantes. `PENDING` e `IN_PROGRESS` continuam disponíveis durante execução. A dependência corrente é Task 1 → Task 2 → … → Task 12; nenhuma fase reaberta é declarada concluída com base no checkpoint histórico.
+
+## Checkpoint histórico de execução — 19/09/2026
 
 Este é o estado factual para retomada por outra LLM. Ele não substitui a
 definição de pronto nem altera a ordem obrigatória das tarefas.
@@ -82,9 +88,9 @@ definição de pronto nem altera a ordem obrigatória das tarefas.
 
 ### Próximos passos (C2 em diante)
 
-1. C1 está DONE. Próxima tarefa elegível: T-13.C2, uma por vez, com RED→GREEN, teste final, evidência e commit local; push autorizado pelo usuário.
+1. Este roteiro era válido em 19/09. A partir de 22/09, executar a Task 1 do plano de remediação, seguida das demais em ordem, com RED→GREEN, teste final, evidência e commit local por tarefa.
 2. C3 encerra F13.C com o gate longo já validado aqui mais o streaming em blocos.
-3. F13.D–G exigem gates reais próprios (Chrome/Edge, corpus, instalação); cada um pede autorização específica na hora, por DU-12.
+3. F13.D–G exigem gates reais próprios (Chrome/Edge, corpus, instalação); cada um pede autorização específica na hora, por DU-12. Push e release também exigem autorização própria.
 
 Antes de implementar, a LLM executora deve ler integralmente `interfaces.md` e `executor-llm.md`. Esses documentos fecham assinaturas, escolhas técnicas, escopo autorizado, formato de evidência e condições de parada. Não substituir uma decisão fechada por preferência do agente. Se uma decisão se provar inviável, propor emenda documental e parar a task antes de alterar consumidores.
 
