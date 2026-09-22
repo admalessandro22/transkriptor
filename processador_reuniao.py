@@ -151,7 +151,7 @@ def processar_job(
             except Exception:
                 logger.error("Falha ao registrar aviso de eventos")
         preferencias = dict(job.preferencias or {})
-        resultado = retranscritor.retranscrever(
+        processamento = retranscritor.retranscrever_resultado(
             job.audio,
             caminho_mic=job.mic,
             pasta_saida=str(fila.pasta_transcricoes),
@@ -170,25 +170,44 @@ def processar_job(
         )
         if fila.obter(job_id).cancel_solicitado:
             raise JobCancelado("cancelado")
-        from resultado_reuniao import criar_manifesto_inicial, salvar_manifesto
+        from resultado_reuniao import (
+            carregar_segmentos, criar_manifesto_estruturado, exportar_txt,
+            salvar_manifesto, salvar_segmentos, validar_manifesto,
+        )
 
-        caminho_resultado = Path(resultado)
+        caminho_resultado = Path(processamento.txt_path)
+        caminho_segmentos = fila.pasta_transcricoes / "resultados" / f"{job.id}.json"
+        if caminho_resultado.exists() or caminho_segmentos.exists():
+            raise FileExistsError("resultado existente; revisão manual preservada")
+        salvar_segmentos(caminho_segmentos, processamento.segmentos, {})
+        dados_segmentos = carregar_segmentos(caminho_segmentos)
+        texto_txt = exportar_txt(dados_segmentos["segmentos"], dados_segmentos["mapeamento"])
+        retranscritor._escrever_texto_atomico(caminho_resultado, texto_txt)
+        if processamento.gerar_copia_tkpt:
+            from crypto_storage import salvar_transcricao
+
+            salvar_transcricao(str(caminho_resultado.with_suffix(".tkpt")), texto_txt)
         fontes_audio = [Path(job.audio)]
         if job.mic:
             fontes_audio.append(Path(job.mic))
-        manifesto = criar_manifesto_inicial(
+        manifesto = criar_manifesto_estruturado(
             meeting_id=job.id,
+            segmentos=caminho_segmentos,
             resultado=caminho_resultado,
             fontes_audio=fontes_audio,
             raiz=fila.pasta_transcricoes,
+            warnings=processamento.warnings,
+            diarizacao_solicitada=bool(metadados.get("diarizar", True)),
         )
         caminho_manifesto = caminho_resultado.with_suffix(".resultado.json")
         salvar_manifesto(caminho_manifesto, manifesto)
+        if not validar_manifesto(caminho_manifesto, fila.pasta_transcricoes):
+            raise ValueError("manifesto estruturado inválido")
         fila.registrar_progresso(job_id, ETAPA_FINAL, unidades + 1)
         if fila.obter(job_id).cancel_solicitado:
             raise JobCancelado("cancelado")
-        fila.concluir(job_id, resultado, str(caminho_manifesto))
-        return Path(resultado)
+        fila.concluir(job_id, str(caminho_resultado), str(caminho_manifesto))
+        return caminho_resultado
     except JobCancelado:
         try:
             fila.cancelar(job_id)

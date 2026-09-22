@@ -76,8 +76,7 @@ def test_processador_cria_txt_utf8_e_copia_tkpt(
 
     assert resultado.suffix == ".txt"
     texto = resultado.read_text(encoding="utf-8")
-    assert texto.startswith("=== Transcricao")
-    assert "[00:00:00]" in texto
+    assert texto.startswith("[00:00:00] Identificação pendente:")
     assert "decisão importante" in texto
     copia = resultado.with_suffix(".tkpt")
     assert copia.is_file()
@@ -95,7 +94,7 @@ def test_falha_mantem_audio_e_marca_job(fila_com_job, monkeypatch):
     def falhar(*_args, **_kwargs):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(retranscritor, "retranscrever", falhar)
+    monkeypatch.setattr(retranscritor, "retranscrever_resultado", falhar)
     with pytest.raises(RuntimeError):
         processar_job(job_id, fila=fila)
 

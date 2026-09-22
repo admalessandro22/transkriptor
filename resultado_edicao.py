@@ -27,6 +27,7 @@ class SegmentoResultado:
     text: str
     speaker_cluster_id: str
     overlap: bool = False
+    assignment: Mapping[str, object] | None = None
 
 
 def _hora_curta(ms: int) -> str:
@@ -94,6 +95,7 @@ def salvar_segmentos(
                     "text": str(seg.text),
                     "speaker_cluster_id": str(seg.speaker_cluster_id),
                     "overlap": bool(seg.overlap),
+                    "assignment": dict(seg.assignment) if seg.assignment is not None else None,
                 }
             )
         else:
@@ -106,6 +108,7 @@ def salvar_segmentos(
                     "text": str(seg.get("text", "")),
                     "speaker_cluster_id": str(seg.get("speaker_cluster_id", "")),
                     "overlap": bool(seg.get("overlap", False)),
+                    "assignment": dict(seg["assignment"]) if seg.get("assignment") is not None else None,
                 }
             )
     dados = {
@@ -127,6 +130,23 @@ def carregar_segmentos(path: Path) -> dict:
         dados.get("revision"), str
     ):
         raise ValueError("resultado estruturado inválido")
+    for seg in dados["segmentos"]:
+        if not isinstance(seg, dict) or not all(
+            chave in seg for chave in (
+                "segment_id", "start_ms", "end_ms", "audio_source", "text", "speaker_cluster_id"
+            )
+        ):
+            raise ValueError("segmento estruturado inválido")
+        if (
+            not isinstance(seg["segment_id"], str) or not seg["segment_id"]
+            or type(seg["start_ms"]) is not int or type(seg["end_ms"]) is not int
+            or seg["start_ms"] < 0 or seg["end_ms"] <= seg["start_ms"]
+            or seg["audio_source"] not in ("loopback", "microphone")
+            or not isinstance(seg["text"], str)
+            or not isinstance(seg["speaker_cluster_id"], str)
+            or (seg.get("assignment") is not None and not isinstance(seg["assignment"], dict))
+        ):
+            raise ValueError("segmento estruturado inválido")
     dados.setdefault("mapeamento", {})
     dados.setdefault("historico", [])
     return dados

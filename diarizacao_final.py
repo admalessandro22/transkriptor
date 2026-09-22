@@ -66,7 +66,7 @@ def preservar_audios(criptografar: bool, *caminhos, pasta_audio: str | None = No
     return destinos
 
 
-def rodar_diarizacao(transcritor, caminho_saida, caminho_wav) -> None:
+def rodar_diarizacao(transcritor, caminho_saida, caminho_wav):
     """Pós-processamento: separa falantes e escreve versão diarizada do .txt."""
     import numpy as np
 
@@ -74,7 +74,7 @@ def rodar_diarizacao(transcritor, caminho_saida, caminho_wav) -> None:
     try:
         if not transcritor._segmentos:
             transcritor.on_status("Sem segmentos para diarizar.")
-            return
+            return []
 
         transcritor.on_status("Iniciando separação de vozes (pós-processamento)...")
         try:
@@ -120,7 +120,7 @@ def rodar_diarizacao(transcritor, caminho_saida, caminho_wav) -> None:
         except Exception as e:
             transcritor.on_status(f"Erro na diarização: {e}")
             logger.exception("Erro na diarização")
-            return
+            return []
 
         base, ext = os.path.splitext(caminho_saida)
         caminho_diar = f"{base}_diarizado{ext}"
@@ -141,6 +141,7 @@ def rodar_diarizacao(transcritor, caminho_saida, caminho_wav) -> None:
                 f.write(texto_diar)
 
         transcritor.on_status(f"Diarização concluída: {os.path.basename(caminho_diar)}")
+        return resultado
     finally:
         transcritor.diarizando = False
         # Usa método do Transcritor (respeita PASTA_AUDIO monkeypatch nos testes)

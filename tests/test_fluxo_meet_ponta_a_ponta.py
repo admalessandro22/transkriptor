@@ -98,12 +98,13 @@ def test_worker_apos_restart_le_eventos_do_fluxo_real(app_com_store):
     recebido = {}
 
     def retranscrever_fake(_audio, **kwargs):
+        from resultado_pipeline import ResultadoProcessamento
+
         recebido["eventos"] = kwargs["eventos_meet"]
         saida = raiz / "reuniao.txt"
-        saida.write_text("fala sintética", encoding="utf-8")
-        return str(saida)
+        return ResultadoProcessamento(saida, ())
 
-    with patch("retranscritor.retranscrever", side_effect=retranscrever_fake):
+    with patch("retranscritor.retranscrever_resultado", side_effect=retranscrever_fake):
         processar_job(job.id, fila=reiniciada)
     assert reiniciada.obter(job.id).estado == "ready"
     assert [evento["display_name"] for evento in recebido["eventos"]] == ["Ana"]
@@ -121,12 +122,13 @@ def test_artefato_adulterado_nao_chega_ao_worker(app_com_store):
     recebido = {}
 
     def retranscrever_fake(_audio, **kwargs):
+        from resultado_pipeline import ResultadoProcessamento
+
         recebido["eventos"] = kwargs["eventos_meet"]
         saida = raiz / "reuniao.txt"
-        saida.write_text("fala sintética", encoding="utf-8")
-        return str(saida)
+        return ResultadoProcessamento(saida, ())
 
-    with patch("retranscritor.retranscrever", side_effect=retranscrever_fake):
+    with patch("retranscritor.retranscrever_resultado", side_effect=retranscrever_fake):
         processar_job(job.id, fila=reiniciada)
     assert recebido["eventos"] == []
     assert "evento_hash_invalido_recusado" in reiniciada.obter(job.id).warnings

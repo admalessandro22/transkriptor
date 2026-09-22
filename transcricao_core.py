@@ -307,7 +307,7 @@ class Transcritor(CapturaLeveMixin):
 
     def _rodar_diarizacao(self, caminho_saida, caminho_wav):
         from diarizacao_final import rodar_diarizacao
-        rodar_diarizacao(self, caminho_saida, caminho_wav)
+        return rodar_diarizacao(self, caminho_saida, caminho_wav)
 
     def _preservar_audios(self, *caminhos):
         from diarizacao_final import preservar_audios

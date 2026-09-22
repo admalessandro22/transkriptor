@@ -51,6 +51,7 @@ class SegmentoResultado:
     text: str
     speaker_cluster_id: str
     overlap: bool = False
+    assignment: Mapping[str, object] | None = None
 
 
 def _agora_utc() -> str:
@@ -224,7 +225,14 @@ def validar_manifesto(caminho: Path, raiz: Path) -> bool:
     referencias: list[ArtifactRef] = [manifesto.segments_ref, *manifesto.exports]
     if manifesto.participants_ref is not None:
         referencias.append(manifesto.participants_ref)
-    return all(referencia_integra(referencia, raiz_resolvida) for referencia in referencias)
+    if not all(referencia_integra(referencia, raiz_resolvida) for referencia in referencias):
+        return False
+    if manifesto.segments_ref.format == "application/vnd.transkriptor.segments+json":
+        try:
+            carregar_segmentos(raiz_resolvida / manifesto.segments_ref.relative_path)
+        except (OSError, ValueError, json.JSONDecodeError):
+            return False
+    return True
 
 
 def validar_manifesto_para_job(
@@ -301,6 +309,38 @@ def criar_manifesto_inicial(
         warnings=() if tem_fala else ("stt_sem_fala",),
         exports=(referencia,),
         created_at=created_at or _agora_utc(),
+        pipeline_version=config.VERSAO,
+    )
+
+
+def criar_manifesto_estruturado(
+    *, meeting_id: str, segmentos: Path, resultado: Path,
+    fontes_audio: Sequence[Path], raiz: Path, warnings: Sequence[str] = (),
+    diarizacao_solicitada: bool = False,
+) -> ResultManifest:
+    """Referencia o JSON canônico e seu TXT derivado, ambos já persistidos."""
+    raiz = Path(raiz).resolve(strict=True)
+    ref_json = criar_referencia(Path(segmentos), raiz, format="application/vnd.transkriptor.segments+json", schema_version=1)
+    ref_txt = criar_referencia(Path(resultado), raiz, format="text/plain; charset=utf-8", schema_version=1)
+    tem_segmentos = bool(carregar_segmentos(segmentos)["segmentos"])
+    avisos = tuple(warnings) + (() if tem_segmentos else ("stt_sem_fala",))
+    return ResultManifest(
+        meeting_id=meeting_id,
+        schema_version=VERSAO_MANIFESTO,
+        source_audio_hashes=tuple(sha256_arquivo(Path(fonte).resolve(strict=True)) for fonte in fontes_audio),
+        participants_ref=None,
+        segments_ref=ref_json,
+        stage_status={
+            "stt": StageState.COMPLETE if tem_segmentos else StageState.PARTIAL,
+            "diarizacao": (
+                StageState.SKIPPED if not diarizacao_solicitada else
+                StageState.PARTIAL if "diarizacao_falhou" in avisos or "segment_alignment_failed" in avisos else
+                StageState.COMPLETE
+            ),
+        },
+        warnings=avisos,
+        exports=(ref_txt,),
+        created_at=_agora_utc(),
         pipeline_version=config.VERSAO,
     )
 

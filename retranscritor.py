@@ -179,7 +179,7 @@ def _texto_transcricao(linhas: list[str], metadados: dict, duracao: float) -> st
     return "\n".join(cabecalho + linhas + ["", "=== Fim ===", ""])
 
 
-def retranscrever(
+def _retranscrever_resultado(
     caminho_audio: str,
     *,
     pasta_saida: str | None = None,
@@ -198,10 +198,12 @@ def retranscrever(
     usar_vozes_conhecidas: bool = True,
     rotulo_usuario: str | None = None,
     eventos_meet: list | None = None,
+    materializar_legado: bool = False,
     **_kwargs,
-) -> str:
-    """Transcreve áudio retido e entrega `.txt` UTF-8 atômico como principal."""
+):
+    """Transcreve as fontes e devolve os segmentos com origem verificável."""
     from crypto_storage import nome_base_transcricao
+    from resultado_pipeline import ResultadoProcessamento, criar_segmentos
 
     on_status = on_status or (lambda _m: None)
     pasta = str(Path(pasta_saida or PASTA_TRANSCRICOES).resolve())
@@ -256,8 +258,10 @@ def retranscrever(
     metadados = dict(metadados or {})
     texto_final = _texto_transcricao(linhas, metadados, duracao)
     caminho_final = Path(pasta) / f"{base}.txt"
-    _escrever_texto_atomico(caminho_final, texto_final)
+    if materializar_legado:
+        _escrever_texto_atomico(caminho_final, texto_final)
 
+    diarizados = []
     if diarizar and segmentos:
         with tempfile.TemporaryDirectory(prefix="diarizacao_", dir=pasta) as tmp_dir:
             temporario_txt = Path(tmp_dir) / f"{base}.txt"
@@ -289,7 +293,7 @@ def retranscrever(
             transcritor._segmentos = segmentos
             transcritor._caminho_wav_mic_salvo = caminho_mic
             transcritor._preservar_audios = lambda *_caminhos: []
-            transcritor._rodar_diarizacao(str(temporario_txt), str(temporario_wav))
+            diarizados = transcritor._rodar_diarizacao(str(temporario_txt), str(temporario_wav)) or []
             temporario_diar = Path(tmp_dir) / f"{base}_diarizado.txt"
             if temporario_diar.is_file():
                 _escrever_texto_atomico(
@@ -297,7 +301,7 @@ def retranscrever(
                     temporario_diar.read_text(encoding="utf-8"),
                 )
 
-    if gerar_copia_tkpt:
+    if gerar_copia_tkpt and materializar_legado:
         try:
             from crypto_storage import salvar_transcricao
 
@@ -306,4 +310,18 @@ def retranscrever(
             logger.warning("Cópia TKPT indisponível (%s)", type(exc).__name__)
 
     on_status(f"Retranscrição concluída: {caminho_final.name}")
-    return str(caminho_final)
+    estruturados, avisos = criar_segmentos(fundidos, diarizados)
+    if diarizar and segmentos and not diarizados:
+        avisos = (*avisos, "diarizacao_falhou")
+    return ResultadoProcessamento(caminho_final, estruturados, avisos, gerar_copia_tkpt)
+
+
+def retranscrever_resultado(caminho_audio: str, **kwargs):
+    """API do worker: não materializa TXT antes do JSON canônico."""
+    return _retranscrever_resultado(caminho_audio, **kwargs)
+
+
+def retranscrever(caminho_audio: str, **kwargs) -> str:
+    """API pública de compatibilidade para retranscrição avulsa."""
+    resultado = _retranscrever_resultado(caminho_audio, materializar_legado=True, **kwargs)
+    return str(resultado.txt_path)
