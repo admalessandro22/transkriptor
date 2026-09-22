@@ -11,7 +11,8 @@
 | 2 — cliente Meet | DONE (automação) | `95045e456100ffa9cf1a5d816ce43b6d86eb4a87` | RED/GREEN abaixo | Demo Chrome/Edge real na Task 12: PENDENTE |
 | 3 — bridge/sessão/store | DONE (automação) | `362c63d2fc2b4c3ab4b7dd92e19833d907a843a7` | RED/GREEN e 714 testes abaixo | Navegador real na Task 12: PENDENTE |
 | 4 — refs Meet no job | DONE (automação) | `d9e2e7f3a2d4b858077be877a247136d0eedf1c9` | RED/GREEN abaixo | Não aplicável |
-| 5–11 — correções sequenciais | PENDING | — | — | Conforme tarefa |
+| 5 — resultado estruturado | DONE (automação) | `3f505e736a98df4f268ec461d30044876186261b` | RED/GREEN e 720 testes abaixo | Não aplicável |
+| 6–11 — correções sequenciais | PENDING | — | — | Conforme tarefa |
 | 12 — gates e release | BLOCKED | — | — | CI, áudio real, Chrome/Edge, três pessoas, CPU/CUDA e autorização de release pendentes |
 
 As evidências históricas `T-13.*.md` permanecem intactas; seus antigos estados DONE não comprovam os contratos reabertos pela auditoria. Cada linha deste índice deve ser detalhada após a respectiva task, com comandos, exit codes, ambiente e SHA real. Gate não executado permanece PENDENTE.
@@ -48,3 +49,11 @@ As evidências históricas `T-13.*.md` permanecem intactas; seus antigos estados
 - GREEN: mesmo teste exit 0; `python -m pytest tests/test_fluxo_meet_ponta_a_ponta.py tests/test_nomes_meet_worker.py tests/test_fila_processamento.py tests/test_processador_reuniao.py -v` exit 0, 21 passed; regressão do ciclo/bandeja exit 0, 16 passed; teste do limite de 500 linhas exit 0; `git diff --check` exit 0.
 - Fluxo verificado: `_parar_transcricao()` e `_enfileirar_reuniao()` reais criam job v2 com refs; uma nova `FilaProcessamento` lê o job; `processar_job()` carrega o evento; hash adulterado resulta em `evento_hash_invalido_recusado` e nenhum nome. O teste legado v1 passa sem nome inventado. Dados, áudio e nomes usados são sintéticos.
 - Commit de implementação: `d9e2e7f3a2d4b858077be877a247136d0eedf1c9`.
+
+## Task 5 — resultado estruturado canônico
+
+- Base: `76ddfcfba7715ed27e9f8eb9b433ea8dd0439b05`.
+- RED: `test_worker_materializa_resultado_estruturado` exit 1 porque `segments_ref` apontava para `reuniao.txt`; `test_manifesto_com_json_malformado_nao_libera_retencao` exit 1 porque um hash válido bastava mesmo com campos de segmento ausentes.
+- GREEN em 22/09/2026: `python -m pytest tests/test_resultado_pipeline.py tests/test_resultado_reuniao.py tests/test_processador_reuniao.py tests/test_retencao_resultado.py -v` exit 0, 25 passed; `python -m pytest tests/ -q --tb=short` exit 0, 720 passed; limite de 500 linhas e `git diff --check` exit 0.
+- O worker grava `resultados/{job.id}.json`, deriva TXT do JSON, cria as refs e valida o manifesto antes de concluir. O alinhamento usa intervalo e texto, preserva origem e sinaliza `segment_alignment_failed` sem atribuir nome por índice. Saída existente é preservada e o job falha sem apagar o áudio. A API pública `retranscrever()` mantém retorno `str`.
+- Commit de implementação: `3f505e736a98df4f268ec461d30044876186261b`.
