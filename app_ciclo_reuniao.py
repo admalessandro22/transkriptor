@@ -251,11 +251,12 @@ class CicloReuniaoMixin:
                         "Transkriptor",
                         "Ative legendas no Meet para identificar participantes",
                     )
+            eventos_refs = ()
             try:
                 _store = getattr(self, "_eventos_store", None)
                 if _store is not None:
-                    _refs = _store.seal()
-                    logger.info("Eventos Meet selados: %d segmento(s).", len(_refs))
+                    eventos_refs = _store.seal()
+                    logger.info("Eventos Meet selados: %d segmento(s).", len(eventos_refs))
             except Exception:  # noqa: BLE001
                 logger.debug("Selo de eventos indisponível", exc_info=True)
             finally:
@@ -276,7 +277,7 @@ class CicloReuniaoMixin:
                 if self.transcritor is t:
                     self.transcritor = None
             if caminho:
-                self._enfileirar_reuniao(t, caminho)
+                self._enfileirar_reuniao(t, caminho, eventos_refs=eventos_refs)
             self._atualizar_tooltip()
 
     def _em_thread(self, alvo, nome):
