@@ -690,6 +690,12 @@ function renderParticipantes(dados) {
   if (!listaParticipantes) return;
   listaParticipantes.innerHTML = '';
   const mapa = dados.mapeamento || {};
+  const porCluster = new Map();
+  (dados.segmentos || []).forEach((seg) => {
+    const grupo = porCluster.get(seg.speaker_cluster_id) || [];
+    grupo.push(seg);
+    porCluster.set(seg.speaker_cluster_id, grupo);
+  });
   (dados.segmentos || []).forEach((seg) => {
     const info = nomeExibido(seg.speaker_cluster_id, mapa);
     const div = document.createElement('div');
@@ -697,6 +703,39 @@ function renderParticipantes(dados) {
     div.innerHTML = '<span class="p-nome">' + escapeHtml(info.nome) + '</span> ' +
       '<span class="p-origem">(' + escapeHtml(info.origem + (info.incerto ? ', incerto' : '')) + ')</span> ' +
       '<span class="p-texto">' + escapeHtml(seg.text || '') + '</span>';
+    const sugestao = seg.assignment;
+    if (info.incerto && sugestao && sugestao.status === 'suggested' && sugestao.display_name) {
+      const origem = {caption: 'legenda', google_entry: 'entrada do Meet', manual: 'manual'}[sugestao.source] || 'desconhecida';
+      const confianca = Number.isFinite(Number(sugestao.confidence))
+        ? Math.round(Number(sugestao.confidence) * 100) + '%' : 'indisponível';
+      const detalhes = document.createElement('div');
+      detalhes.className = 'p-sugestao';
+      detalhes.textContent = 'Sugestão: ' + sugestao.display_name + ' · origem: ' + origem + ' · confiança: ' + confianca;
+      div.appendChild(detalhes);
+      const consenso = (porCluster.get(seg.speaker_cluster_id) || []).every((outro) =>
+        outro.assignment && outro.assignment.status === 'suggested' &&
+        outro.assignment.display_name === sugestao.display_name &&
+        outro.assignment.participant_id === sugestao.participant_id);
+      if (consenso) {
+        const confirmar = document.createElement('button');
+        confirmar.type = 'button';
+        confirmar.textContent = 'Confirmar ' + sugestao.display_name;
+        confirmar.addEventListener('click', () => {
+          if (selCluster) selCluster.value = seg.speaker_cluster_id;
+          if (inputNome) inputNome.value = sugestao.display_name;
+          salvarCorrecao();
+        });
+        div.appendChild(confirmar);
+      }
+      const escolher = document.createElement('button');
+      escolher.type = 'button';
+      escolher.textContent = 'Escolher outro nome';
+      escolher.addEventListener('click', () => {
+        if (selCluster) selCluster.value = seg.speaker_cluster_id;
+        if (inputNome) { inputNome.value = ''; inputNome.focus(); }
+      });
+      div.appendChild(escolher);
+    }
     listaParticipantes.appendChild(div);
   });
   if (selCluster) {
@@ -754,6 +793,11 @@ async function salvarCorrecao(ev) {
     })
   });
   const dados = await r.json();
+  if (r.status === 409) {
+    await carregarResultado();
+    dizerParticipantes('Revisão divergente; resultado atualizado. Confirme novamente.');
+    return;
+  }
   if (!r.ok) { dizerParticipantes(dados.erro || 'Falha ao salvar.'); return; }
   await carregarResultado();
   dizerParticipantes('Correção salva (' + dados.revision + ').');

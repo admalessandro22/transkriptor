@@ -5,7 +5,7 @@ import json
 import os
 import re
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from enum import StrEnum
 from pathlib import Path
@@ -343,6 +343,67 @@ def criar_manifesto_estruturado(
         created_at=_agora_utc(),
         pipeline_version=config.VERSAO,
     )
+
+
+def _manifesto_da_edicao(caminho_segmentos: Path):
+    caminho_segmentos = Path(caminho_segmentos).resolve(strict=True)
+    raiz = caminho_segmentos.parent.parent
+    relativo = caminho_segmentos.relative_to(raiz).as_posix()
+    encontrados = []
+    for candidato in raiz.glob("*.resultado.json"):
+        try:
+            manifesto = carregar_manifesto(candidato)
+        except (OSError, ValueError, json.JSONDecodeError):
+            continue
+        if manifesto.segments_ref.relative_path == relativo and manifesto.segments_ref.format == "application/vnd.transkriptor.segments+json":
+            encontrados.append((candidato, manifesto))
+    if not encontrados:
+        return None  # JSON avulso sem exportação vinculada
+    if len(encontrados) != 1:
+        raise ValueError("resultado associado a múltiplos manifestos")
+    return encontrados[0]
+
+
+def validar_exportacao_antes_edicao(caminho_segmentos: Path) -> None:
+    encontrado = _manifesto_da_edicao(caminho_segmentos)
+    if encontrado is None:
+        return
+    _caminho_manifesto, manifesto = encontrado
+    raiz = Path(caminho_segmentos).resolve(strict=True).parent.parent
+    refs_txt = [ref for ref in manifesto.exports if ref.format == "text/plain; charset=utf-8"]
+    if (len(refs_txt) != 1 or not referencia_integra(refs_txt[0], raiz)
+            or not referencia_integra(manifesto.segments_ref, raiz)):
+        raise ValueError("TXT alterado fora da revisão; exportação preservada")
+
+
+def atualizar_exportacao_apos_edicao(caminho_segmentos: Path) -> None:
+    """Atualiza TXT e refs da reunião editada sem tocar exportação alheia."""
+    encontrado = _manifesto_da_edicao(caminho_segmentos)
+    if encontrado is None:
+        return
+    caminho_manifesto, manifesto = encontrado
+    caminho_segmentos = Path(caminho_segmentos).resolve(strict=True)
+    raiz = caminho_segmentos.parent.parent
+    refs_txt = [ref for ref in manifesto.exports if ref.format == "text/plain; charset=utf-8"]
+    if len(refs_txt) != 1 or not referencia_integra(refs_txt[0], raiz):
+        raise ValueError("TXT alterado fora da revisão; exportação preservada")
+    caminho_txt = (raiz / refs_txt[0].relative_path).resolve(strict=True)
+    dados = carregar_segmentos(caminho_segmentos)
+    texto = exportar_txt(dados["segmentos"], dados["mapeamento"])
+    fd, temporario = tempfile.mkstemp(prefix=f"{caminho_txt.stem}_", suffix=".tmp", dir=str(caminho_txt.parent))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as arquivo:
+            arquivo.write(texto)
+            arquivo.flush()
+            os.fsync(arquivo.fileno())
+        os.replace(temporario, caminho_txt)
+    finally:
+        if os.path.exists(temporario):
+            os.unlink(temporario)
+    novo_json = criar_referencia(caminho_segmentos, raiz, format=manifesto.segments_ref.format, schema_version=manifesto.segments_ref.schema_version)
+    novo_txt = criar_referencia(caminho_txt, raiz, format=refs_txt[0].format, schema_version=refs_txt[0].schema_version)
+    exports = tuple(novo_txt if ref == refs_txt[0] else ref for ref in manifesto.exports)
+    salvar_manifesto(caminho_manifesto, replace(manifesto, segments_ref=novo_json, exports=exports))
 
 
 # Reexportações D7 (implementação em resultado_edicao para o limite de linhas).

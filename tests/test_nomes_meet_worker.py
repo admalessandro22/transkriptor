@@ -134,6 +134,12 @@ def test_nome_atravessa_job_e_worker_novo(chave_teste, tmp_path):
     assert "Ana" in nomes and "Bruno" in nomes
     texto = Path(resultado).read_text(encoding="utf-8").lower()
     assert "bom dia" in texto and "cronograma" in texto
+    from resultado_reuniao import carregar_manifesto, carregar_segmentos
+
+    manifesto = carregar_manifesto(Path(fila.obter(job_id).manifesto_resultado))
+    dados = carregar_segmentos(fila.pasta_transcricoes / manifesto.segments_ref.relative_path)
+    assert dados["segmentos"][0]["assignment"]["status"] == "suggested"
+    assert "Ana" not in texto
 
 
 def test_restart_preserva_eventos(chave_teste, tmp_path):

@@ -166,6 +166,7 @@ def processar_job(
             usar_vozes_conhecidas=bool(preferencias.get("usar_vozes_conhecidas", True)),
             rotulo_usuario=preferencias.get("rotulo_usuario"),
             eventos_meet=eventos_meet,
+            clock_uncertainty_ms=5000 if (job.sessao or {}).get("relogio_incerto", True) else 0,
             on_status=_on_status,
         )
         if fila.obter(job_id).cancel_solicitado:

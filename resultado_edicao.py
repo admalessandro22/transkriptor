@@ -213,7 +213,13 @@ def aplicar_correcao(
         }
     )
     dados["revision"] = nova_revisao
+    from resultado_reuniao import validar_exportacao_antes_edicao
+
+    validar_exportacao_antes_edicao(Path(path))
     _escrever_json_atomico(Path(path), dados)
+    from resultado_reuniao import atualizar_exportacao_apos_edicao
+
+    atualizar_exportacao_apos_edicao(Path(path))
     return nova_revisao
 
 
@@ -237,5 +243,11 @@ def desfazer_correcao(path: Path, *, expected_revision: str) -> str:
         {"revision": nova_revisao, "acao": "desfazer", "cluster": cluster}
     )
     dados["revision"] = nova_revisao
+    from resultado_reuniao import validar_exportacao_antes_edicao
+
+    validar_exportacao_antes_edicao(Path(path))
     _escrever_json_atomico(Path(path), dados)
+    from resultado_reuniao import atualizar_exportacao_apos_edicao
+
+    atualizar_exportacao_apos_edicao(Path(path))
     return nova_revisao

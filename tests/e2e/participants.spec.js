@@ -99,4 +99,43 @@ test("revisão divergente mostra erro sem perder o drawer", async ({ page }) => 
   await page.click("#salvar-correcao");
   await expect(page.locator("#participantes-estado")).toContainText("divergente");
   await expect(page.locator("#participantes-drawer")).toBeVisible();
+  await expect(page.locator("#correcao-revisao")).toHaveValue("rev-9");
+});
+
+
+test("sugestão conserva pendência até confirmação e escapa conteúdo", async ({ page }) => {
+  const base = structuredClone(BASE);
+  base.segmentos[0].text = "<img src=x onerror=alert(1)>";
+  base.segmentos[0].assignment = {
+    status: "suggested", participant_id: "p1", display_name: "Ana",
+    source: "caption", confidence: 1, evidence_event_ids: ["e1"],
+    calibration_version: "corpus-v1",
+  };
+  await carregar(page, { base, revisao: "rev-1", mapeamento: {} });
+  await page.click("#abrir-participantes");
+  await expect(page.locator("#lista-participantes")).toContainText("Identificação pendente");
+  await expect(page.locator("#lista-participantes")).toContainText("Sugestão: Ana");
+  await expect(page.locator("#lista-participantes")).toContainText("origem: legenda");
+  await expect(page.locator("#lista-participantes img")).toHaveCount(0);
+  await page.getByRole("button", { name: "Confirmar Ana" }).click();
+  await expect(page.locator("#lista-participantes")).toContainText("Ana");
+  const chamadas = await page.evaluate(() => window.__chamadas.filter((c) => c.url.endsWith("/correcao")));
+  expect(JSON.parse(chamadas[0].corpo).expected_revision).toBe("rev-1");
+  await page.click("#desfazer-correcao");
+  await expect(page.locator("#lista-participantes")).toContainText("Identificação pendente");
+});
+
+
+test("sugestões divergentes no mesmo falante exigem escolha manual", async ({ page }) => {
+  const base = structuredClone(BASE);
+  base.segmentos = [
+    { ...base.segmentos[0], assignment: { status: "suggested", display_name: "Ana", participant_id: "p1", source: "caption", confidence: 1 } },
+    { ...base.segmentos[0], segment_id: "s2", assignment: { status: "suggested", display_name: "Bruno", participant_id: "p2", source: "caption", confidence: 1 } },
+  ];
+  await carregar(page, { base, revisao: "rev-1", mapeamento: {} });
+  await page.click("#abrir-participantes");
+  await expect(page.getByRole("button", { name: "Confirmar Ana" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Confirmar Bruno" })).toHaveCount(0);
+  await expect(page.locator("#lista-participantes")).toContainText("Sugestão: Ana");
+  await expect(page.locator("#lista-participantes")).toContainText("Sugestão: Bruno");
 });

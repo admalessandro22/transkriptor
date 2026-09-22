@@ -198,6 +198,7 @@ def _retranscrever_resultado(
     usar_vozes_conhecidas: bool = True,
     rotulo_usuario: str | None = None,
     eventos_meet: list | None = None,
+    clock_uncertainty_ms: int = 0,
     materializar_legado: bool = False,
     **_kwargs,
 ):
@@ -310,7 +311,12 @@ def _retranscrever_resultado(
             logger.warning("Cópia TKPT indisponível (%s)", type(exc).__name__)
 
     on_status(f"Retranscrição concluída: {caminho_final.name}")
-    estruturados, avisos = criar_segmentos(fundidos, diarizados)
+    from correlacionador import atribuir_segmentos
+
+    atribuicoes = atribuir_segmentos(
+        fundidos, eventos_meet or (), clock_uncertainty_ms=clock_uncertainty_ms,
+    )
+    estruturados, avisos = criar_segmentos(fundidos, diarizados, atribuicoes)
     if diarizar and segmentos and not diarizados:
         avisos = (*avisos, "diarizacao_falhou")
     return ResultadoProcessamento(caminho_final, estruturados, avisos, gerar_copia_tkpt)
