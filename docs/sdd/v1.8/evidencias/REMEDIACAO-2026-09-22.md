@@ -12,7 +12,8 @@
 | 3 — bridge/sessão/store | DONE (automação) | `362c63d2fc2b4c3ab4b7dd92e19833d907a843a7` | RED/GREEN e 714 testes abaixo | Navegador real na Task 12: PENDENTE |
 | 4 — refs Meet no job | DONE (automação) | `d9e2e7f3a2d4b858077be877a247136d0eedf1c9` | RED/GREEN abaixo | Não aplicável |
 | 5 — resultado estruturado | DONE (automação) | `3f505e736a98df4f268ec461d30044876186261b` | RED/GREEN e 720 testes abaixo | Não aplicável |
-| 6–11 — correções sequenciais | PENDING | — | — | Conforme tarefa |
+| 6 — sugestão e revisão UI | DONE (automação) | `ab330cf1a3ffa2bd48d909b72cbbb2cc0559af5c` | RED/GREEN abaixo | Não aplicável |
+| 7–11 — correções sequenciais | PENDING | — | — | Conforme tarefa |
 | 12 — gates e release | BLOCKED | — | — | CI, áudio real, Chrome/Edge, três pessoas, CPU/CUDA e autorização de release pendentes |
 
 As evidências históricas `T-13.*.md` permanecem intactas; seus antigos estados DONE não comprovam os contratos reabertos pela auditoria. Cada linha deste índice deve ser detalhada após a respectiva task, com comandos, exit codes, ambiente e SHA real. Gate não executado permanece PENDENTE.
@@ -57,3 +58,11 @@ As evidências históricas `T-13.*.md` permanecem intactas; seus antigos estados
 - GREEN em 22/09/2026: `python -m pytest tests/test_resultado_pipeline.py tests/test_resultado_reuniao.py tests/test_processador_reuniao.py tests/test_retencao_resultado.py -v` exit 0, 25 passed; `python -m pytest tests/ -q --tb=short` exit 0, 720 passed; limite de 500 linhas e `git diff --check` exit 0.
 - O worker grava `resultados/{job.id}.json`, deriva TXT do JSON, cria as refs e valida o manifesto antes de concluir. O alinhamento usa intervalo e texto, preserva origem e sinaliza `segment_alignment_failed` sem atribuir nome por índice. Saída existente é preservada e o job falha sem apagar o áudio. A API pública `retranscrever()` mantém retorno `str`.
 - Commit de implementação: `3f505e736a98df4f268ec461d30044876186261b`.
+
+## Task 6 — sugestões, proveniência e revisão
+
+- Base: `9c4ddef2d2b634790a655524adb442cdbd0fb4c1`.
+- RED: `serializar_atribuicao` ausente; worker gravava `assignment: null`; Playwright não mostrava sugestão nem atualizava revisão após 409; TXT editado fora do app permitia avançar revisão JSON antes de falhar. Todos reproduzidos por testes específicos.
+- GREEN em 22/09/2026: `python -m pytest tests/test_identidade_reuniao.py tests/test_correlacionador.py tests/test_resultado_reuniao.py tests/test_resultado_pipeline.py tests/test_nomes_meet_worker.py -v` exit 0, 40 passed; `npm run test:e2e -- participants.spec.js` exit 0, 4 passed; limite de 500 linhas e `git diff --check` exit 0.
+- Sugestões persistem com status, fonte, confiança, IDs de evidência e versão da calibração. TXT permanece pendente até confirmação manual. O drawer escapa texto/nome, exige escolha manual se o mesmo cluster tiver sugestões divergentes, recarrega a revisão em 409; confirmação e undo atualizam TXT e hashes do manifesto. Não há criação de perfil biométrico nesse fluxo.
+- Commit de implementação: `ab330cf1a3ffa2bd48d909b72cbbb2cc0559af5c`.
