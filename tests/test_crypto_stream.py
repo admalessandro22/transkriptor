@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from crypto_stream import encrypt_file, iter_decrypt_file
+from crypto_stream import ErroTKAS, TAMANHO_CHUNK, encrypt_file, iter_decrypt_file
 
 CHAVE = b"k" * 32
 
@@ -133,6 +133,42 @@ def test_chave_errada_falha(tmp_path):
         b"".join(iter_decrypt_file(destino, b"y" * 32))
 
 
+def test_tkas_rejeita_sufixo_apos_chunk_final_cheio(tmp_path):
+    origem = tmp_path / "audio.wav"
+    origem.write_bytes(b"A" * TAMANHO_CHUNK)
+    destino = tmp_path / "audio.tks"
+    encrypt_file(origem, destino, CHAVE)
+    with destino.open("ab") as arquivo:
+        arquivo.write(b"NAO-AUTENTICADO")
+    with pytest.raises(ErroTKAS, match="após tag final"):
+        list(iter_decrypt_file(destino, CHAVE))
+
+
+def test_validacao_de_cifra_nao_acumula_chunks(tmp_path, monkeypatch):
+    import crypto_stream
+
+    origem = tmp_path / "curto.wav"
+    origem.write_bytes(b"conteudo")
+    vivos = [0]
+    pico = [0]
+
+    class Rastreado:
+        def __init__(self):
+            vivos[0] += 1
+            pico[0] = max(pico[0], vivos[0])
+
+        def __del__(self):
+            vivos[0] -= 1
+
+    def iterador_fake(*_args):
+        for _ in range(100):
+            yield Rastreado()
+
+    monkeypatch.setattr(crypto_stream, "iter_decrypt_file", iterador_fake)
+    encrypt_file(origem, tmp_path / "curto.tks", CHAVE)
+    assert pico[0] <= 2
+
+
 def test_audio_tks_no_reader(chave_teste, tmp_path):
     from crypto_storage import obter_chave_mestra
 
@@ -153,3 +189,21 @@ def test_audio_tks_no_reader(chave_teste, tmp_path):
     assert (info.sample_rate, info.total_frames) == (sr, n)
     amostras = np.concatenate([b.samples for b in iter_audio(tks, AudioSource.MICROPHONE)])
     assert np.allclose(amostras, audio.astype(np.float32) / 32768.0, atol=1e-4)
+
+
+def test_inspecao_tks_autentica_ate_o_fim(chave_teste, tmp_path):
+    from audio_reader import AudioSource, inspect_audio
+    from crypto_storage import obter_chave_mestra
+
+    wav = tmp_path / "audio.wav"
+    with wave.open(str(wav), "wb") as arquivo:
+        arquivo.setnchannels(1)
+        arquivo.setsampwidth(2)
+        arquivo.setframerate(16000)
+        arquivo.writeframes(b"\x00\x00" * ((2 * TAMANHO_CHUNK - 44) // 2))
+    tks = tmp_path / "audio.tks"
+    encrypt_file(wav, tks, obter_chave_mestra())
+    with tks.open("ab") as arquivo:
+        arquivo.write(b"sufixo")
+    with pytest.raises(ErroTKAS, match="após tag final"):
+        inspect_audio(tks, AudioSource.LOOPBACK)

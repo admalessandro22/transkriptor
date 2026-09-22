@@ -52,36 +52,6 @@ def _eh_tks(path: Path) -> bool:
         return False
 
 
-def _parse_cabecalho_wav(buf: bytes):
-    """RIFF manual: (sr, canais, largura, offset_dados, bytes_dados) ou None."""
-    import struct
-
-    if len(buf) < 16 or buf[:4] != b"RIFF":
-        return None
-    pos = 12
-    sr = canais = largura = None
-    while pos + 8 <= len(buf):
-        tag, tamanho = buf[pos : pos + 4], struct.unpack("<I", buf[pos + 4 : pos + 8])[0]
-        corpo = pos + 8
-        if tag == b"fmt " and tamanho >= 16 and corpo + 16 <= len(buf):
-            formato, canais, sr = struct.unpack("<HHI", buf[corpo : corpo + 8])
-            largura = struct.unpack("<H", buf[corpo + 14 : corpo + 16])[0] // 8
-            if formato != 1:
-                raise UnsupportedAudioFormat("WAV não-PCM rejeitado")
-        elif tag == b"data":
-            if sr is None or largura not in _LARGURAS_SUPORTADAS:
-                if sr is not None:
-                    raise UnsupportedAudioFormat(
-                        f"PCM {(largura or 0) * 8}-bit não implementado"
-                    )
-                return None
-            return sr, canais, largura, corpo, tamanho
-        pos = corpo + tamanho + (tamanho % 2)
-        if pos > len(buf):
-            return None
-    return None
-
-
 def _chave_tks() -> bytes:
     from crypto_storage import obter_chave_mestra
 
@@ -89,57 +59,52 @@ def _chave_tks() -> bytes:
 
 
 def _iter_tks(path: Path, source: AudioSource, max_seconds: float) -> Iterator[AudioChunk]:
-    """Blocos de WAV dentro de TKAS sem materializar o plaintext (T-13.E1)."""
-    from crypto_stream import iter_decrypt_file
-
-    acumulador = bytearray()
-    cabecalho = None
-    resto = b""
-    inicio_frame = 0
-    for pedaco in iter_decrypt_file(path, _chave_tks()):
-        acumulador.extend(pedaco)
-        if cabecalho is None:
-            parsed = _parse_cabecalho_wav(bytes(acumulador))
-            if parsed is None:
-                continue
-            cabecalho = parsed
-            resto = bytes(acumulador[cabecalho[3] :])
-            acumulador.clear()
-        else:
-            resto = resto + bytes(acumulador)
-            acumulador.clear()
-        sr, canais, largura, _, _ = cabecalho
+    """Lê quadros de um WAV cifrado sem acumular chunks de plaintext."""
+    wav, leitor = _abrir_tks(path)
+    try:
+        sr, canais, largura = wav.getframerate(), wav.getnchannels(), wav.getsampwidth()
+        if largura not in _LARGURAS_SUPORTADAS:
+            raise UnsupportedAudioFormat(f"PCM {largura * 8}-bit não implementado")
         quadros_bloco = max(1, int(sr * max_seconds))
-        bloco_bytes = quadros_bloco * canais * largura
-        while len(resto) >= bloco_bytes:
-            yield AudioChunk(
-                start_frame=inicio_frame,
-                samples=_converter_para_float32(resto[:bloco_bytes], largura, canais),
-            )
-            inicio_frame += quadros_bloco
-            resto = resto[bloco_bytes:]
-    if cabecalho is None:
-        raise UnsupportedAudioFormat("TKAS sem WAV válido")
-    if resto:
-        sr, canais, largura, _, _ = cabecalho
-        yield AudioChunk(
-            start_frame=inicio_frame,
-            samples=_converter_para_float32(resto, largura, canais),
-        )
+        inicio_frame = 0
+        while True:
+            raw = wav.readframes(quadros_bloco)
+            if not raw:
+                break
+            yield AudioChunk(inicio_frame, _converter_para_float32(raw, largura, canais))
+            inicio_frame += len(raw) // (canais * largura)
+        while leitor.read(1024 * 1024):
+            pass  # autentica o sufixo cifrado após os quadros declarados
+    finally:
+        wav.close()
+        leitor.close()
 
 
 def _inspect_tks(path: Path, source: AudioSource) -> AudioInfo:
-    from crypto_stream import iter_decrypt_file
+    wav, leitor = _abrir_tks(path)
+    try:
+        info = AudioInfo(wav.getframerate(), wav.getnchannels(), wav.getsampwidth(),
+                         wav.getnframes(), source)
+        if info.sample_width not in _LARGURAS_SUPORTADAS:
+            raise UnsupportedAudioFormat(f"PCM {info.sample_width * 8}-bit não implementado")
+        while leitor.read(1024 * 1024):
+            pass  # inspeção só é aceita depois da tag final autenticada
+        return info
+    finally:
+        wav.close()
+        leitor.close()
 
-    acumulador = bytearray()
-    for pedaco in iter_decrypt_file(path, _chave_tks()):
-        acumulador.extend(pedaco)
-        parsed = _parse_cabecalho_wav(bytes(acumulador))
-        if parsed is not None:
-            sr, canais, largura, _, bytes_dados = parsed
-            quadro = canais * largura
-            return AudioInfo(sr, canais, largura, bytes_dados // max(1, quadro), source)
-    raise UnsupportedAudioFormat("TKAS sem WAV válido")
+
+def _abrir_tks(path: Path):
+    from crypto_stream import iter_decrypt_file
+    from stream_io import IteratorReader
+
+    leitor = io.BufferedReader(IteratorReader(iter_decrypt_file(path, _chave_tks())))
+    try:
+        return wave.open(leitor, "rb"), leitor
+    except Exception:
+        leitor.close()
+        raise
 
 
 def _abrir_wav_plano(path: Path) -> tuple[object, object | None]:
