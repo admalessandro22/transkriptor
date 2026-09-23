@@ -14,7 +14,8 @@
 | 5 — resultado estruturado | DONE (automação) | `3f505e736a98df4f268ec461d30044876186261b` | RED/GREEN e 720 testes abaixo | Não aplicável |
 | 6 — sugestão e revisão UI | DONE (automação) | `ab330cf1a3ffa2bd48d909b72cbbb2cc0559af5c` | RED/GREEN abaixo | Não aplicável |
 | 7 — TKAS/1 incremental | DONE (automação) | `f6f11b9af2939c0bed660654482588057decff6f` | RED/GREEN e 726 testes abaixo | Não aplicável |
-| 8–11 — correções sequenciais | PENDING | — | — | Conforme tarefa |
+| 8 — modo protegido em produção | DONE (automação) | `863261d09e2a65b04ba353a7e21245a61133765c` | RED/GREEN e 741 testes abaixo | Áudio real na Task 12: PENDENTE |
+| 9–11 — correções sequenciais | PENDING | — | — | Conforme tarefa |
 | 12 — gates e release | BLOCKED | — | — | CI, áudio real, Chrome/Edge, três pessoas, CPU/CUDA e autorização de release pendentes |
 
 As evidências históricas `T-13.*.md` permanecem intactas; seus antigos estados DONE não comprovam os contratos reabertos pela auditoria. Cada linha deste índice deve ser detalhada após a respectiva task, com comandos, exit codes, ambiente e SHA real. Gate não executado permanece PENDENTE.
@@ -75,3 +76,12 @@ As evidências históricas `T-13.*.md` permanecem intactas; seus antigos estados
 - GREEN em 22/09/2026: `python -m pytest tests/test_crypto_stream.py tests/test_audio_streaming.py tests/test_audio_utils.py -v` exit 0, 20 passed; após remover parser RIFF não usado, gate dirigido exit 0, 20 passed; `python -m pytest tests/ -q --tb=short` exit 0, 726 passed; `git diff --check` exit 0.
 - TKAS/1 exige chunk size fixo e EOF após a tag final. A validação de `encrypt_file` itera sem agregar plaintext; falha remove o temporário. `IteratorReader` mantém apenas o chunk atual; `wave.open` e inspeção consomem o stream cifrado inteiro sem tempfile plaintext. A suíte de áudio longo existente exercita 60 segundos sintéticos em blocos; gate físico de duração maior permanece na Task 12.
 - Commit de implementação: `f6f11b9af2939c0bed660654482588057decff6f`.
+
+## Task 8 — modo protegido para áudio e resultados
+
+- Base: `c23a24b2ec66d03e028b77d3e24fb2c054e5e639`.
+- RED: proteção de WAV produzia `.wav.enc` em vez de TKAS; resultado ainda gravava JSON aberto; job ignorava `_mic.tks`; primeira configuração omitia `protection_mode`; proteção dependia da flag legada; falha entre revisão e manifesto deixava estado inconsistente; diarização criava diretório temporário plaintext; retenção ignorava TKAS órfão. Cada comportamento foi reproduzido em teste antes da correção.
+- GREEN em 23/09/2026, Windows/Python 3.12: `python -m pytest tests/ -q --tb=short -x` exit 0, 741 passed em 143,75 s; gate dirigido de storage/política/crypto/captura/retencão exit 0, 79 passed; `git diff --cached --check` exit 0.
+- O modo protegido persiste na primeira configuração. Captura, microfone, órfãos e resultado usam TKAS/1, JSON cifrado e TKPT. Revisão e undo atualizam resultado e manifesto com trava e journal de rollback; leitura recusa hash/schema/path inválido. A diarização protegida percorre áudio cifrado sem criar WAV/TXT temporário em claro. O modo legado mantém leitura compatível.
+- Durante a primeira suíte completa, um teste importou o app com a pasta real de áudio e converteu dois WAV órfãos preexistentes. O guard de estado detectou a mudança; ambos foram restaurados byte a byte aos caminhos originais e os dois TKAS criados pelo teste foram removidos. Os horários de modificação originais não eram recuperáveis. O fixture de importação passou a isolar as pastas do app; a suíte completa posterior terminou sem modificar o estado real.
+- Gate físico de áudio e instalação permanece na Task 12. Commit de implementação: `863261d09e2a65b04ba353a7e21245a61133765c`.
