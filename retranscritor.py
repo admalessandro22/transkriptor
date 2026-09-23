@@ -259,11 +259,42 @@ def _retranscrever_resultado(
     metadados = dict(metadados or {})
     texto_final = _texto_transcricao(linhas, metadados, duracao)
     caminho_final = Path(pasta) / f"{base}.txt"
+    from politica_privacidade import ProtectionMode, modo_efetivo
+
+    protegido = Path(caminho_audio).suffix.lower() == ".tks" or modo_efetivo() == ProtectionMode.PROTECTED
     if materializar_legado:
-        _escrever_texto_atomico(caminho_final, texto_final)
+        if protegido:
+            from crypto_storage import salvar_transcricao
+
+            caminho_final = caminho_final.with_suffix(".tkpt")
+            salvar_transcricao(str(caminho_final), texto_final)
+        else:
+            _escrever_texto_atomico(caminho_final, texto_final)
 
     diarizados = []
-    if diarizar and segmentos:
+    if diarizar and segmentos and protegido:
+        from audio_trechos import extrair_trechos
+        from diarizacao_final import rodar_diarizacao
+
+        trechos_lb = extrair_trechos(Path(caminho_audio), AudioSource.LOOPBACK, segmentos)
+        trechos_mic = (extrair_trechos(Path(caminho_mic), AudioSource.MICROPHONE, segmentos)
+                       if caminho_mic else None)
+        transcritor = Transcritor(
+            pasta_saida=pasta, diarizar_ao_final=True, capturar_mic=False,
+            identificar_voz=identificar_voz,
+            rotulo_usuario=rotulo_usuario or ROTULO_USUARIO,
+            eventos_meet=list(eventos_meet or []),
+            usar_vozes_conhecidas=usar_vozes_conhecidas,
+            criptografar=True, on_status=on_status,
+        )
+        transcritor._segmentos = segmentos
+        transcritor._preservar_audios = lambda *_caminhos: []
+        diarizados = rodar_diarizacao(
+            transcritor, str(caminho_final), None,
+            trechos_audio=trechos_lb, trechos_mic=trechos_mic,
+            materializar=False,
+        ) or []
+    if diarizar and segmentos and not protegido:
         with tempfile.TemporaryDirectory(prefix="diarizacao_", dir=pasta) as tmp_dir:
             temporario_txt = Path(tmp_dir) / f"{base}.txt"
             temporario_wav = Path(tmp_dir) / f"{base}_audio.wav"
@@ -296,13 +327,13 @@ def _retranscrever_resultado(
             transcritor._preservar_audios = lambda *_caminhos: []
             diarizados = transcritor._rodar_diarizacao(str(temporario_txt), str(temporario_wav)) or []
             temporario_diar = Path(tmp_dir) / f"{base}_diarizado.txt"
-            if temporario_diar.is_file():
+            if materializar_legado and temporario_diar.is_file():
                 _escrever_texto_atomico(
                     Path(pasta) / temporario_diar.name,
                     temporario_diar.read_text(encoding="utf-8"),
                 )
 
-    if gerar_copia_tkpt and materializar_legado:
+    if gerar_copia_tkpt and materializar_legado and not protegido:
         try:
             from crypto_storage import salvar_transcricao
 

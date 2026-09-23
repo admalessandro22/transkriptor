@@ -300,7 +300,7 @@ class ProcessamentoReuniaoMixin:
         mic = None
         for caminho in caminhos:
             nome = Path(caminho).name.lower()
-            if "_mic.wav" in nome:
+            if nome.endswith(("_mic.wav", "_mic.wav.enc", "_mic.tks")):
                 mic = caminho
             elif principal is None:
                 principal = caminho

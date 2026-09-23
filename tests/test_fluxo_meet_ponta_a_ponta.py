@@ -88,6 +88,26 @@ def test_parar_sela_e_entrega_refs_ao_job(app_com_store):
     assert reiniciada.obter(job.id).eventos_refs == job.eventos_refs
 
 
+def test_enfileirar_preserva_duas_fontes_tkas(app_com_store, wav_sintetico, chave_teste):
+    from diarizacao_final import preservar_audios
+    from politica_privacidade import ProtectionMode
+
+    app, raiz = app_com_store
+    lb = wav_sintetico("loopback")
+    mic = wav_sintetico("microfone")
+    lb_nome = lb.with_name("reuniao_audio.wav")
+    mic_nome = mic.with_name("reuniao_mic.wav")
+    lb.rename(lb_nome)
+    mic.rename(mic_nome)
+    protegidos = preservar_audios(ProtectionMode.PROTECTED, str(lb_nome), str(mic_nome),
+                                  pasta_audio=str(raiz / "audio"))
+    app.transcritor.audios_preservados = protegidos
+    job_id = app._enfileirar_reuniao(app.transcritor, str(raiz / "reuniao.tkpt"))
+    job = app.fila.obter(job_id)
+    assert job.audio.endswith("_audio.tks")
+    assert job.mic.endswith("_mic.tks")
+
+
 def test_worker_apos_restart_le_eventos_do_fluxo_real(app_com_store):
     from processador_reuniao import processar_job
 

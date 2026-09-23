@@ -181,6 +181,7 @@ def reforcar_rotulo_por_mic(
     sample_rate=SAMPLE_RATE,
     rms_loopback_por_segmento=None,
     margem_anti_eco=MARGEM_ANTI_ECO,
+    trechos_mic=None,
 ):
     """Força rótulo do usuário quando há energia no mic (FR-5.6).
 
@@ -189,14 +190,15 @@ def reforcar_rotulo_por_mic(
     Guarda D6: rótulo já confirmado (nome próprio, não `FALANTE_XX`) nunca é
     trocado por energia — conflito vira pendência nas camadas de identidade.
     """
-    if not caminho_mic:
+    if not caminho_mic and trechos_mic is None:
         return resultado
     reforcado = []
     for i, (rot, start, end, texto) in enumerate(resultado):
         if not str(rot).startswith("FALANTE"):
             reforcado.append((rot, start, end, texto))
             continue
-        trecho = ler_trecho_wav(caminho_mic, start, end, sample_rate)
+        trecho = (trechos_mic[i] if trechos_mic is not None and i < len(trechos_mic)
+                  else ler_trecho_wav(caminho_mic, start, end, sample_rate))
         rms_mic = _rms(trecho)
         if rms_mic < limiar_rms:
             reforcado.append((rot, start, end, texto))

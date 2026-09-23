@@ -232,6 +232,14 @@ def validar_manifesto(caminho: Path, raiz: Path) -> bool:
             carregar_segmentos(raiz_resolvida / manifesto.segments_ref.relative_path)
         except (OSError, ValueError, json.JSONDecodeError):
             return False
+    elif manifesto.segments_ref.format == "application/vnd.transkriptor.segments+json+encrypted":
+        try:
+            from politica_privacidade import ProtectionMode
+            from resultado_storage import ResultadoStorage
+
+            ResultadoStorage(raiz_resolvida, ProtectionMode.PROTECTED).load(manifesto.segments_ref)
+        except Exception:  # noqa: BLE001 — chave/cifra inválida não libera job/retencão
+            return False
     return True
 
 
@@ -317,12 +325,15 @@ def criar_manifesto_estruturado(
     *, meeting_id: str, segmentos: Path, resultado: Path,
     fontes_audio: Sequence[Path], raiz: Path, warnings: Sequence[str] = (),
     diarizacao_solicitada: bool = False,
+    segmentos_ref: ArtifactRef | None = None,
+    resultado_ref: ArtifactRef | None = None,
+    dados_segmentos: Mapping | None = None,
 ) -> ResultManifest:
     """Referencia o JSON canônico e seu TXT derivado, ambos já persistidos."""
     raiz = Path(raiz).resolve(strict=True)
-    ref_json = criar_referencia(Path(segmentos), raiz, format="application/vnd.transkriptor.segments+json", schema_version=1)
-    ref_txt = criar_referencia(Path(resultado), raiz, format="text/plain; charset=utf-8", schema_version=1)
-    tem_segmentos = bool(carregar_segmentos(segmentos)["segmentos"])
+    ref_json = segmentos_ref or criar_referencia(Path(segmentos), raiz, format="application/vnd.transkriptor.segments+json", schema_version=1)
+    ref_txt = resultado_ref or criar_referencia(Path(resultado), raiz, format="text/plain; charset=utf-8", schema_version=1)
+    tem_segmentos = bool((dados_segmentos or carregar_segmentos(segmentos))["segmentos"])
     avisos = tuple(warnings) + (() if tem_segmentos else ("stt_sem_fala",))
     return ResultManifest(
         meeting_id=meeting_id,

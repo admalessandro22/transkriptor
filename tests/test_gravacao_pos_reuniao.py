@@ -65,6 +65,8 @@ def test_modo_posterior_grava_todos_blocos_em_ordem(tmp_path):
 
 
 def test_stop_expoe_audio_preservado(tmp_path, monkeypatch):
+    from audio_reader import AudioSource, inspect_audio
+
     t = Transcritor(
         pasta_saida=str(tmp_path),
         processar_ao_vivo=False,
@@ -78,9 +80,11 @@ def test_stop_expoe_audio_preservado(tmp_path, monkeypatch):
 
     assert t.audios_preservados
     assert all(Path(path).is_file() for path in t.audios_preservados)
-    with wave.open(t.audios_preservados[0], "rb") as wav:
-        assert wav.getnchannels() == 1
-        assert wav.getframerate() == 16000
+    audio = Path(t.audios_preservados[0])
+    assert audio.suffix == ".tks"
+    info = inspect_audio(audio, AudioSource.LOOPBACK)
+    assert info.channels == 1
+    assert info.sample_rate == 16000
 
 
 def test_importar_captura_nao_importa_bibliotecas_de_ia():

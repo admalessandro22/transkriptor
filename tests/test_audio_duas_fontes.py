@@ -40,7 +40,7 @@ def _modelo_com(falas):
     return modelo
 
 
-def test_frase_exclusiva_mic_aparece(tmp_path):
+def test_frase_exclusiva_mic_aparece(tmp_path, chave_teste):
     """Fala só no mic (texto próprio) entra no resultado — não só energia RMS."""
     from retranscritor import retranscrever
 

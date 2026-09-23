@@ -22,6 +22,7 @@ import soundcard as sc
 from captura_leve import CapturaLeveMixin
 from com_audio import com_inicializada
 from recuperacao_sessao import registrar_wavs_abertos, selar_transcritor
+from politica_privacidade import ProtectionMode, modo_efetivo
 
 from config import (
     SAMPLE_RATE,
@@ -39,7 +40,6 @@ from config import (
     MIN_DISCO_LIVRE_GB,
     PASTA_AUDIO,  # reexport para monkeypatch em testes
 )
-
 logger = logging.getLogger(__name__)
 
 
@@ -90,7 +90,7 @@ class Transcritor(CapturaLeveMixin):
             from crypto_storage import chave_disponivel, criptografia_ativa
 
             criptografar = criptografia_ativa() and chave_disponivel()
-        self.criptografar = criptografar
+        self.criptografar = bool(criptografar or modo_efetivo() == ProtectionMode.PROTECTED)
         self.titulo_reuniao = titulo_reuniao
         self._centroides_por_rotulo_ultima: dict = {}
 
@@ -310,8 +310,8 @@ class Transcritor(CapturaLeveMixin):
         return rodar_diarizacao(self, caminho_saida, caminho_wav)
 
     def _preservar_audios(self, *caminhos):
-        from diarizacao_final import preservar_audios
-        return preservar_audios(self.criptografar, *caminhos, pasta_audio=PASTA_AUDIO)
+        from diarizacao_final import preservar_audios_transcritor
+        return preservar_audios_transcritor(self, caminhos, PASTA_AUDIO)
 
     def _checar_disco_livre(self):
         try:

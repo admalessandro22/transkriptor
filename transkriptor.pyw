@@ -111,13 +111,13 @@ class AppTranskriptor(CicloReuniaoMixin, ProcessamentoReuniaoMixin, MenuBandejaM
             )
             if vozes:
                 logging.info("Migrados %d arquivos de voz legados para .enc", vozes)
-            orfaos_enc = recuperar_orfaos_wav(PASTA_AUDIO)
-            if orfaos_enc:
-                logging.info("Criptografados %d audios orfaos em PASTA_AUDIO", orfaos_enc)
         if "criptografar_transcricoes" not in cfg:
             _atualizar_config_user(
                 criptografar_transcricoes=self.criptografar_transcricoes
             )
+        orfaos_enc = recuperar_orfaos_wav(PASTA_AUDIO)
+        if orfaos_enc:
+            logging.info("Criptografados %d audios orfaos em PASTA_AUDIO", orfaos_enc)
         tem_perfil = perfil_existe(ARQUIVO_PERFIL_VOZ, ARQUIVO_PERFIL_VOZ_ENC)
         antes = cfg.get("identificar_minha_voz")
         self.identificar_minha_voz, cfg = _resolver_identificar_minha_voz(cfg, tem_perfil)

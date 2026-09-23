@@ -71,6 +71,20 @@ def test_audio_recente_sem_manifesto_permanece_em_dry_run(tmp_path):
     assert wav.exists()
 
 
+def test_tkas_sem_manifesto_entra_no_inventario_sem_exclusao(tmp_path):
+    from retencao_audio import inventariar_audios_vencidos
+
+    pasta_audio = tmp_path / "audio"
+    pasta_tr = tmp_path / "tr"
+    pasta_audio.mkdir()
+    pasta_tr.mkdir()
+    tks = pasta_audio / "reuniao_audio.tks"
+    tks.write_bytes(b"TKAS")
+    elegiveis, bloqueados = inventariar_audios_vencidos(pasta_audio, pasta_tr, jobs=[])
+    assert elegiveis == []
+    assert bloqueados == [str(tks)]
+
+
 def test_constante_retencao_7_dias():
     from config import RETENCAO_AUDIO_DIAS
 

@@ -160,7 +160,7 @@ def test_stop_nao_move_wav_com_escritor_vivo(tmp_path):
         transcritor._fechar_arquivos_abertos()
 
 
-def test_reinicio_de_dispositivo_delimita_lacuna_no_resultado(tmp_path):
+def test_reinicio_de_dispositivo_delimita_lacuna_no_resultado(tmp_path, chave_teste):
     """A retomada de frames fecha a lacuna registrada no resultado da reunião."""
     status: list[str] = []
     transcritor = Transcritor(

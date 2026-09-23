@@ -79,6 +79,18 @@ def test_troca_modo_nao_rebaixa_protegido(chave_teste, tmp_path):
     assert not (tmp_path / "a.wav").exists()
 
 
+def test_modo_protegido_prevalece_sobre_flag_legada(chave_teste, tmp_path, monkeypatch):
+    import crypto_storage
+
+    monkeypatch.setattr(crypto_storage, "criptografia_ativa", lambda: False)
+    caminho = tmp_path / "resultado.txt"
+    caminho.write_text("conteúdo sensível", encoding="utf-8")
+    protecao = protect_artifact(caminho, ProtectionMode.PROTECTED)
+    assert protecao.state == ProtectionState.PROTECTED
+    assert not caminho.exists()
+    assert crypto_storage.ler_bytes_arquivo(str(tmp_path / protecao.relative_path)) == "conteúdo sensível".encode("utf-8")
+
+
 def test_dry_run_nao_remove(tmp_path):
     (tmp_path / "r.txt").write_text("legado", encoding="utf-8")
     candidatos, _ = inventariar_migracao(tmp_path)

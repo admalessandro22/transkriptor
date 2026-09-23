@@ -22,7 +22,7 @@ from resultado_reuniao import (
 )
 
 
-def test_worker_materializa_resultado_estruturado(tmp_path):
+def test_worker_materializa_resultado_estruturado(tmp_path, chave_teste):
     raiz = tmp_path / "transcricoes"
     pasta_audio = raiz / "audio"
     pasta_audio.mkdir(parents=True)

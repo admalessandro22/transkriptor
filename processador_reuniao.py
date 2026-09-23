@@ -175,16 +175,36 @@ def processar_job(
             carregar_segmentos, criar_manifesto_estruturado, exportar_txt,
             salvar_manifesto, salvar_segmentos, validar_manifesto,
         )
+        from politica_privacidade import ProtectionMode, modo_efetivo
+        from resultado_edicao import montar_payload
+        from resultado_storage import ResultadoStorage
+        from artefatos import criar_referencia
 
-        caminho_resultado = Path(processamento.txt_path)
-        caminho_segmentos = fila.pasta_transcricoes / "resultados" / f"{job.id}.json"
-        if caminho_resultado.exists() or caminho_segmentos.exists():
+        modo = (ProtectionMode.PROTECTED if Path(job.audio).suffix.lower() == ".tks"
+                else modo_efetivo())
+        storage = ResultadoStorage(fila.pasta_transcricoes, modo)
+        caminho_txt = Path(processamento.txt_path)
+        caminho_resultado = (caminho_txt.with_suffix(".tkpt") if modo == ProtectionMode.PROTECTED else caminho_txt)
+        caminho_segmentos = storage.caminho(job.id)
+        if caminho_resultado.exists() or caminho_segmentos.exists() or caminho_txt.exists():
             raise FileExistsError("resultado existente; revisão manual preservada")
-        salvar_segmentos(caminho_segmentos, processamento.segmentos, {})
-        dados_segmentos = carregar_segmentos(caminho_segmentos)
+        if modo == ProtectionMode.PROTECTED:
+            dados_segmentos = montar_payload(processamento.segmentos, {})
+            ref_segmentos = storage.save(job.id, dados_segmentos)
+        else:
+            salvar_segmentos(caminho_segmentos, processamento.segmentos, {})
+            dados_segmentos = carregar_segmentos(caminho_segmentos)
+            ref_segmentos = None
         texto_txt = exportar_txt(dados_segmentos["segmentos"], dados_segmentos["mapeamento"])
-        retranscritor._escrever_texto_atomico(caminho_resultado, texto_txt)
-        if processamento.gerar_copia_tkpt:
+        if modo == ProtectionMode.PROTECTED:
+            from crypto_storage import salvar_transcricao
+
+            salvar_transcricao(str(caminho_resultado), texto_txt)
+            ref_resultado = criar_referencia(caminho_resultado, fila.pasta_transcricoes, format="application/vnd.transkriptor.tkpt", schema_version=1)
+        else:
+            retranscritor._escrever_texto_atomico(caminho_resultado, texto_txt)
+            ref_resultado = None
+        if processamento.gerar_copia_tkpt and modo != ProtectionMode.PROTECTED:
             from crypto_storage import salvar_transcricao
 
             salvar_transcricao(str(caminho_resultado.with_suffix(".tkpt")), texto_txt)
@@ -199,8 +219,11 @@ def processar_job(
             raiz=fila.pasta_transcricoes,
             warnings=processamento.warnings,
             diarizacao_solicitada=bool(metadados.get("diarizar", True)),
+            segmentos_ref=ref_segmentos,
+            resultado_ref=ref_resultado,
+            dados_segmentos=dados_segmentos,
         )
-        caminho_manifesto = caminho_resultado.with_suffix(".resultado.json")
+        caminho_manifesto = caminho_txt.with_suffix(".resultado.json")
         salvar_manifesto(caminho_manifesto, manifesto)
         if not validar_manifesto(caminho_manifesto, fila.pasta_transcricoes):
             raise ValueError("manifesto estruturado inválido")

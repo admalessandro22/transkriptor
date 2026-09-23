@@ -71,9 +71,9 @@ def modo_efetivo() -> ProtectionMode:
 
 def _chave_ok() -> bool:
     try:
-        from crypto_storage import chave_disponivel, criptografia_ativa
+        from crypto_storage import chave_disponivel
 
-        return bool(criptografia_ativa()) and bool(chave_disponivel())
+        return bool(chave_disponivel())
     except Exception:  # noqa: BLE001
         return False
 
@@ -133,6 +133,35 @@ def protect_artifact(path: Path, mode: ProtectionMode) -> ArtifactProtection:
                 destino.unlink()
         except OSError:
             pass
+        return _para_area_restrita(caminho, mode)
+
+
+def proteger_audio_tkas(path: Path, mode: ProtectionMode) -> ArtifactProtection:
+    """Protege WAV novo; falha preserva o original em área restrita."""
+    from artefatos import referencia_integra
+    from crypto_storage import cifrar_audio_tkas, iterar_audio_tkas
+
+    caminho = Path(path)
+    if mode == ProtectionMode.COMPATIBLE:
+        return ArtifactProtection(mode, ProtectionState.PLAINTEXT_ALLOWED, caminho.name, _sha(caminho))
+    destino = caminho.with_suffix(".tks")
+    if destino.exists():
+        logger.warning("Proteção de áudio pendente; destino TKAS já existe")
+        return _para_area_restrita(caminho, mode)
+    try:
+        ref = cifrar_audio_tkas(caminho, destino)
+        if not referencia_integra(ref, destino.parent):
+            raise ValueError("ref TKAS inválida")
+        for _chunk in iterar_audio_tkas(destino):
+            pass
+        caminho.unlink()
+        return ArtifactProtection(mode, ProtectionState.PROTECTED, destino.name, ref.sha256)
+    except Exception:  # noqa: BLE001 — nunca perde a única cópia do áudio
+        try:
+            destino.unlink(missing_ok=True)
+        except OSError:
+            pass
+        logger.warning("Proteção de áudio pendente; original preservado em área restrita")
         return _para_area_restrita(caminho, mode)
 
 
