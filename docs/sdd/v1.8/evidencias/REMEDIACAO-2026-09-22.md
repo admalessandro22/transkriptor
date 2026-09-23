@@ -15,7 +15,8 @@
 | 6 — sugestão e revisão UI | DONE (automação) | `ab330cf1a3ffa2bd48d909b72cbbb2cc0559af5c` | RED/GREEN abaixo | Não aplicável |
 | 7 — TKAS/1 incremental | DONE (automação) | `f6f11b9af2939c0bed660654482588057decff6f` | RED/GREEN e 726 testes abaixo | Não aplicável |
 | 8 — modo protegido em produção | DONE (automação) | `863261d09e2a65b04ba353a7e21245a61133765c` | RED/GREEN e 741 testes abaixo | Áudio real na Task 12: PENDENTE |
-| 9–11 — correções sequenciais | PENDING | — | — | Conforme tarefa |
+| 9 — privacidade e mutações HTTP | DONE (gate dirigido) | `9737075d30045a3ae5671f0ec57cbccd167edae6` | RED/GREEN e 83 testes abaixo; suíte global ainda pendente | Worker real em processamento; regressão global pendente |
+| 10–11 — correções sequenciais | PENDING | — | — | Conforme tarefa |
 | 12 — gates e release | BLOCKED | — | — | CI, áudio real, Chrome/Edge, três pessoas, CPU/CUDA e autorização de release pendentes |
 
 As evidências históricas `T-13.*.md` permanecem intactas; seus antigos estados DONE não comprovam os contratos reabertos pela auditoria. Cada linha deste índice deve ser detalhada após a respectiva task, com comandos, exit codes, ambiente e SHA real. Gate não executado permanece PENDENTE.
@@ -85,3 +86,12 @@ As evidências históricas `T-13.*.md` permanecem intactas; seus antigos estados
 - O modo protegido persiste na primeira configuração. Captura, microfone, órfãos e resultado usam TKAS/1, JSON cifrado e TKPT. Revisão e undo atualizam resultado e manifesto com trava e journal de rollback; leitura recusa hash/schema/path inválido. A diarização protegida percorre áudio cifrado sem criar WAV/TXT temporário em claro. O modo legado mantém leitura compatível.
 - Durante a primeira suíte completa, um teste importou o app com a pasta real de áudio e converteu dois WAV órfãos preexistentes. O guard de estado detectou a mudança; ambos foram restaurados byte a byte aos caminhos originais e os dois TKAS criados pelo teste foram removidos. Os horários de modificação originais não eram recuperáveis. O fixture de importação passou a isolar as pastas do app; a suíte completa posterior terminou sem modificar o estado real.
 - Gate físico de áudio e instalação permanece na Task 12. Commit de implementação: `863261d09e2a65b04ba353a7e21245a61133765c`.
+
+## Task 9 — privacidade de logs e mutações HTTP locais
+
+- RED: título canário apareceu no sanitizador; cookie alcançava as rotas de correção, undo e chat sem Origin ou com outra porta; mutações sem JSON retornavam erro de negócio antes de validar Content-Type. Testes novos reproduziram as falhas. Canários adicionais revelaram mensagem de erro crítico, caminho completo na falha de exclusão de áudio e exceções do Whisper nos logs.
+- Correção: linha de detecção emite código e fontes conhecidas; o filtro de status deixa de liberar textos por prefixo/`.txt`; erros e paths dos caminhos identificados são reduzidos a códigos operacionais. O guard comum valida Host local, Origin exatamente igual a esquema/host/porta e JSON em POST/PUT/PATCH/DELETE; ausência de Origin exige header secreto, não basta cookie.
+- GREEN dirigido em worktree isolada em 23/09/2026: `python -m pytest tests/test_privacidade_eventos.py tests/test_ciclo_reuniao_sem_deadlock.py tests/test_assistente_mutacoes.py -q --tb=short -x` exit 0, 40 passed, com `TRANSKRIPTOR_ESTADO_REAL_ROOT` apontando à própria worktree. O teste anterior de dois logs do Whisper falhou no RED e passou após correção.
+- Gate de privacidade/API em worktree isolada: `python -m pytest tests/test_status_seguro.py tests/test_privacidade_eventos.py tests/test_assistente_mutacoes.py tests/test_assistente_validacao.py tests/test_assistente_seguranca.py tests/test_token_sessao.py tests/test_assistente_api.py -q --tb=short -x` exit 0, 83 passed. `git diff --cached --check` exit 0 antes do commit.
+- A instância real estava gravando e depois processando uma reunião durante a verificação; seus arquivos e processo foram preservados. O guard de estado do checkout principal detectou corretamente a atividade externa. A suíte completa na worktree chegou a 54% sem falha e foi interrompida pelo agente quando o worker real avançou para `transcribe`; este resultado parcial não conta como PASS. Regressão global após Task 9 permanece pendente até o worker ficar ocioso. Nenhum gate físico ou release foi inferido da worktree.
+- Commit de implementação: `9737075d30045a3ae5671f0ec57cbccd167edae6`.
