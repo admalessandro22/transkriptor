@@ -61,6 +61,14 @@ def verificar_token():
             return jsonify({"erro": "Token inválido"}), 403
         if not token_requisicao_valido():
             return jsonify({"erro": "Token inválido"}), 403
+        if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+            from assistente_validacao import validar_mutacao_local
+
+            _dados, erro = validar_mutacao_local(
+                request, header_secreto_valido=request.headers.get(HEADER_TOKEN) == SESSAO_TOKEN
+            )
+            if erro is not None:
+                return erro
 
 
 @app.after_request
@@ -398,15 +406,9 @@ def api_modelos():
 def api_chat():
     from assistente_validacao import (
         PayloadInvalido,
-        hosts_locais_aceitos,
-        origem_permitida_chat,
         validar_chat_request,
     )
 
-    if not hosts_locais_aceitos(request.host):
-        return jsonify({"erro": "Host não permitido"}), 403
-    if not origem_permitida_chat(request.headers.get("Origin")):
-        return jsonify({"erro": "Origem não permitida"}), 403
     try:
         pedido = validar_chat_request(request.get_json(silent=True))
     except PayloadInvalido as exc:

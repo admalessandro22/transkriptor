@@ -21,6 +21,110 @@ def test_fala_com_prefixo_de_sistema_nao_vaza_em_evento():
         assert CANARIO not in texto
 
 
+def test_status_livre_com_prefixo_operacional_nao_vaza():
+    from status_seguro import sanitizar_para_log
+
+    for mensagem in (
+        f"Erro ao iniciar: {CANARIO}",
+        f"Diarização concluída: {CANARIO}.txt",
+        f"Carregando modelo {CANARIO}...",
+        f"Gravação {CANARIO} em andamento",
+    ):
+        assert CANARIO not in sanitizar_para_log(mensagem)
+
+
+def test_status_real_nao_loga_titulo(modulo_transkriptor, caplog):
+    app = modulo_transkriptor.AppTranskriptor.__new__(modulo_transkriptor.AppTranskriptor)
+    app.icone = None
+    with caplog.at_level(logging.INFO):
+        app._status(f"Reunião detectada (janela) — {CANARIO}. Iniciando gravação...")
+    assert CANARIO not in caplog.text
+    assert "meeting_detected" in caplog.text
+
+
+def test_falha_ao_apagar_audio_nao_loga_caminho(monkeypatch, caplog):
+    import transcricao_core
+
+    monkeypatch.setattr(transcricao_core.os.path, "isfile", lambda _c: True)
+    monkeypatch.setattr(transcricao_core.os, "remove", lambda _c: (_ for _ in ()).throw(OSError("falha")))
+    with caplog.at_level(logging.WARNING):
+        transcricao_core.Transcritor._apagar_descartados(object(), f"C:/Users/{CANARIO}/reuniao.wav")
+    assert CANARIO not in caplog.text
+
+
+def test_erro_critico_nao_loga_mensagem_livre(monkeypatch, caplog):
+    import app_ciclo_reuniao
+
+    class _App(app_ciclo_reuniao.CicloReuniaoMixin):
+        def _status(self, _msg):
+            pass
+
+        def _atualizar_tooltip(self):
+            pass
+
+    class _Thread:
+        def __init__(self, **_kwargs):
+            pass
+
+        def start(self):
+            pass
+
+    monkeypatch.setattr(app_ciclo_reuniao.threading, "Thread", _Thread)
+    monkeypatch.setattr(app_ciclo_reuniao, "notificar", lambda *_a: None)
+    with caplog.at_level(logging.ERROR):
+        _App()._erro_critico(CANARIO)
+    assert CANARIO not in caplog.text
+
+
+def test_fallback_gpu_nao_loga_excecao(monkeypatch, caplog):
+    from types import SimpleNamespace
+
+    import transcricao_core
+
+    monkeypatch.setattr(transcricao_core, "detectar_cuda_e_vram", lambda: (True, 8))
+    monkeypatch.setattr(transcricao_core, "resolver_modelo_whisper", lambda *_a: ("large", "cuda", "float16"))
+    chamadas = []
+
+    def modelo(*_a, **_k):
+        chamadas.append(1)
+        if len(chamadas) == 1:
+            raise RuntimeError(CANARIO)
+        return object()
+
+    monkeypatch.setattr(transcricao_core, "WhisperModel", modelo)
+    transcritor = SimpleNamespace(_modelo=None, modelo_nome="auto", on_status=lambda _m: None)
+    with caplog.at_level(logging.WARNING):
+        transcricao_core.Transcritor._carregar_modelo(transcritor)
+    assert len(chamadas) == 2
+    assert CANARIO not in caplog.text
+
+
+def test_modo_somente_audio_nao_loga_excecao(monkeypatch, caplog):
+    from types import SimpleNamespace
+
+    import transcricao_core
+
+    class _Thread:
+        def __init__(self, **_kwargs):
+            pass
+
+        def start(self):
+            pass
+
+    monkeypatch.setattr(transcricao_core.threading, "Thread", _Thread)
+    transcritor = SimpleNamespace(
+        rodando=False, _checar_disco_livre=lambda: None, _abrir_arquivo=lambda: None,
+        _stop=SimpleNamespace(clear=lambda: None), _resetar_metricas_captura=lambda: None,
+        processar_ao_vivo=True, capturar_mic=False, _capturar=lambda: None,
+        _processar_somente_audio=lambda: None,
+        _carregar_modelo=lambda: (_ for _ in ()).throw(RuntimeError(CANARIO)),
+        on_status=lambda _m: None,
+    )
+    with caplog.at_level(logging.WARNING):
+        transcricao_core.Transcritor.start(transcritor)
+    assert CANARIO not in caplog.text
+
+
 def test_excecao_com_token_nao_vaza():
     from status_seguro import sanitizar_excecao
 
@@ -42,6 +146,11 @@ def test_evento_tipado_so_aceita_campos_permitidos():
         emitir_evento("codigo-inexistente")
     with pytest.raises(ValueError):
         emitir_evento("captura_iniciada", texto_livre="fala aqui")
+    with pytest.raises(ValueError):
+        emitir_evento("captura_iniciada", dispositivo=CANARIO)
+    assert "fontes=titulo,extensao" in emitir_evento("meeting_detected", fontes="titulo,extensao")
+    with pytest.raises(ValueError):
+        emitir_evento("meeting_detected", fontes=f"titulo,{CANARIO}")
 
 
 def test_diagnostico_exportado_sem_pii(tmp_path, monkeypatch):

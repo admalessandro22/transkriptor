@@ -134,8 +134,10 @@ class Transcritor(CapturaLeveMixin):
             self.on_status(f"Carregando modelo {modelo} ({device}, auto)...")
             try:
                 self._modelo = WhisperModel(modelo, device=device, compute_type=ctype)
-            except Exception as e:
-                logger.warning("Falha Whisper %s/%s: %s; small/cpu", modelo, device, e)
+            except Exception:
+                from status_seguro import emitir_evento
+
+                logger.warning(emitir_evento("modelo_fallback_cpu"))
                 self.on_status("Falha no modelo GPU — carregando small em CPU...")
                 self._modelo = WhisperModel("small", device="cpu", compute_type="int8")
             self.on_status("Modelo pronto.")
@@ -361,13 +363,15 @@ class Transcritor(CapturaLeveMixin):
             return
         try:
             self._carregar_modelo()
-        except Exception as e:
+        except Exception:
             self._somente_audio = True
             self._modelo = None
             self.on_status(
                 "Transcrição indisponível — gravando somente áudio para retranscrição"
             )
-            logger.warning("Whisper indisponível; modo somente áudio: %s", e)
+            from status_seguro import emitir_evento
+
+            logger.warning(emitir_evento("modelo_indisponivel"))
             self._thread_proc = threading.Thread(
                 target=self._processar_somente_audio, daemon=True
             )
@@ -419,7 +423,9 @@ class Transcritor(CapturaLeveMixin):
                 try:
                     os.remove(c)
                 except OSError:
-                    logger.warning("Falha ao apagar arquivo descartado %s", c)
+                    from status_seguro import emitir_evento
+
+                    logger.warning(emitir_evento("audio_descarte_falhou"))
 
     def stop(self):
         if not self.rodando:
