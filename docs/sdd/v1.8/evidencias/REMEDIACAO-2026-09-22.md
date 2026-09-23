@@ -13,7 +13,8 @@
 | 4 — refs Meet no job | DONE (automação) | `d9e2e7f3a2d4b858077be877a247136d0eedf1c9` | RED/GREEN abaixo | Não aplicável |
 | 5 — resultado estruturado | DONE (automação) | `3f505e736a98df4f268ec461d30044876186261b` | RED/GREEN e 720 testes abaixo | Não aplicável |
 | 6 — sugestão e revisão UI | DONE (automação) | `ab330cf1a3ffa2bd48d909b72cbbb2cc0559af5c` | RED/GREEN abaixo | Não aplicável |
-| 7–11 — correções sequenciais | PENDING | — | — | Conforme tarefa |
+| 7 — TKAS/1 incremental | DONE (automação) | `f6f11b9af2939c0bed660654482588057decff6f` | RED/GREEN e 726 testes abaixo | Não aplicável |
+| 8–11 — correções sequenciais | PENDING | — | — | Conforme tarefa |
 | 12 — gates e release | BLOCKED | — | — | CI, áudio real, Chrome/Edge, três pessoas, CPU/CUDA e autorização de release pendentes |
 
 As evidências históricas `T-13.*.md` permanecem intactas; seus antigos estados DONE não comprovam os contratos reabertos pela auditoria. Cada linha deste índice deve ser detalhada após a respectiva task, com comandos, exit codes, ambiente e SHA real. Gate não executado permanece PENDENTE.
@@ -66,3 +67,11 @@ As evidências históricas `T-13.*.md` permanecem intactas; seus antigos estados
 - GREEN em 22/09/2026: `python -m pytest tests/test_identidade_reuniao.py tests/test_correlacionador.py tests/test_resultado_reuniao.py tests/test_resultado_pipeline.py tests/test_nomes_meet_worker.py -v` exit 0, 40 passed; `npm run test:e2e -- participants.spec.js` exit 0, 4 passed; limite de 500 linhas e `git diff --check` exit 0.
 - Sugestões persistem com status, fonte, confiança, IDs de evidência e versão da calibração. TXT permanece pendente até confirmação manual. O drawer escapa texto/nome, exige escolha manual se o mesmo cluster tiver sugestões divergentes, recarrega a revisão em 409; confirmação e undo atualizam TXT e hashes do manifesto. Não há criação de perfil biométrico nesse fluxo.
 - Commit de implementação: `ab330cf1a3ffa2bd48d909b72cbbb2cc0559af5c`.
+
+## Task 7 — autenticação TKAS/1 e leitura incremental
+
+- Base: `02bb011078fb13e7c1d969d06d5f0c1dd2e05802`.
+- RED: `test_tkas_rejeita_sufixo_apos_chunk_final_cheio` aceitou bytes não autenticados depois de `TAG_FINAL`; `test_validacao_de_cifra_nao_acumula_chunks` mediu 100 objetos vivos no `list(...)`; inspeção de WAV cifrado com sufixo no segundo chunk retornou sucesso sem consumir o final.
+- GREEN em 22/09/2026: `python -m pytest tests/test_crypto_stream.py tests/test_audio_streaming.py tests/test_audio_utils.py -v` exit 0, 20 passed; após remover parser RIFF não usado, gate dirigido exit 0, 20 passed; `python -m pytest tests/ -q --tb=short` exit 0, 726 passed; `git diff --check` exit 0.
+- TKAS/1 exige chunk size fixo e EOF após a tag final. A validação de `encrypt_file` itera sem agregar plaintext; falha remove o temporário. `IteratorReader` mantém apenas o chunk atual; `wave.open` e inspeção consomem o stream cifrado inteiro sem tempfile plaintext. A suíte de áudio longo existente exercita 60 segundos sintéticos em blocos; gate físico de duração maior permanece na Task 12.
+- Commit de implementação: `f6f11b9af2939c0bed660654482588057decff6f`.
