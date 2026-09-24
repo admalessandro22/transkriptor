@@ -1,5 +1,5 @@
 const { test, expect } = require("@playwright/test");
-const { carregarPagina, selecionarReuniao } = require("./helpers");
+const { carregarPagina, selecionarReuniao, ORIGEM } = require("./helpers");
 
 
 test("carregar o assistente sob a CSP normativa não gera violação", async ({ page }) => {
@@ -28,6 +28,24 @@ test("botão parar fica oculto ao carregar e visível só durante a geração", 
   await expect(page.locator("#stop")).toBeHidden();
   await expect(page.locator("#send")).toBeVisible();
 });
+
+
+// NFR-14.F2: todas as páginas da Central e a galeria, nos dois temas, sem
+// nenhuma requisição fora de 127.0.0.1 e sem violação de CSP no console.
+for (const pagina of ["inicio", "reunioes", "assistente", "participantes", "configuracoes", "diagnostico", "galeria"]) {
+  test(`nenhuma requisicao externa em todas as paginas: ${pagina}`, async ({ page }) => {
+    const externas = [];
+    page.on("request", (r) => { if (!r.url().startsWith(ORIGEM)) externas.push(r.url()); });
+    const ctx = await carregarPagina(page, pagina);
+    await page.waitForTimeout(500);
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.waitForTimeout(200);
+    expect(externas).toEqual([]);
+    expect(ctx.violacoes).toEqual([]);
+    const falhas404 = ctx.console.filter((t) => /404|Failed to load resource/.test(t));
+    expect(falhas404).toEqual([]);
+  });
+}
 
 
 test("nenhuma requisição sai de 127.0.0.1", async ({ page }) => {

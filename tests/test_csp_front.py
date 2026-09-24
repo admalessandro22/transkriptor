@@ -14,7 +14,7 @@ import pytest
 
 REPO = Path(__file__).resolve().parent.parent
 HTML = (REPO / "templates" / "assistente.html").read_text(encoding="utf-8")
-JS = (REPO / "static" / "assistente.js").read_text(encoding="utf-8")
+JS = "\n".join(p.read_text(encoding="utf-8") for p in sorted((REPO / "static" / "js").glob("*.js")))  # T-14.F2
 
 
 @pytest.fixture(scope="module")

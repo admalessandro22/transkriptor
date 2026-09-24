@@ -5,15 +5,14 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-CSS = REPO / "static" / "assistente.css"
 HTML = REPO / "templates" / "assistente.html"
-# v1.9 (T-14.B3): static/assistente.css virou entrada legada só com @import; o
-# CSS de verdade vive em static/css/*.css. Os contratos abaixo valem para o conjunto.
+# v1.9 (T-14.B3/F2): a entrada legada static/assistente.css foi removida; o CSS
+# vive em static/css/*.css e os contratos abaixo valem para o conjunto.
 CSS_MODULOS = tuple(sorted((REPO / "static" / "css").glob("*.css")))
 
 
 def _css_total() -> str:
-    return CSS.read_text(encoding="utf-8") + "".join(p.read_text(encoding="utf-8") for p in CSS_MODULOS)
+    return "".join(p.read_text(encoding="utf-8") for p in CSS_MODULOS)
 
 
 def test_tokens_em_root_sem_hex_solto():
@@ -22,11 +21,9 @@ def test_tokens_em_root_sem_hex_solto():
     A ausência de cor literal fora de tokens.css é coberta por
     tests/test_design_tokens.py::test_sem_hex_fora_de_tokens_css."""
     tokens = (REPO / "static" / "css" / "tokens.css").read_text(encoding="utf-8")
-    css = CSS.read_text(encoding="utf-8")
     assert ":root" in tokens
     for token in ("--tk-bg-1", "--tk-accent", "--tk-text-1", "--tk-elev-", "--tk-radius-", "--tk-state-recording"):
         assert token in tokens
-    assert '@import url("css/tokens.css")' in css
     assert "var(--tk-" in _css_total()
 
 
@@ -52,7 +49,7 @@ def test_detect_zero_warnings():
     if detect is None:
         # Se detect não instalado no runner, apenas checar bounce já cobre UX-11.A2
         return
-    for alvo in ["templates/assistente.html", "static/assistente.css"]:
+    for alvo in ["templates/assistente.html", "static/css/assistente.css", "static/css/components.css"]:
         result = subprocess.run(
             ["node", str(detect), "--json", alvo],
             capture_output=True, text=True, cwd=REPO

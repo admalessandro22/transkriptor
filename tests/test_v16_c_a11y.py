@@ -17,7 +17,7 @@ from tests.front_assistente import CSS  # v1.9: base + módulos
 def test_color_scheme_dark():
     tokens = (REPO / "static" / "css" / "tokens.css").read_text(encoding="utf-8")
     assert "color-scheme: dark light" in tokens
-    assert "@import url(\"css/tokens.css\")" in CSS
+    assert "css/tokens.css" in (REPO / "templates" / "base.html").read_text(encoding="utf-8")
 
 
 def test_focus_visible_accent():
