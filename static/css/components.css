@@ -33,13 +33,15 @@
 /* ---- Campo ---- */
 .tk-field { display: flex; flex-direction: column; gap: var(--tk-space-1); }
 .tk-field > label { font-size: var(--tk-type-xs-size); line-height: var(--tk-type-xs-line); font-weight: 500; letter-spacing: 0.4px; text-transform: uppercase; color: var(--tk-text-3); }
-.tk-field input, .tk-field select, .tk-field textarea, .tk-input {
+.tk-field input, .tk-field select, .tk-field textarea, .tk-input, .tk-select-wrap select {
   width: 100%; min-height: 36px; padding: 0 var(--tk-space-3); border-radius: var(--tk-radius-md);
   border: 1px solid var(--tk-border); background: var(--tk-bg-2); color: var(--tk-text-1);
   transition: border-color var(--tk-dur-fast) var(--tk-ease), box-shadow var(--tk-dur-fast) var(--tk-ease);
 }
 .tk-field textarea { padding: var(--tk-space-2) var(--tk-space-3); resize: vertical; min-height: 72px; }
 .tk-field input::placeholder, .tk-field textarea::placeholder, .tk-input::placeholder { color: var(--tk-text-3); }
+.tk-select-wrap select:hover { border-color: var(--tk-border-strong); }
+.tk-select-wrap select:focus { outline: none; border-color: var(--tk-accent); box-shadow: 0 0 0 3px var(--tk-focus); }
 .tk-field input:hover, .tk-field select:hover, .tk-field textarea:hover, .tk-input:hover { border-color: var(--tk-border-strong); }
 .tk-field input:focus, .tk-field select:focus, .tk-field textarea:focus, .tk-input:focus { outline: none; border-color: var(--tk-accent); box-shadow: 0 0 0 3px var(--tk-focus); }
 .tk-field input:disabled, .tk-field select:disabled, .tk-field textarea:disabled { opacity: 0.5; cursor: not-allowed; }
