@@ -2,7 +2,7 @@
  * Transkriptor Meet Bridge — falante ativo e legendas com nome+texto (FR-5.1).
  * Transporte T-13.D2: content script extrai e entrega ao service worker via
  * chrome.runtime; SÓ o background.js abre o WebSocket local. Nenhum segredo
- * neste arquivo (a credencial vive em chrome.storage.session, via pairing).
+ * neste arquivo (a credencial vive em chrome.storage.local do service worker, via pairing).
  *
  * Camadas de extração de legendas (extrairLegendas):
  *   1. região ARIA + data-caption-block / data-speaker-name / data-caption-text

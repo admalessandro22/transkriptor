@@ -32,7 +32,7 @@ test("pareamento real guarda o código e aciona o service worker", async ({ page
     window.__enviado = [];
     window.chrome = {
       storage: {
-        session: {
+        local: {
           set: (obj, cb) => {
             window.__guardado = obj;
             if (cb) cb();
@@ -83,7 +83,7 @@ test("página de pareamento: IDs mantidos, passos, estados e nenhuma rede extern
   });
   await page.addInitScript(() => {
     window.chrome = {
-      storage: { session: { set: (obj, cb) => cb && cb() } },
+      storage: { local: { set: (obj, cb) => cb && cb() } },
       runtime: { lastError: undefined, sendMessage: (msg, cb) => cb && cb({ pronto: true, pareamento: "confirmado" }) },
     };
   });

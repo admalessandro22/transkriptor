@@ -34,7 +34,7 @@ Abra o app (`transkriptor.pyw`). Ele gera um código de pareamento de uso
 1. Abra a página `pairing.html` da extensão (ou `chrome://extensions` → detalhes → página de pareamento)
 2. No Transkriptor, abra **Diagnóstico** e copie o **código de pareamento** (começa com `pair-`)
 3. Cole o código no campo e clique em **Parear** (ou Enter)
-4. O service worker (`background.js`) guarda a credencial da sessão e conecta
+4. O service worker (`background.js`) guarda a credencial em `chrome.storage.local` e conecta. O pareamento **persiste**: vale 90 dias e se renova a cada uso, sobrevive a reinícios do Chrome e do app (o app guarda só um hash da credencial). Só é preciso parear de novo se a extensão for removida/recarregada sem a credencial ou após 90 dias sem uso
 
 A página mostra o estado do pareamento com ícone e cor:
 

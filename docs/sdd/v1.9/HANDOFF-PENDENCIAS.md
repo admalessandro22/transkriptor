@@ -20,7 +20,9 @@ A extensão **não está instalada** no perfil do Chrome. Passos:
 4. Ativar legendas (CC) no Meet.
 Verificar: `transkriptor.log` mostra a sessão da extensão; em reunião, nomes aparecem em Participantes.
 
-### 2. Decisão de segurança: persistir a credencial da extensão
+### 2. Decisão de segurança: persistir a credencial da extensão — RESOLVIDA (DU-17, 24/09/2026)
+O usuário escolheu persistir. Implementado: hashes em `_modelo_voz/meet_pareamento.json`, 90 dias renovados no uso, `chrome.storage.local`. Também: legendas/nomes sem CC (`extension/meet/rtc.js`). Texto abaixo mantido como histórico.
+
 Hoje (`meet_pareamento.Pareador`): convite vale 5 min (`MEET_CONVITE_SEG`), sessão vale 12 h (`MEET_SESSAO_SEG`) e só existe em memória; a extensão guarda em `chrome.storage.session`. Consequência: a cada reinício do app ou do Chrome é preciso parear de novo. O usuário quer nomes automáticos "em todas as reuniões". Opções a propor e só implementar com o ok dele:
 - (a) persistir as sessões do `Pareador` (ex.: em `config_user.json`, como já se faz com `meet_bridge_token`) e usar `chrome.storage.local` na extensão; alongar `MEET_SESSAO_SEG` (ex.: 30 dias);
 - (b) manter como está e documentar o re-pareamento.

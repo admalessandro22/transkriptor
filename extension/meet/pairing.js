@@ -1,6 +1,6 @@
 /**
  * Página de pareamento local (T-13.D2, visual T-14.E5). Troca o código de uso
- * único pela credencial da sessão, guardada em chrome.storage.session (nunca em
+ * único pela credencial, guardada em chrome.storage.local (persiste; nunca em
  * content script, nunca em arquivo versionado).
  *
  * Estados de `#estado` (data-estado): carregando | sucesso | erro. Sucesso trava
@@ -78,7 +78,7 @@ function aoParear() {
   }
   if (campo) campo.removeAttribute("aria-invalid");
   definirEstado("carregando", "Guardando o código e avisando a extensão…");
-  chrome.storage.session.set({ meetWsToken: codigo }, function () {
+  chrome.storage.local.set({ meetWsToken: codigo }, function () {
     chrome.runtime.sendMessage({ tipo: "parear" }, function (resposta) {
       if (chrome.runtime.lastError) {
         definirEstado(

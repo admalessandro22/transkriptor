@@ -20,7 +20,7 @@ function montar(chrome) {
 
 function chromeFalso({ pronto = true, pareamento = "confirmado", lastError = undefined, adiar = false } = {}) {
   return {
-    storage: { session: { set: (obj, cb) => cb && cb() } },
+    storage: { local: { set: (obj, cb) => cb && cb() } },
     runtime: {
       lastError,
       sendMessage: (msg, cb) => { if (!adiar && cb) cb({ pronto, pareamento }); },

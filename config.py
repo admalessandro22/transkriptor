@@ -165,7 +165,8 @@ MEET_WS_EVENTOS_POR_SEG = 20           # taxa sustentada por conexão
 MEET_WS_BURST = 40                     # rajada máxima por conexão
 MEET_WS_MAX_CONEXOES = 4               # conexões autenticadas simultâneas
 MEET_CONVITE_SEG = 300                 # validade do convite de pareamento
-MEET_SESSAO_SEG = 12 * 3600            # validade da credencial da sessão
+MEET_SESSAO_SEG = 90 * 24 * 3600       # validade da credencial; renovada a cada uso
+ARQUIVO_PAREAMENTO_MEET = os.path.join(DIR_MODELO_VOZ, "meet_pareamento.json")  # só hashes
 
 # ---- Spool de eventos Meet (SEC-13.D4) ----
 MEET_EVENTOS_BUFFER = 500             # eventos em RAM antes do dreno

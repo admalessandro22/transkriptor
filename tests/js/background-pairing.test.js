@@ -64,3 +64,14 @@ describe("estado do pareamento", () => {
     expect(fundo.estadoPareamento()).toBe("confirmado");
   });
 });
+
+describe("persistência da credencial", () => {
+  it("pairing e background usam chrome.storage.local, nunca session", async () => {
+    const { readFileSync } = await import("node:fs");
+    for (const arquivo of ["background.js", "pairing.js"]) {
+      const fonte = readFileSync(`extension/meet/${arquivo}`, "utf8");
+      expect(fonte).toMatch(/chrome\.storage\.local/);
+      expect(fonte).not.toMatch(/chrome\.storage\.session/);
+    }
+  });
+});

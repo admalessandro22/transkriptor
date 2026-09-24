@@ -13,7 +13,7 @@ function montar(respostas) {
       lastError: undefined,
       sendMessage: (msg, cb) => cb(msg.tipo === "parear" ? { pronto: false, pareamento: "pendente" } : fila.shift()),
     },
-    storage: { session: { set: (_v, cb) => cb() } },
+    storage: { local: { set: (_v, cb) => cb() } },
   });
   Function(script)();
   document.getElementById("codigo").value = "pair-abcdefghijklmnop1234";

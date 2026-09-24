@@ -30,6 +30,7 @@ from crypto_storage import (
     recuperar_orfaos_wav,
 )
 from config import (
+    ARQUIVO_PAREAMENTO_MEET,
     ARQUIVO_PERFIL_VOZ,
     ARQUIVO_PERFIL_VOZ_ENC,
     ARQUIVO_VOZES_CONHECIDAS,
@@ -142,7 +143,7 @@ class AppTranskriptor(CicloReuniaoMixin, ProcessamentoReuniaoMixin, MenuBandejaM
         if not meet_token:
             meet_token = secrets.token_urlsafe(24)
             _atualizar_config_user(meet_bridge_token=meet_token)
-        self.meet_bridge = MeetBridge(token=meet_token, pareador=Pareador())
+        self.meet_bridge = MeetBridge(token=meet_token, pareador=Pareador(arquivo=ARQUIVO_PAREAMENTO_MEET))
         self.convite_pareamento_meet = self.meet_bridge.pareador.gerar_convite()
         sincronizar_token_extensao(meet_token, BASE_DIR)
         # FR-9.B1: fusão de fontes. Qualquer uma mantém a reunião viva; assim

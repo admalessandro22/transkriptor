@@ -3,7 +3,8 @@
  * Único dono do WebSocket local: content script nunca toca em token.
  *
  * Fluxo: content.js --(chrome.runtime)--> background.js --(WS)--> ponte local.
- * A credencial vem de chrome.storage.session, gravada pela pairing.html
+ * A credencial vem de chrome.storage.local (persiste entre reinícios do
+ * Chrome, decisão do usuário 24/09/2026), gravada pela pairing.html
  * com o código de uso único exibido pelo app (Pareador).
  */
 "use strict";
@@ -191,7 +192,7 @@ function reconectarComNovaCredencial() {
 function conectar() {
   if (typeof chrome === "undefined" || !chrome.storage) return;
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
-  chrome.storage.session.get(CHAVE_CREDENCIAL, function (dados) {
+  chrome.storage.local.get(CHAVE_CREDENCIAL, function (dados) {
     const credencial = dados && dados[CHAVE_CREDENCIAL];
     if (!credencial) {
       pronto = false;
@@ -226,7 +227,7 @@ function conectar() {
       try {
         const msg = JSON.parse(evento.data);
         if (msg && msg.tipo === "pareado" && msg.token && chrome.storage) {
-          chrome.storage.session.set({ [CHAVE_CREDENCIAL]: msg.token });
+          chrome.storage.local.set({ [CHAVE_CREDENCIAL]: msg.token });
           registrarPareamento("confirmado");
         }
         if (msg && msg.tipo === "sessao") aceitarSessao(msg);
