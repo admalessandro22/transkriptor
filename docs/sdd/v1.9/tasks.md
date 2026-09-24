@@ -1,6 +1,6 @@
 # Tasks — plataforma visual e Central (SDD v1.9)
 
-**Estado em 24/09/2026: plano aprovado; 21 tarefas `PENDING`, execução autorizada a partir de T-14.A1 na branch `sdd-v1.9-design`.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
+**Estado em 24/09/2026: plano aprovado; 1 `DONE` (T-14.A1), 20 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.A2.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
 
 Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, **Teste final** e **Aceite** são cumulativos. Os arquivos de teste novos são entregáveis da implementação; os seletores são planejados, não testes que já passaram. Nenhuma task usa dados reais; capturas usam `tests/e2e/fixtures/`.
 
@@ -8,7 +8,7 @@ Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, 
 
 ### T-14.A1 — tokens em fonte única, temas e contraste
 
-- [ ] **Requisito:** UX-14.A1. **Depende de:** autorização e DP-14-01/02/03. **Estado:** `PENDING`.
+- [x] **Requisito:** UX-14.A1. **Depende de:** autorização e DP-14-01/02/03. **Estado:** `DONE`; commit `488e1da`; evidência: `evidencias/T-14.A1.md`.
 - **Arquivos:** criar `design/tokens.json`, `scripts/gerar_tokens.py`, `design_tokens.py`, `static/css/tokens.css`, `tests/test_design_tokens.py`; modificar `estado_icone.py` (importa cores de `design_tokens`), `static/assistente.css` (passa a importar `tokens.css` e usa `--tk-*`).
 - **Implementação:** JSON conforme `interfaces.md` §1; gerador com `--check`/`--write`; CSS com `:root` escuro, `@media (prefers-color-scheme: light)` e `[data-theme]`; cálculo de contraste WCAG; substituição de todos os hex do CSS atual por tokens sem mudar layout ainda (o redesenho vem em A3/B). Manter os nomes públicos `COR_*` em `estado_icone.py`.
 - **RED:** `test_css_gerado_igual_ao_disco`, `test_python_gerado_igual_ao_disco`, `test_todos_pares_contraste_aa`, `test_sem_hex_fora_de_tokens_css`, `test_estado_icone_usa_design_tokens`.
