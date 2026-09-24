@@ -241,11 +241,11 @@ A extensão **não aparece** na reunião como participante nem bot — funciona 
 
 ### Modo legendas (recomendado)
 
-1. Ative **legendas (CC)** no Google Meet
-2. Menu → **Modo legendas Meet (Tactiq)**
-3. A extensão lê o nome do falante nas legendas
+1. Menu → **Modo legendas Meet (Tactiq)**
+2. Não é preciso ligar as legendas (CC) no Meet: a extensão recebe nome + legenda por um canal próprio na conexão do Meet, invisível na reunião (mesma técnica do Tactiq)
+3. Depois de instalar ou atualizar a extensão, recarregue a aba do Meet (F5)
 
-Se o modo legendas estiver ativo mas nenhum evento for recebido, você verá o aviso: *"Ative legendas no Meet para identificar participantes"*.
+Se o modo legendas estiver ativo mas nenhum evento for recebido, você verá o aviso: *"Nenhum nome recebido do Meet — recarregue a aba e confira o pareamento da extensão"*.
 
 ### Prioridade de rótulos
 

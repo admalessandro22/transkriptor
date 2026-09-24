@@ -9,7 +9,8 @@ Extensão **opcional** do Google Chrome que envia nomes dos participantes do Mee
 | Entra na reunião como bot? | **Não** — nenhum participante extra aparece na call |
 | Mostra botão ou painel no Meet? | **Não** — é silenciosa na interface da reunião |
 | Onde aparece? | Só em `chrome://extensions`, como **Transkriptor Meet Bridge** |
-| Como funciona? | `parser.js` lê tiles e legendas CC; `background.js` envia ao app via `ws://127.0.0.1:5051` |
+| Como funciona? | `rtc.js` lê legendas e nomes direto da conexão do Meet (sem CC na tela); `parser.js` lê o DOM como reserva; `background.js` envia ao app via `ws://127.0.0.1:5051` |
+| Precisa ligar legendas (CC)? | **Não** — a extensão recebe as legendas por um canal próprio, invisível na reunião |
 
 A transcrição automática funciona **sem** a extensão. Instale-a apenas se quiser **nomes do Meet** na transcrição diarizada.
 
@@ -20,7 +21,6 @@ A transcrição automática funciona **sem** a extensão. Instale-a apenas se qu
 - **Windows** com o Transkriptor rodando (ícone na bandeja)
 - **Google Chrome** ou **Microsoft Edge** (Chromium)
 - Reunião aberta em `https://meet.google.com/...` **nesse navegador**
-- Para melhor resultado: **legendas (CC) ativadas** no Meet
 
 ---
 
@@ -61,7 +61,7 @@ Isso liga o servidor local em `127.0.0.1:5051`.
 3. Clique em **Carregar sem compactação**
 4. Selecione **esta pasta** (`extension/meet/`), não a pasta `extension/` pai
 
-A extensão deve aparecer como **Transkriptor Meet Bridge**, versão 1.0.0.
+A extensão deve aparecer como **Transkriptor Meet Bridge**, versão igual à de `manifest.json`.
 
 **Atalho pelo app:** menu da bandeja → **Instalar extensão Meet (pasta)** abre esta pasta no Explorer.
 
@@ -69,12 +69,22 @@ A extensão deve aparecer como **Transkriptor Meet Bridge**, versão 1.0.0.
 
 Abra ou atualize a aba do Google Meet no **mesmo navegador** onde a extensão está instalada.
 
-### 5. Modo legendas (recomendado)
+### 5. Legendas sem CC (automático)
 
-1. No Meet, ative **Legendas** (ícone CC)
-2. Na bandeja do Transkriptor: **Modo legendas Meet (Tactiq)** (✓)
+Não é preciso ligar as legendas no Meet. Ao entrar na chamada, `rtc.js` abre um
+canal de legendas próprio na conexão do Meet (como fazem extensões de
+transcrição): o servidor manda nome do dispositivo + texto por ele, e nada
+aparece na tela nem para os outros participantes. Os nomes vêm do canal
+`collections` e, na falta, do tile do participante.
 
-A extensão lê o nome do falante nas legendas — método mais confiável que detectar só pelo tile de vídeo.
+- O texto da legenda chega no **idioma de legendas configurado no Meet**; a
+  extensão não altera essa configuração. Para o Transkriptor o que importa é
+  quem falou e quando — o texto final vem do Whisper.
+- Se o canal não entregar nada, a extensão volta a ler a faixa de legendas do
+  DOM (aí sim o CC precisa estar ligado).
+- Outra extensão de transcrição (ex.: Tactiq) também abre um canal de legendas
+  na mesma conexão. Com as duas ativas, o botão CC do Meet pode aparecer como
+  "temporariamente indisponível"; se os nomes não chegarem, desative a outra.
 
 ---
 
@@ -82,7 +92,7 @@ A extensão lê o nome do falante nas legendas — método mais confiável que d
 
 1. Transkriptor com **Identificar nomes do Meet** ativo
 2. Extensão habilitada em `chrome://extensions`
-3. Meet aberto no Chrome com legendas ligadas
+3. Meet aberto no Chrome (legendas CC não são necessárias)
 4. Inicie uma transcrição (automática ou manual) com **Separar vozes** ativo
 5. Ao salvar a diarização, os rótulos devem preferir nomes do Meet quando houver correlação temporal
 
@@ -113,7 +123,8 @@ A credencial pode estar ausente ou expirada.
 
 - A opção **Identificar nomes do Meet** está marcada na bandeja?
 - A reunião está no **Chrome** (não só no app Meet nem em outro navegador sem extensão)?
-- Legendas (CC) estão **ativas** no Meet?
+- Recarregou a aba do Meet (F5) depois de instalar/atualizar a extensão? `rtc.js` só entra no carregamento da página.
+- Há outra extensão de transcrição (Tactiq etc.) ativa? Teste com ela desligada.
 - **Separar vozes** está ligado durante a gravação?
 
 ### WebSocket não conecta

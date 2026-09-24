@@ -259,7 +259,7 @@ class CicloReuniaoMixin:
                 if self.modo_legendas_meet and not t.eventos_meet:
                     notificar(
                         "Transkriptor",
-                        "Ative legendas no Meet para identificar participantes",
+                        "Nenhum nome recebido do Meet — recarregue a aba e confira o pareamento da extensão",
                     )
             eventos_refs = ()
             try:
