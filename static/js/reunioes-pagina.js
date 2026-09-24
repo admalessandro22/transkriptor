@@ -63,12 +63,13 @@ function aplicarResumo(el, dados) {
   el.dataset.estado = estado;
   if (estado === 'pronto') el.textContent = dados.resumo;
   else if (estado === 'gerando') el.textContent = 'Gerando resumo com a IA local…';
+  else if (estado === 'sem_resumo') el.textContent = 'Sem resumo automático (reunião anterior). Use o botão de resumo para gerar.';
   else el.textContent = 'Resumo indisponível: ' + ((dados && dados.motivo) || 'IA local indisponível');
 }
 
 /** Resumo curto (≤ 500 caracteres) da IA local, pedido sob demanda; atualiza enquanto gera. */
 export async function preencherResumos(raiz, fetchFn = (u, o) => fetch(u, o)) {
-  const alvos = [...raiz.querySelectorAll('.tk-row[data-id] .tk-row__resumo:not([data-estado="pronto"]):not([data-estado="indisponivel"])')];
+  const alvos = [...raiz.querySelectorAll('.tk-row[data-id] .tk-row__resumo:not([data-estado="pronto"]):not([data-estado="indisponivel"]):not([data-estado="sem_resumo"])')];
   for (const el of alvos) {
     const id = el.closest('.tk-row').dataset.id;
     try {

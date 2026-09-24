@@ -282,3 +282,28 @@ test("cancelar a exclusão não apaga nada", async ({ page }) => {
   expect(estado.pedidoExclusao).toBeUndefined();
   await expect(page.locator("#lista-reunioes .tk-row")).toHaveCount(1);
 });
+
+
+test("reunião anterior aos resumos automáticos: dica avisa e o diálogo gera a pedido", async ({ page }) => {
+  let pedidos = [];
+  await carregarPagina(page, "reunioes", {
+    api: (url) => {
+      if (url.includes("/api/reunioes-indice")) return fixtures.indice(1);
+      if (url.includes("/participantes")) return { participantes: [], sem_nome: 1 };
+      if (url.includes("/resumo")) {
+        pedidos.push(url);
+        if (url.includes("gerar=1")) return { estado: "gerando" };
+        return pedidos.some((u) => u.includes("gerar=1")) ? { estado: "pronto", resumo: "Resumo feito a pedido." } : { estado: "sem_resumo" };
+      }
+      return undefined;
+    },
+  });
+  const dica = page.locator("#lista-reunioes .tk-row .tk-row__resumo").first();
+  await expect(dica).toHaveText(/Sem resumo automático/);
+  await page.locator('#lista-reunioes .tk-row button[data-acao="resumo"]').click();
+  const dlg = page.locator("dialog.tk-dialog--reuniao");
+  await expect(dlg.locator(".tk-resumo-ia")).toContainText("anterior aos resumos automáticos");
+  await dlg.getByRole("button", { name: "Gerar resumo agora" }).click();
+  await expect(dlg.locator(".tk-resumo-ia")).toHaveText("Resumo feito a pedido.", { timeout: 10000 });
+  expect(pedidos.filter((u) => u.includes("gerar=1"))).toHaveLength(1);
+});

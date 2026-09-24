@@ -23,7 +23,8 @@ from typing import Callable
 logger = logging.getLogger(__name__)
 
 LIMITE = 500
-MODELOS_PREFERIDOS = ("gemma4", "gemma3", "qwen2.5", "llama3.1", "granite4.1")
+# granite4.1 primeiro (decisão do usuário, 24/09/2026): resumo equivalente e bem mais rápido.
+MODELOS_PREFERIDOS = ("granite4.1", "gemma4", "gemma3", "qwen2.5", "llama3.1")
 _PADRAO_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
 _PROMPT = (
     "Você resume reuniões em português do Brasil. Responda só com o resumo, em no "
@@ -139,6 +140,7 @@ class ServicoResumos:
         ocupado: Callable[[], bool] = lambda: False,
         orcamento: Callable[[str], int] = lambda modelo: 12000,
         espera_ocupado_seg: float = 30.0,
+        elegivel: Callable[[str], bool] = lambda meeting_id: True,
     ) -> None:
         self.pasta = Path(pasta)
         self._carregar = carregar
@@ -147,6 +149,7 @@ class ServicoResumos:
         self._ocupado = ocupado
         self._orcamento = orcamento
         self._espera = float(espera_ocupado_seg)
+        self._elegivel = elegivel
         self._lock = threading.Lock()
         self._pendentes: set[str] = set()
         self._falhas: dict[str, str] = {}
@@ -177,7 +180,8 @@ class ServicoResumos:
         salvar_bytes_arquivo(str(self._arquivo(meeting_id)), corpo.encode("utf-8"))
 
     # -- API --
-    def obter(self, meeting_id: str) -> dict:
+    def obter(self, meeting_id: str, *, gerar: bool = False) -> dict:
+        """`gerar=True` põe na fila mesmo reunião fora da geração automática."""
         if not _PADRAO_ID.fullmatch(str(meeting_id)):
             return {"estado": "indisponivel", "motivo": "reunião inválida"}
         dados = self._carregar(meeting_id)
@@ -186,7 +190,11 @@ class ServicoResumos:
         salvo = self._ler(meeting_id)
         if salvo and salvo.get("revision") == dados.get("revision"):
             return {"estado": "pronto", "resumo": salvo["resumo"]}
+        if not salvo and not gerar and meeting_id not in self._pendentes and not self._elegivel(meeting_id):
+            return {"estado": "sem_resumo"}
         with self._lock:
+            if gerar:
+                self._falhas.pop(meeting_id, None)
             motivo = self._falhas.get(meeting_id)
             if motivo is not None:
                 return {"estado": "indisponivel", "motivo": motivo}

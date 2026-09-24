@@ -69,24 +69,28 @@ async function abrirResumo(info, fetchFn) {
   const selo = el('p', 'tk-resumo-ia__selo'); selo.append(icone('sparkles', 'tk-icon tk-icon--sm'), document.createTextNode(' Resumo gerado pela IA local'));
   d.conteudo.append(selo, texto);
   let timer = null;
-  const tentar = d.botao('Tentar de novo', 'tk-btn--secondary', () => carregar(true));
+  const tentar = d.botao('Tentar de novo', 'tk-btn--secondary', () => carregar('tentar'));
   tentar.hidden = true;
+  const gerar = d.botao('Gerar resumo agora', 'tk-btn--secondary', () => carregar('gerar'));
+  gerar.hidden = true;
   const link = el('a', 'tk-btn tk-btn--secondary', 'Abrir transcrição'); link.href = '/participantes?reuniao=' + encodeURIComponent(info.id);
   d.acoes.appendChild(link);
   d.botao('Fechar', 'tk-btn--primary', () => d.dlg.close());
   d.dlg.addEventListener('close', () => clearTimeout(timer));
-  async function carregar(novamente = false) {
+  async function carregar(pedido = '') {
     clearTimeout(timer);
     try {
-      const r = await fetchFn(url(info.id, '/resumo') + (novamente ? '?tentar=1' : ''), { credentials: 'same-origin', headers: cabecalhos() });
+      const r = await fetchFn(url(info.id, '/resumo') + (pedido ? `?${pedido}=1` : ''), { credentials: 'same-origin', headers: cabecalhos() });
       const dados = r.ok ? await r.json() : { estado: 'indisponivel', motivo: 'IA local indisponível' };
       texto.dataset.estado = dados.estado;
       tentar.hidden = dados.estado !== 'indisponivel';
+      gerar.hidden = dados.estado !== 'sem_resumo';
       if (dados.estado === 'pronto') texto.textContent = dados.resumo;
-      else if (dados.estado === 'gerando') { texto.textContent = 'Gerando resumo com a IA local… isso leva cerca de um minuto.'; timer = setTimeout(carregar, 5000); }
+      else if (dados.estado === 'sem_resumo') texto.textContent = 'Esta reunião é anterior aos resumos automáticos. Você pode gerar o resumo dela agora; leva de 1 a 3 minutos.';
+      else if (dados.estado === 'gerando') { texto.textContent = 'Gerando resumo com a IA local… isso leva de 1 a 3 minutos.'; timer = setTimeout(carregar, 5000); }
       else texto.textContent = 'Resumo indisponível: ' + (dados.motivo || 'IA local indisponível') + '.';
     } catch (_) {
-      texto.dataset.estado = 'indisponivel'; tentar.hidden = false;
+      texto.dataset.estado = 'indisponivel'; tentar.hidden = false; gerar.hidden = true;
       texto.textContent = 'Não foi possível falar com a Central.';
     }
   }

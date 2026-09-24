@@ -59,13 +59,15 @@ def test_erro_do_ollama_nao_vira_resumo():
 
 
 def test_escolhe_modelo_preferido_instalado():
-    assert rr.escolher_modelo(["ornith:latest", "granite4.1:3b", "gemma4:latest"]) == "gemma4:latest"
+    # granite4.1 primeiro: resumo equivalente e bem mais rápido (decisão do usuário, 24/09/2026)
+    assert rr.escolher_modelo(["ornith:latest", "granite4.1:3b", "gemma4:latest"]) == "granite4.1:3b"
+    assert rr.escolher_modelo(["ornith:latest", "gemma4:latest"]) == "gemma4:latest"
     assert rr.escolher_modelo(["ornith:latest"]) == "ornith:latest"
     assert rr.escolher_modelo([]) is None
 
 
 class _Servico:
-    def __init__(self, tmp_path, *, ocupado=lambda: False, resposta="Resumo curto."):
+    def __init__(self, tmp_path, *, ocupado=lambda: False, resposta="Resumo curto.", elegivel=lambda mid: True):
         self.chamadas = 0
         self.dados = _dados()
 
@@ -81,6 +83,7 @@ class _Servico:
             ocupado=ocupado,
             orcamento=lambda modelo: 10000,
             espera_ocupado_seg=0.05,
+            elegivel=elegivel,
         )
 
 
@@ -152,8 +155,10 @@ def test_rota_da_central_devolve_estado_sem_expor_fala(tmp_path, monkeypatch, he
     monkeypatch.setattr(central_resumos, "_modelos_instalados", lambda: ["gemma4:latest"])
     monkeypatch.setattr(central_resumos, "_orcamento", lambda m: 10000)
     monkeypatch.setattr(central_resumos, "_chamar_resumo", lambda m, msgs: "Resumo sintético.")
+    monkeypatch.setattr(central_resumos, "_elegivel", lambda raiz, mid: False)
     cliente = app.test_client()
-    primeira = cliente.get("/api/reunioes/reuniao-x/resumo", headers=headers_token).get_json()
+    assert cliente.get("/api/reunioes/reuniao-x/resumo", headers=headers_token).get_json() == {"estado": "sem_resumo"}
+    primeira = cliente.get("/api/reunioes/reuniao-x/resumo?gerar=1", headers=headers_token).get_json()
     assert primeira["estado"] in ("gerando", "pronto")
     fim = time.monotonic() + 5
     while time.monotonic() < fim:
@@ -215,3 +220,41 @@ def test_app_ocupado_so_quando_grava_ou_processa(monkeypatch, estado, processame
 
     monkeypatch.setattr(app_estado_ui, "provedor_atual", lambda: (lambda: SimpleNamespace(estado=estado, processamento=processamento)))
     assert central_resumos._app_ocupado() is ocupado
+
+
+def test_reuniao_antiga_nao_entra_na_fila_mas_pode_ser_gerada_a_pedido(tmp_path, chave_teste):
+    s = _Servico(tmp_path, elegivel=lambda mid: False)
+    assert s.servico.obter("reuniao-1") == {"estado": "sem_resumo"}
+    time.sleep(0.2)
+    assert s.chamadas == 0
+    assert s.servico.obter("reuniao-1", gerar=True)["estado"] == "gerando"
+    r = _esperar(s.servico, "reuniao-1", "pronto")
+    assert r["resumo"] == "Resumo curto." and s.chamadas == 1
+    s.servico.parar()
+
+
+def test_resumo_ja_existente_de_reuniao_antiga_continua_visivel(tmp_path, chave_teste):
+    s = _Servico(tmp_path)
+    s.servico.obter("reuniao-1")
+    _esperar(s.servico, "reuniao-1", "pronto")
+    s.servico.parar()
+    antiga = _Servico(tmp_path, elegivel=lambda mid: False)
+    assert antiga.servico.obter("reuniao-1") == {"estado": "pronto", "resumo": "Resumo curto."}
+
+
+def test_elegivel_so_reunioes_que_comecam_depois_do_corte(tmp_path, monkeypatch):
+    import json as _json
+
+    import central_resumos
+
+    raiz = tmp_path
+    (raiz / "indice.json").write_text(_json.dumps({"version": 1, "meetings": {
+        "nova": {"started_at": "2026-09-24T22:00:00Z"},
+        "antiga": {"started_at": "2026-09-24T16:05:00"},
+        "sem_data": {},
+    }}), encoding="utf-8")
+    monkeypatch.setattr(central_resumos, "RESUMOS_AUTOMATICOS_DESDE", "2026-09-24T18:40:00-03:00")
+    assert central_resumos._elegivel(raiz, "nova") is True
+    assert central_resumos._elegivel(raiz, "antiga") is False
+    assert central_resumos._elegivel(raiz, "sem_data") is False
+    assert central_resumos._elegivel(raiz, "inexistente") is False

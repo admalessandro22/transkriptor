@@ -162,7 +162,7 @@
 .tk-rows:has(.tk-row--reuniao) > .tk-row:first-child { border-radius: var(--tk-radius-md) var(--tk-radius-md) 0 0; }
 .tk-rows:has(.tk-row--reuniao) > .tk-row:last-child { border-radius: 0 0 var(--tk-radius-md) var(--tk-radius-md); }
 .tk-row__resumo { display: none; position: absolute; left: var(--tk-space-4); top: calc(100% - var(--tk-space-2)); z-index: 20; max-width: min(36rem, calc(100% - 2 * var(--tk-space-4))); padding: var(--tk-space-3); border: 1px solid var(--tk-border-strong); border-radius: var(--tk-radius-md); background: var(--tk-bg-2); color: var(--tk-text-1); box-shadow: var(--tk-elev-3); font-size: var(--tk-type-sm-size); font-weight: 400; line-height: 1.45; white-space: normal; pointer-events: none; }
-.tk-row__resumo[data-estado="gerando"], .tk-row__resumo[data-estado="indisponivel"] { color: var(--tk-text-3); font-style: italic; }
+.tk-row__resumo[data-estado="gerando"], .tk-row__resumo[data-estado="indisponivel"], .tk-row__resumo[data-estado="sem_resumo"] { color: var(--tk-text-3); font-style: italic; }
 .tk-row__abrir:hover ~ .tk-row__resumo, .tk-row__abrir:focus-visible ~ .tk-row__resumo { display: block; }
 
 /* ---- Progresso ---- */

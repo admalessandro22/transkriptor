@@ -48,7 +48,7 @@
 .tk-dialog__aviso { color: var(--tk-danger); font-size: var(--tk-type-sm-size); }
 .tk-resumo-ia__selo { display: inline-flex; align-items: center; gap: var(--tk-space-1); color: var(--tk-accent); font-size: var(--tk-type-xs-size); font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; }
 .tk-resumo-ia { font-size: 15px; line-height: 1.65; color: var(--tk-text-1); padding: var(--tk-space-4); background: var(--tk-bg-2); border-radius: var(--tk-radius-md); border-left: 3px solid var(--tk-accent); }
-.tk-resumo-ia[data-estado="gerando"], .tk-resumo-ia[data-estado="indisponivel"] { color: var(--tk-text-3); font-style: italic; border-left-color: var(--tk-border-strong); }
+.tk-resumo-ia[data-estado="gerando"], .tk-resumo-ia[data-estado="indisponivel"], .tk-resumo-ia[data-estado="sem_resumo"] { color: var(--tk-text-3); font-style: italic; border-left-color: var(--tk-border-strong); }
 .tk-form-reuniao { display: flex; flex-direction: column; gap: var(--tk-space-5); }
 .tk-field__ajuda { color: var(--tk-text-3); font-size: var(--tk-type-xs-size); }
 .tk-form-reuniao__pessoas { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--tk-space-2); }

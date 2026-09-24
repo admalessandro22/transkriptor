@@ -3,7 +3,8 @@
 
 `GET /api/reunioes/<id>/resumo` devolve `{estado: pronto, resumo}`, `{estado:
 gerando}` (a geração entra na fila) ou `{estado: indisponivel, motivo}`.
-`?tentar=1` limpa uma falha anterior (ex.: Ollama voltou). Token, origem e
+`?tentar=1` limpa uma falha anterior (ex.: Ollama voltou); `?gerar=1` gera
+para reunião anterior aos resumos automáticos (`{estado: sem_resumo}`). Token, origem e
 JSON são exigidos pelo `before_request` de `assistente.py` para `/api/*`.
 """
 from __future__ import annotations
@@ -21,6 +22,9 @@ _servico = None
 _servico_lock = threading.Lock()
 _OCUPADO = ("gravando", "processando", "separando_vozes")
 _PROCESSANDO = ("Processando", "Em fila")
+# Resumo automático só para reuniões que começam a partir daqui (decisão do
+# usuário, 24/09/2026); as anteriores só com "Gerar resumo agora".
+RESUMOS_AUTOMATICOS_DESDE = "2026-09-24T18:40:00-03:00"
 TIMEOUT_RESUMO_SEG = 300
 
 
@@ -80,6 +84,14 @@ def _orcamento(modelo: str) -> int:
     return orcamento_chars(_contexto(modelo))
 
 
+def _elegivel(raiz: Path, meeting_id: str) -> bool:
+    from indice_transcricoes import _carregar_indice, _instante
+
+    entrada = _carregar_indice(Path(raiz) / "indice.json").get(meeting_id)
+    inicio = entrada.get("started_at") if isinstance(entrada, dict) else None
+    return bool(inicio) and _instante(inicio) >= _instante(RESUMOS_AUTOMATICOS_DESDE)
+
+
 def servico():
     global _servico
     with _servico_lock:
@@ -94,6 +106,7 @@ def servico():
                 modelos=_modelos_instalados,
                 ocupado=_app_ocupado,
                 orcamento=_orcamento,
+                elegivel=lambda mid: _elegivel(Path(assistente.PASTA_TRANSCRICOES), mid),
             )
         return _servico
 
@@ -103,4 +116,4 @@ def api_resumo_reuniao(meeting_id: str):
     s = servico()
     if request.args.get("tentar") == "1":
         s.tentar_de_novo(meeting_id)
-    return jsonify(s.obter(meeting_id))
+    return jsonify(s.obter(meeting_id, gerar=request.args.get("gerar") == "1"))
