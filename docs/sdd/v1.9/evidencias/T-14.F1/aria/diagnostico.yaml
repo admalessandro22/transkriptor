@@ -1,0 +1,54 @@
+- link "Ir para o conteúdo":
+  - /url: "#conteudo"
+- navigation "Navegação principal":
+  - text: Transkriptor Reuniões locais
+  - list:
+    - listitem:
+      - link "Início":
+        - /url: /inicio
+        - img
+        - text: Início
+    - listitem:
+      - link "Reuniões":
+        - /url: /reunioes
+        - img
+        - text: Reuniões
+    - listitem:
+      - link "Assistente":
+        - /url: /
+        - img
+        - text: Assistente
+    - listitem:
+      - link "Participantes":
+        - /url: /participantes
+        - img
+        - text: Participantes
+    - listitem:
+      - link "Configurações":
+        - /url: /configuracoes
+        - img
+        - text: Configurações
+    - listitem:
+      - link "Diagnóstico":
+        - /url: /diagnostico
+        - img
+        - text: Diagnóstico
+  - text: Local em 127.0.0.1
+- banner:
+  - heading "Diagnóstico" [level=1]
+  - status: Aguardando reunião
+  - button "Mudar para tema escuro":
+    - img
+- main:
+  - heading "Diagnóstico" [level=2]
+  - paragraph: Por que não está gravando? Testa áudio, detecção, dependências e modelo, e sugere o próximo passo para cada item.
+  - button "Rodar diagnóstico"
+  - button "Exportar sem dados pessoais" [disabled]
+  - img
+  - heading "Nenhum diagnóstico ainda" [level=3]
+  - paragraph: "Rodar leva alguns segundos: grava meio segundo de áudio para testar o loopback e o microfone."
+  - region "Áudios retidos":
+    - heading "Áudios retidos" [level=3]
+    - paragraph: Reprocesse um áudio guardado em transcrições/audio. A transcrição sai com as configurações atuais (separação de vozes, proteção, identificação).
+    - heading "Nenhum áudio retido" [level=3]
+    - paragraph: Os áudios ficam em transcrições/audio por sete dias após um resultado válido.

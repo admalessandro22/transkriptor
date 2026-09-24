@@ -1,6 +1,6 @@
 # Tasks — plataforma visual e Central (SDD v1.9)
 
-**Estado em 24/09/2026: plano aprovado; 18 `DONE` (F14.A–E concluídas), 3 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.F1.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
+**Estado em 24/09/2026: plano aprovado; 19 `DONE` (F14.A–E concluídas, F1), 2 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.F2.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
 
 Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, **Teste final** e **Aceite** são cumulativos. Os arquivos de teste novos são entregáveis da implementação; os seletores são planejados, não testes que já passaram. Nenhuma task usa dados reais; capturas usam `tests/e2e/fixtures/`.
 
@@ -198,7 +198,7 @@ Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, 
 
 ### T-14.F1 — gate de acessibilidade comportamental
 
-- [ ] **Requisito:** NFR-14.F1. **Depende de:** E5 e DP-14-09. **Estado:** `PENDING`.
+- [x] **Requisito:** NFR-14.F1. **Depende de:** E5 e DP-14-09. **Estado:** `DONE`; commit `09b315e`; evidência: `evidencias/T-14.F1.md` (Narrador ao vivo pendente, listado no gate G).
 - **Arquivos:** modificar `package.json`/lock (`@axe-core/playwright`), `tests/e2e/accessibility.spec.js`; criar `tests/e2e/axe.spec.js`, `tests/e2e/larguras.spec.js`, `docs/sdd/v1.9/evidencias/roteiro-narrador.md`.
 - **Implementação:** axe em todas as páginas e na galeria, ambos os temas, sem violações `serious`/`critical`; percurso de teclado completo por página; `forced-colors` e `reduced-motion` emulados; 375/900/1366/1920 sem overflow e sem texto cortado; roteiro manual de Narrador executado e registrado.
 - **RED:** `axe.spec.js::sem violacoes serias em cada pagina e tema`, `larguras.spec.js::sem overflow`, `accessibility.spec.js::foco visivel em todos os controles`.

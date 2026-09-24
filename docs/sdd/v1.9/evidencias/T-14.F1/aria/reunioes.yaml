@@ -1,0 +1,56 @@
+- link "Ir para o conteúdo":
+  - /url: "#conteudo"
+- navigation "Navegação principal":
+  - text: Transkriptor Reuniões locais
+  - list:
+    - listitem:
+      - link "Início":
+        - /url: /inicio
+        - img
+        - text: Início
+    - listitem:
+      - link "Reuniões":
+        - /url: /reunioes
+        - img
+        - text: Reuniões
+    - listitem:
+      - link "Assistente":
+        - /url: /
+        - img
+        - text: Assistente
+    - listitem:
+      - link "Participantes":
+        - /url: /participantes
+        - img
+        - text: Participantes
+    - listitem:
+      - link "Configurações":
+        - /url: /configuracoes
+        - img
+        - text: Configurações
+    - listitem:
+      - link "Diagnóstico":
+        - /url: /diagnostico
+        - img
+        - text: Diagnóstico
+  - text: Local em 127.0.0.1
+- banner:
+  - heading "Reuniões" [level=1]
+  - status: Aguardando reunião
+  - button "Mudar para tema escuro":
+    - img
+- main:
+  - heading "Reuniões" [level=2]
+  - paragraph: Índice das reuniões processadas. Nenhuma fala aparece aqui; abra uma reunião no Assistente para consultar o conteúdo.
+  - text: Filtrar reuniões
+  - img
+  - searchbox "Filtrar reuniões"
+  - text: 22/09/2026 · 10:03 30 min · Revisão 1 Pronta
+  - link "Abrir no Assistente":
+    - /url: /?reuniao=2026-09-22_10h03_diarizado
+  - text: 21/09/2026 · 10:03 31 min · Revisão 2 Parcial
+  - link "Abrir no Assistente":
+    - /url: /?reuniao=2026-09-18_15h30
+  - text: 20/09/2026 · 10:03 32 min · Revisão 3 Parcial
+  - link "Abrir no Assistente":
+    - /url: /?reuniao=2026-09-11_09h00_diarizado
