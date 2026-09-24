@@ -1,58 +1,33 @@
 # -*- coding: utf-8 -*-
-"""F11.C — Assistente a11y e responsivo (T-11.C1)."""
+"""F11.C — Assistente a11y e responsivo (T-11.C1).
+
+Reduzido na v1.9 (T-14.F1) às presenças de CSS que não têm equivalente
+comportamental: esquema de cores, anel de foco, `forced-colors` e
+`prefers-reduced-motion`. O resto virou E2E: drawer/aria e Tab em
+`tests/e2e/shell.spec.js` e `accessibility.spec.js`; setas/Ctrl+K em
+`reunioes.spec.js`; Escape/abort em `chat-cancel.spec.js`; larguras em
+`larguras.spec.js`; axe em `axe.spec.js`.
+"""
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-from tests.front_assistente import CSS, HTML_TEMPLATE as HTML, JS  # v1.9: shell + módulos
-FRONT = HTML + "\n" + CSS + "\n" + JS
+from tests.front_assistente import CSS  # v1.9: base + módulos
 
 
 def test_color_scheme_dark():
-    # v1.9 (T-14.B1): o esquema de cores é declarado nos tokens gerados e na base
     tokens = (REPO / "static" / "css" / "tokens.css").read_text(encoding="utf-8")
     assert "color-scheme: dark light" in tokens
     assert "@import url(\"css/tokens.css\")" in CSS
 
 
 def test_focus_visible_accent():
-    """Migrado na v1.9 (T-14.A1): o anel de foco usa o acento dos tokens."""
-    assert "focus-visible" in CSS
-    assert ":focus-visible { outline: 2px solid var(--tk-accent)" in CSS  # base.css (v1.9, T-14.B3)
+    assert ":focus-visible { outline: 2px solid var(--tk-accent)" in CSS  # base.css
 
 
-def test_aria_labels_drawer():
-    assert 'aria-label="Abrir menu' in HTML
-    assert 'aria-expanded' in JS
-    assert 'aria-controls="sidebar"' in HTML
-    assert 'role="log"' in HTML
-    assert 'aria-live="polite"' in HTML
+def test_forced_colors_presente():
+    assert "@media (forced-colors: active)" in CSS
+    assert "CanvasText" in CSS or "forced-color-adjust" in CSS
 
 
-def test_drawer_860_e_375():
-    assert "860px" in CSS
-    assert "375px" in CSS
-    assert "drawer-open" in CSS
-    assert "drawer-overlay" in HTML
-    assert "translateX(-100%)" in CSS
-    # v1.9 (T-14.A3): a easing vem do token de movimento
-    assert "transition: transform var(--tk-dur-slow) var(--tk-ease)" in CSS
-
-
-def test_keyboard_nav_cards():
-    assert "ArrowDown" in JS
-    assert "ArrowUp" in JS
-    assert "TEXTAREA" in JS
-    assert "idx === -1" in JS
-    assert "buscaInput" in JS
-    assert "Ctrl+K" in JS or "ctrlKey" in JS
-
-
-def test_esc_fecha_drawer_e_abort():
-    assert "Escape" in JS
-    assert "abortController.abort()" in JS
-    assert "abrirDrawer(false)" in JS
-
-
-def test_forced_colors_e_scrollbar():
-    assert "forced-colors" in CSS
-    assert "scrollbar-gutter" in CSS or "CanvasText" in CSS
+def test_reduced_motion_presente():
+    assert "@media (prefers-reduced-motion: reduce)" in CSS

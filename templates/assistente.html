@@ -40,7 +40,7 @@
   </aside>
 
   <!-- ===== MAIN ===== -->
-  <main class="main">
+  <div class="main">
     <header class="main-header">
       <button type="button" id="menu-toggle" aria-label="Abrir menu de reunião" aria-expanded="false" aria-controls="sidebar">
         <svg class="tk-icon" aria-hidden="true"><use href="{{ url_for('static', filename='icones.svg') }}#i-list"/></svg>
@@ -123,6 +123,6 @@
       <div class="progress-bar" id="progress-bar" aria-hidden="true"></div>
       <div class="timer is-hidden" id="timer" aria-live="polite"></div>
     </div>
-  </main>
+  </div>
 {% endblock %}
 {% block scripts %}<script type="module" src="{{ url_for('static', filename='js/app.js') }}"></script>{% endblock %}

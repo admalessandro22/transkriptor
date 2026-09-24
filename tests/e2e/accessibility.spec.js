@@ -75,3 +75,50 @@ test("filtro preserva selecao e telas nao estouram", async ({ page }) => {
     await page.click("#fechar-participantes");
   }
 });
+
+
+// NFR-14.F1 — percurso de teclado completo por página: Tab alcança todos os
+// controles focáveis visíveis, nenhum fica sem indicação de foco e o foco
+// nunca cai no body (sem armadilha nem buraco).
+const PAGINAS_CENTRAL = ["inicio", "reunioes", "assistente", "participantes", "configuracoes", "diagnostico", "galeria"];
+
+for (const pagina of PAGINAS_CENTRAL) {
+  test(`foco visivel em todos os controles: ${pagina}`, async ({ page }) => {
+    await page.setViewportSize({ width: 1366, height: 900 });
+    await carregarPagina(page, pagina);
+    await page.waitForTimeout(400);
+    // Chave estável por posição no DOM (rótulos repetidos, como "Abrir no Assistente", não são ciclo).
+    const focaveis = await page.evaluate(() => {
+      const todos = [...document.querySelectorAll("*")];
+      return [...document.querySelectorAll("a[href], button, input, select, textarea, [tabindex]")]
+        .filter((el) => el.tabIndex >= 0 && !el.matches(":disabled") && !el.closest("[hidden], [inert]") && el.checkVisibility({ visibilityProperty: true, opacityProperty: true }))
+        .map((el) => `${todos.indexOf(el)}:${el.id ? "#" + el.id : el.tagName + ":" + (el.textContent || "").trim().slice(0, 20)}`);
+    });
+    const total = focaveis.length;
+    expect(total).toBeGreaterThan(3);
+    const vistos = new Set();
+    const semFoco = [];
+    let saidas = 0; // Tab depois do último controle sai do documento (body) e o próximo volta ao primeiro
+    for (let i = 0; i < total + 3; i++) {
+      await page.keyboard.press("Tab");
+      const info = await page.evaluate(() => {
+        const el = document.activeElement;
+        const cs = getComputedStyle(el);
+        const anel = cs.outlineStyle !== "none" && parseFloat(cs.outlineWidth) > 0;
+        const sombra = cs.boxShadow && cs.boxShadow !== "none";
+        const chave = `${[...document.querySelectorAll("*")].indexOf(el)}:${el.id ? "#" + el.id : el.tagName + ":" + (el.textContent || "").trim().slice(0, 20)}`;
+        return { tag: el.tagName, chave, visivel: anel || sombra };
+      });
+      if (info.tag === "BODY") {
+        saidas += 1;
+        expect(saidas, `foco caiu no body duas vezes (buraco) depois de ${[...vistos].slice(-1)[0]}`).toBeLessThanOrEqual(1);
+        continue;
+      }
+      if (vistos.has(info.chave)) break;
+      vistos.add(info.chave);
+      if (!info.visivel) semFoco.push(info.chave);
+    }
+    expect(semFoco, "controles sem anel de foco").toEqual([]);
+    expect([...new Set(focaveis)].filter((f) => !vistos.has(f)), "controles focáveis não alcançados por Tab").toEqual([]);
+  });
+}

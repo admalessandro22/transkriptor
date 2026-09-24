@@ -53,4 +53,4 @@
 .participantes--pagina .participantes__skeleton { grid-column: 1 / -1; }
 .participantes--pagina .participantes__falas { grid-row: span 2; }
 .participantes--pagina .participantes__estado { grid-column: 1 / -1; }
-@media (max-width: 899px) { .participantes--pagina { grid-template-columns: 1fr; } .participantes--pagina .participantes__falas { grid-row: auto; } }
+@media (max-width: 899px) { .participantes--pagina { grid-template-columns: minmax(0, 1fr); } .participantes--pagina .participantes__falas { grid-row: auto; } }

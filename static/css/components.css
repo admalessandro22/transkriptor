@@ -66,6 +66,7 @@
 }
 .tk-listbox [role="option"]:hover { background: var(--tk-bg-2); }
 .tk-listbox [role="option"][aria-selected="true"] { background: var(--tk-accent-soft); border-color: var(--tk-accent); }
+.tk-listbox [role="option"][aria-selected="true"] .tk-listbox__meta { color: var(--tk-text-2); } /* text-3 fica < 4.5:1 sobre accent-soft no tema escuro */
 .tk-listbox [role="option"].is-active { box-shadow: inset 0 0 0 1px var(--tk-accent); }
 .tk-listbox__titulo { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tk-listbox__meta { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: var(--tk-space-2); align-items: center; font-size: var(--tk-type-sm-size); line-height: var(--tk-type-sm-line); color: var(--tk-text-3); font-variant-numeric: tabular-nums; }
@@ -141,12 +142,13 @@
 
 /* ---- Linha de dados ---- */
 .tk-rows { display: flex; flex-direction: column; border: 1px solid var(--tk-border); border-radius: var(--tk-radius-md); overflow: hidden; background: var(--tk-bg-1); }
-.tk-row { display: flex; gap: var(--tk-space-4); align-items: center; padding: var(--tk-space-3) var(--tk-space-4); border-bottom: 1px solid var(--tk-border); transition: background var(--tk-dur-fast) var(--tk-ease); }
+.tk-row { display: flex; gap: var(--tk-space-4); align-items: center; padding: var(--tk-space-3) var(--tk-space-4); border-bottom: 1px solid var(--tk-border); transition: background var(--tk-dur-fast) var(--tk-ease); flex-wrap: wrap; } /* ação da linha desce em 375 px em vez de estourar */
 .tk-row > * { flex-shrink: 0; }
 .tk-row__principal { flex: 1 1 auto; }
 .tk-row:last-child { border-bottom: none; }
 .tk-row:hover { background: var(--tk-bg-2); }
 .tk-row.is-selected { background: var(--tk-accent-soft); }
+.tk-row.is-selected .tk-row__meta { color: var(--tk-text-2); }
 .tk-row__principal { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
 .tk-row__meta { color: var(--tk-text-3); font-size: var(--tk-type-sm-size); font-variant-numeric: tabular-nums; white-space: nowrap; }
 

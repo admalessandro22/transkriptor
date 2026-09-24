@@ -40,7 +40,7 @@
         <button type="button" class="tk-btn tk-btn--quiet tk-btn--icon" id="tema-toggle" data-tema-toggle aria-pressed="false" aria-label="Alternar tema"><svg class="tk-icon tk-tema__escuro"><use href="{{ url_for('static', filename='icones.svg') }}#i-moon"/></svg><svg class="tk-icon tk-tema__claro"><use href="{{ url_for('static', filename='icones.svg') }}#i-sun"/></svg></button>
       </div>
     </header>
-    <div class="tk-content" id="conteudo" tabindex="-1">{% block conteudo %}{% endblock %}</div>
+    <main class="tk-content" id="conteudo" tabindex="-1">{% block conteudo %}{% endblock %}</main>
   </div>
   <div id="toast-region" class="tk-toast-region" aria-live="polite" aria-atomic="true"></div>
   <script type="module" src="{{ url_for('static', filename='js/shell.js') }}"></script>

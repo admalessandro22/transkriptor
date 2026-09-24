@@ -72,6 +72,7 @@ export function criarListbox(ul, opcoes) {
   }
 
   function render(novos) {
+    ul.setAttribute('role', 'listbox');
     itens = Array.isArray(novos) ? novos.slice() : [];
     ul.innerHTML = '';
     ul.classList.remove('is-loading', 'is-empty', 'is-error');
@@ -99,6 +100,7 @@ export function criarListbox(ul, opcoes) {
     ul.innerHTML = '';
     ul.classList.remove('is-loading', 'is-empty', 'is-error');
     ul.removeAttribute('aria-activedescendant');
+    ul.setAttribute('role', 'listbox');
     if (nome === 'carregando') {
       ul.classList.add('is-loading');
       ul.setAttribute('aria-busy', 'true');
@@ -108,6 +110,8 @@ export function criarListbox(ul, opcoes) {
     ul.removeAttribute('aria-busy');
     const li = document.createElement('li');
     li.className = 'tk-listbox__estado';
+    // Sem opções não há listbox: vira lista simples com a mensagem (axe: aria-required-children).
+    ul.setAttribute('role', 'list');
     li.textContent = mensagem || MENSAGENS[nome] || '';
     if (nome === 'erro') {
       ul.classList.add('is-error');

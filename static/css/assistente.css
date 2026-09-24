@@ -124,7 +124,8 @@ kbd { background: var(--tk-bg-2); border: 1px solid var(--tk-border); border-bot
 .input-wrap:focus-within { border-color: var(--tk-accent); box-shadow: 0 0 0 3px var(--tk-focus), var(--tk-elev-1); }
 #input { flex: 1; background: transparent; border: none; color: var(--tk-text-1); font-size: var(--tk-type-md-size); line-height: 1.5; resize: none; height: 28px; max-height: 160px; padding: 5px 0; overflow-y: auto; }
 #input::placeholder { color: var(--tk-text-3); }
-#input:focus, #input:focus-visible { outline: none; }
+#input:focus { outline: none; }
+#input:focus-visible { outline: 2px solid var(--tk-accent); outline-offset: 2px; border-radius: var(--tk-radius-sm); }
 .input-actions { display: flex; gap: var(--tk-space-2); align-items: center; flex-shrink: 0; }
 #send, #stop { width: 36px; height: 36px; border: none; border-radius: var(--tk-radius-md); display: inline-flex; align-items: center; justify-content: center; transition: transform var(--tk-dur-fast) var(--tk-ease), filter var(--tk-dur-fast) var(--tk-ease); }
 #send { background: var(--tk-accent-fill); color: var(--tk-on-accent); }
