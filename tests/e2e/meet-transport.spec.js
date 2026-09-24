@@ -84,7 +84,7 @@ test("página de pareamento: IDs mantidos, passos, estados e nenhuma rede extern
   await page.addInitScript(() => {
     window.chrome = {
       storage: { session: { set: (obj, cb) => cb && cb() } },
-      runtime: { lastError: undefined, sendMessage: (msg, cb) => cb && cb({ pronto: true }) },
+      runtime: { lastError: undefined, sendMessage: (msg, cb) => cb && cb({ pronto: true, pareamento: "confirmado" }) },
     };
   });
   await page.goto("http://extensao.local/pairing.html");
