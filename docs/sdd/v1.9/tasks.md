@@ -1,6 +1,6 @@
 # Tasks — plataforma visual e Central (SDD v1.9)
 
-**Estado em 24/09/2026: plano aprovado; 9 `DONE` (F14.A e F14.B concluídas, C1–C2), 12 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.C3.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
+**Estado em 24/09/2026: plano aprovado; 10 `DONE` (F14.A, F14.B e F14.C concluídas), 11 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.D1.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
 
 Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, **Teste final** e **Aceite** são cumulativos. Os arquivos de teste novos são entregáveis da implementação; os seletores são planejados, não testes que já passaram. Nenhuma task usa dados reais; capturas usam `tests/e2e/fixtures/`.
 
@@ -102,7 +102,7 @@ Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, 
 
 ### T-14.C3 — exportação legível e unificação com "aprender voz"
 
-- [ ] **Requisito:** UX-14.C3. **Depende de:** C2 e DP-14-05. **Estado:** `PENDING`.
+- [x] **Requisito:** UX-14.C3. **Depende de:** C2 e DP-14-05. **Estado:** `DONE`; commit `2041c5a`; evidência: `evidencias/T-14.C3.md` (gate da fase C verde).
 - **Arquivos:** modificar `static/js/participantes.js`, `templates/participantes.html`, `assistente.py` (`POST /api/acoes/aprender-voz`), `app_bandeja_menu.py` (item "Renomear falante" e "Corrigir nome" → abrem a Central em `/participantes`), `transkriptor_menu_flows.py` (remove `_renomear_dialog` e `iniciar_corrigir_nome_reuniao_ui`), `renomear_falante_flow.py` (remove `corrigir_nome_reuniao_ui`); criar `tests/e2e/exportar.spec.js`, `tests/test_central_api.py`.
 - **Implementação:** exportação via `<dialog id="dialogo-exportar">` com consequência ("O arquivo conterá o texto legível da reunião") e botão `#confirmar-exportar`; ação separada "Aprender esta voz para próximas reuniões" com consequência explícita e opt-in, distinta de "Corrigir nome nesta reunião"; rota valida rótulo e nome e reutiliza `persistir_renomeacao_falante`.
 - **RED:** `exportar.spec.js::cancelar nao chama api`, `::confirmar baixa arquivo`, `::aprender voz exige confirmacao separada`; `test_central_api.py::test_aprender_voz_sem_centroides_404`, `::test_aprender_voz_exige_header_secreto`, `::test_corrigir_nao_cadastra_biometria`.
