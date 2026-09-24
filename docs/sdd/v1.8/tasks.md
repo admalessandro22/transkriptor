@@ -2,6 +2,8 @@
 
 **Estado auditado em 22/09/2026: 13 DONE, 11 REOPENED, 1 BLOCKED (T-13.G3) e 3 pendentes (T-13.H1–H3 opcionais).** Os estados REOPENED só voltam a DONE após as tarefas sequenciais do plano de remediação, com RED→GREEN, regressão, evidência e SHA real. Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
 
+**Checkpoint corrente em 24/09/2026:** Tasks 1–11 do plano de remediação têm commits e evidência de automação; o complemento da Task 8 está no SHA `8527b1ddaf5bda27b97d7857f3478ba1ef8b7111`. Task 12 está em execução. A suíte Python (804 passed), o verificador de fase (238 passed), JS (22 passed), E2E (21 passed), compilação, `pip check` e diff passaram no código atualizado. Os checkboxes `REOPENED`/`BLOCKED` abaixo continuam abertos até os gates reais e CI do mesmo SHA; o usuário agendará depois a janela de ociosidade e os três participantes consentidos. Não houve bump nem release.
+
 Para execução por outra LLM, `interfaces.md` e `executor-llm.md` são leitura obrigatória. Os blocos **Arquivos**, **Implementação**, **RED**, **Teste final** e **Aceite** de cada task são cumulativos, não alternativas. O agente não pode trocar nomes de interfaces, tecnologia decidida, ordem, thresholds ou comportamento de falha sem primeiro emendar os documentos e obter revisão.
 
 As decisões DU-01–DU-16 de `decisoes-usuario.md` estão aprovadas. Não perguntar novamente durante A–G. H1–H3 permanecem bloqueadas por tipo/edição da conta Google e autorização própria.

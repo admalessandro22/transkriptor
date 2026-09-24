@@ -1,4 +1,4 @@
-# Manual do Usuário — Transkriptor v1.5
+# Manual do Usuário — Transkriptor
 
 Transkriptor é um aplicativo para **Windows** que fica na **bandeja do sistema**, detecta **Google Meet**, transcreve o áudio em segundo plano (Whisper offline), separa vozes (diarização) e oferece um **assistente local** via Ollama.
 
@@ -23,17 +23,22 @@ Tudo roda no seu computador — transcrições e perfis de voz ficam em disco lo
 
 ### Passo a passo
 
-1. Extraia ou clone o projeto em uma pasta, por exemplo `C:\projetos\trancricaoreunioes`.
-2. Instale o PyTorch conforme sua GPU (veja `requirements.txt`).
-3. Execute `instalar.bat` — cria `.venv`, instala PyTorch (GPU se houver), dependências,
-   atalho na Área de Trabalho e (opcional) faz warm-up dos modelos.
-4. Inicie pelo atalho **Transkriptor** ou `iniciar_bandeja.bat` (usa o `.venv`).
-5. O ícone aparece na bandeja (seta ^ se estiver oculto).
-6. Para remover: `desinstalar.bat` (preserva `transcricoes/` e config por padrão).
+1. Extraia ou clone o projeto em uma pasta, por exemplo `C:\projetos\transkriptor`.
+2. Execute `instalar.bat`. Ele cria `.venv`, escolhe CPU ou CUDA, instala pelo
+   lock com hashes (`requirements/requirements-cpu.lock` ou `requirements/requirements-cuda.lock`), executa
+   `pip check` e cria o atalho. Não instale PyTorch separadamente na mesma `.venv`.
+3. Inicie pelo atalho **Transkriptor** ou `iniciar_bandeja.bat` (usa o `.venv`).
+4. O ícone aparece na bandeja (seta ^ se estiver oculto).
+5. Para remover, use `desinstalar.bat` depois de sair do app. Ele preserva
+   transcrições, áudio, perfil de voz e configuração por padrão; apagar dados
+   exige uma segunda escolha explícita.
 
 ### Primeira execução
 
-- O app cria a pasta `transcricoes/`; toda reunião concluída gera um `.txt` legível.
+- O app cria a pasta `transcricoes/`. Em instalação nova, o **modo protegido**
+  grava o resultado em `.tkpt` e o áudio em TKAS/1 (`.tks`), sem `.txt` aberto
+  como resultado principal. Instalações existentes sem a opção de proteção
+  mantêm o modo compatível, com `.txt`, até escolha explícita.
 - Na primeira execução, gera a chave local protegida por DPAPI em
   `_modelo_voz/transkriptor_key.dpapi`, separada da configuração.
 - Modelos Whisper e de voz baixam no primeiro processamento após uma reunião
@@ -65,7 +70,8 @@ Clique com o **botão direito** no ícone da bandeja para abrir o menu.
 | Instalar extensão Meet (pasta) | Abre pasta `extension/meet/` |
 | Renomear falante (última diarização) | Salva nome+embedding para reuniões futuras |
 | Abrir pasta vozes conhecidas | Pasta `_modelo_voz/` (`vozes_conhecidas.enc` ou legado `.json`) |
-| Criar cópia criptografada (.tkpt) | Mantém uma cópia protegida além do `.txt` principal |
+| Criar cópia criptografada (.tkpt) | No modo compatível, cria uma cópia protegida do `.txt`; no modo protegido, `.tkpt` já é o resultado principal |
+| Ativar modo protegido para novas reuniões… | Após confirmação, protege novas capturas e resultados; arquivos antigos permanecem como estão |
 | Iniciar com o Windows | Atalho na pasta Startup |
 | Sair | Encerra o app (confirma se estiver gravando) |
 
@@ -108,8 +114,9 @@ da Área de Trabalho apenas inicia o detector e não tem tecla de atalho associa
    trechos na tela ou notificações por bloco.
 6. Quando título e extensão deixam de confirmar a reunião por cerca de 30 segundos,
    a captura fecha os WAVs e entra na fila de processamento.
-7. O menu passa por `Em fila` → `Processando` → `Pronta` (ou `Falhou`). O `.txt`
-   aparece na raiz de `transcricoes/` quando estiver pronto.
+7. O menu passa por `Em fila` → `Processando` → `Pronta` (ou `Falhou`). O
+   resultado aparece em `transcricoes/` como `.tkpt` no modo protegido ou `.txt`
+   no modo compatível; ambos abrem pelo assistente local.
 
 ### Como o Transkriptor sabe que há uma reunião
 
@@ -131,15 +138,16 @@ Depois do encerramento detectado, nada do restante do computador é capturado.
 
 ### Arquivos gerados
 
-Para cada reunião processada:
+Para cada reunião processada, conforme o modo de proteção:
 
-- `transcricao_AAAA-MM-DD_HhMM.txt` — **arquivo principal**, UTF-8, com início,
-  fim, duração, timestamps e texto.
-- `transcricao_*_diarizado.txt` — versão adicional com rótulos de falante, se ativa.
-- `transcricao_*.tkpt` — cópia criptografada adicional, quando habilitada; nunca
-  substitui nem apaga o `.txt` principal.
-- `audio/transcricao_*_audio.wav` (ou `.wav.enc`) — loopback preservado até a retenção.
-- `audio/transcricao_*_mic.wav` (ou `.wav.enc`) — microfone paralelo, se ativo.
+- `resultados/<id>.json` no modo compatível ou resultado estruturado cifrado no
+  modo protegido — segmentos, atribuições e referências validadas por manifesto.
+- `transcricao_*.tkpt` — **arquivo principal no modo protegido**, aberto pelo
+  Transkriptor. A exportação em `.txt` é uma ação explícita e sensível.
+- `transcricao_*.txt` — **arquivo principal no modo compatível**, UTF-8 legível;
+  pode ter cópia `.tkpt` opcional. Arquivos legados permanecem acessíveis.
+- `audio/*_audio.tks` e `audio/*_mic.tks` — loopback e microfone em TKAS/1 no
+  modo protegido. No modo compatível, os áudios legados podem ser `.wav`.
 - `.jobs_processamento/*.json` — estado técnico da fila, sem conteúdo falado.
 
 O áudio é mantido quando o processamento falha, para permitir nova tentativa.
@@ -159,12 +167,15 @@ Com **separação de vozes** ativa, o worker de processamento após a reunião:
 
 1. Analisa trechos de áudio com modelo ECAPA (SpeechBrain)
 2. Agrupa vozes semelhantes em `FALANTE_00`, `FALANTE_01`, …
-3. Gera `*_diarizado.txt` com formato:
+3. No modo compatível, gera `*_diarizado.txt` com formato:
 
 ```
 [Ana Silva 00:01-00:05] Bom dia a todos.
 [VOCÊ 00:05-00:08] Obrigado por participar.
 ```
+
+No modo protegido, a diarização integra o resultado cifrado; use a exportação
+TXT explícita no assistente quando precisar de um arquivo legível.
 
 A diarização roda no subprocesso de prioridade baixa. A bandeja continua
 responsiva e consegue detectar e capturar uma nova reunião.
@@ -256,8 +267,8 @@ O navegador abre `http://127.0.0.1:PORTA/?token=...` — porta automática (5050
 4. Ou digite perguntas livres no chat
 5. Botão **Copiar resposta** guarda a última resposta da IA
 
-O assistente lê `.tkpt` e `.txt` automaticamente. O `.txt` principal também abre
-diretamente no Bloco de Notas ou editor de sua preferência.
+O assistente lê `.tkpt` e `.txt` automaticamente. Um `.txt` do modo compatível
+ou exportado pode ser aberto em um editor comum; trate essa cópia como dado sensível.
 
 ### Sem Ollama
 
@@ -270,25 +281,33 @@ A transcrição continua funcionando; apenas o assistente fica indisponível.
 | Tópico | Comportamento |
 |--------|----------------|
 | Rede | Assistente e ponte Meet escutam só em `127.0.0.1` (localhost) |
-| API | Rotas `/api/*` exigem token (`X-Transkriptor-Token` ou `?token=`) |
+| API | Rotas `/api/*` exigem sessão local; mutações validam Host, Origin e JSON, e ausência de Origin exige header secreto |
 | Arquivos | API rejeita paths com `../` (403) |
 | XSS | Nomes de arquivo não são injetados via `innerHTML` no assistente |
 | Logs | Conteúdo de transcrições **não** é gravado no log |
 | Dados sensíveis | `transcricoes/`, perfil de voz e vozes conhecidas ficam locais |
-| Criptografia em repouso | Cópia `.tkpt`, áudios `.enc`, perfil e vozes com AES-256-GCM; chave protegida por DPAPI |
+| Criptografia em repouso | Instalação nova usa `.tkpt`, áudio TKAS/1 (`.tks`) e resultado estruturado cifrado; chave local protegida por DPAPI |
 | Instância única | Mutex impede duas cópias simultâneas |
 
-### Cópia criptografada (padrão ligado)
+### Modo protegido e compatibilidade
 
-- O `.txt` principal permanece legível e deve ser tratado como dado sensível.
-- Arquivos `.tkpt` e `.enc` são **ilegíveis** no Bloco de Notas ou Explorer.
-- Leitura só pelo Transkriptor e pelo assistente autenticado (token na URL).
-- Ativar a cópia criptografada não remove nem substitui arquivos `.txt`.
-- Se a chave DPAPI não puder ser aberta (outro usuário Windows, perfil corrompido), a criptografia fica indisponível até o problema ser resolvido — arquivos antigos **não** são apagados.
+- Instalação nova usa **modo protegido**: `.tkpt`, TKAS/1 e resultado estruturado
+  cifrado. Esses arquivos não são legíveis em um editor comum.
+- Instalação existente sem preferência registrada permanece no modo compatível;
+  o `.txt` principal continua legível até escolher **Ativar modo protegido para
+  novas reuniões…** no menu da bandeja e confirmar. Faça a mudança após a
+  gravação e o processamento terminarem.
+- Em **Assistente → Participantes**, selecione a reunião e use **Exportar TXT**.
+  Confirme o aviso: o navegador baixa um arquivo legível, sensível, e o app não
+  grava uma cópia TXT no servidor durante essa exportação.
+- Ativar proteção não apaga automaticamente arquivos antigos em claro. Revise as
+  cópias e exportações antes de movê-las ou compartilhá-las.
+- Se a chave DPAPI não puder ser aberta, o app sinaliza `protection_pending` e
+  preserva a fonte para recuperação; não considera a proteção concluída.
 
 ### Boas práticas
 
-- Restrinja o acesso à pasta `transcricoes/`, pois o resultado principal é `.txt`.
+- Restrinja o acesso à pasta `transcricoes/`, sobretudo a `.txt` antigos ou exportados.
 - Não copie `transkriptor_key.dpapi` entre usuários Windows diferentes (a chave é por usuário).
 - Feche o assistente quando não estiver em uso (aba do navegador).
 - Mantenha o Windows e o Chrome atualizados.
@@ -319,6 +338,7 @@ Arquivo na raiz do projeto (criado/atualizado pelo menu):
 {
   "versao_config": 2,
   "iniciar_com_windows": false,
+  "protection_mode": "protected",
   "criptografar_transcricoes": true,
   "backup_txt_na_migracao": false,
   "identificar_minha_voz": true,
@@ -362,7 +382,7 @@ costuma ser normal (por exemplo, "loopback em silêncio" quando nada está tocan
 
 ### WhatsApp, vídeo ou música iniciou gravação
 
-Na v1.5 isso não deve acontecer: microfone e áudio do sistema não iniciam reunião.
+Microfone e áudio do sistema, sozinhos, não iniciam reunião.
 Abra o menu e confirme o status. Se estiver `Gravando reunião`, use **Diagnóstico**
 para identificar qual título ou extensão está sendo tratado como fonte forte e
 anexe o relatório ao suporte; ele não inclui o conteúdo falado.
@@ -373,17 +393,17 @@ Sinal clássico de captura de áudio quebrada: o arquivo em `transcricoes/audio/
 fica com pouquíssimos bytes.
 
 - Rode o **Diagnóstico**: a linha `soundcard` aponta incompatibilidade de versão
-- Correção: `pip install -U "soundcard>=0.4.6"` (versões anteriores não funcionam
-  com numpy 2)
+- Confira `pip check` na `.venv` e reinstale pelo `instalar.bat` se a instalação
+  estiver incompleta; não atualize pacotes isolados fora do lock.
 - Confira também se o dispositivo de saída do Windows não mudou (fone conectado
   no meio da reunião)
 
 ### "Já está em execução" mas não há ícone na bandeja
 
-A partir da v1.5 isso não deve mais acontecer: o controle de instância única usa
-um mutex do Windows, liberado pelo sistema mesmo se o app for encerrado à força.
-Se acontecer, feche `pythonw.exe` no Gerenciador de Tarefas e apague
-`transkriptor.lock`.
+O controle de instância única usa um mutex do Windows. Confira pelo Gerenciador
+de Tarefas se o processo do Transkriptor desta instalação ainda está ativo e
+saia pelo menu da bandeja quando possível. Se o aviso persistir, use o
+Diagnóstico; não encerre outros processos Python nem apague locks às cegas.
 
 ### Diarização não gera arquivo
 
@@ -394,7 +414,7 @@ Se acontecer, feche `pythonw.exe` no Gerenciador de Tarefas e apague
 ### O áudio existe, mas o texto ainda não apareceu
 
 - Veja a primeira linha do menu: `Em fila` e `Processando` ainda não são erro
-- `Pronta` indica um `.txt` na raiz de `transcricoes/`
+- `Pronta` indica um resultado validado em `.tkpt` ou `.txt`, conforme o modo
 - `Falhou` preserva o áudio em `transcricoes/audio/`; use **Retranscrever áudio…**
 - O primeiro processamento pode demorar mais por causa do download dos modelos
 
@@ -420,7 +440,8 @@ Se acontecer, feche `pythonw.exe` no Gerenciador de Tarefas e apague
 
 ### Transcrições ilegíveis ou erro ao abrir arquivo
 
-- Abra o `.txt` principal; `.tkpt` é apenas a cópia criptografada adicional
+- Abra `.tkpt` pelo assistente local; `.txt` é legível apenas no modo compatível
+  ou quando foi exportado explicitamente
 - Chave DPAPI inválida: verifique se está no mesmo usuário Windows que criou os arquivos
 - Reinicie o app após trocar de conta Windows
 
@@ -442,14 +463,14 @@ Transkriptor/
 ├── transcricao_core.py      # Captura leve; IA opcional fora da reunião
 ├── fila_processamento.py    # Jobs atômicos pending/processing/ready/failed
 ├── processador_reuniao.py   # Subprocesso Whisper/diarização
-├── retranscritor.py         # Geração do .txt principal
+├── retranscritor.py         # Geração do texto exportável
 ├── assistente.py            # Interface web + Ollama
 ├── diarizador.py            # Separação de vozes
 ├── identificador_voz.py     # Perfil VOCÊ + vozes conhecidas
 ├── meet_bridge.py           # WebSocket Meet
 ├── correlacionador.py       # Nomes ↔ segmentos
 ├── extension/meet/          # Extensão Chrome (+ README de instalação)
-├── transcricoes/            # Resultados .txt e cópias .tkpt opcionais
+├── transcricoes/            # Resultados protegidos ou compatíveis
 ├── _modelo_voz/             # Perfil (.enc) e vozes conhecidas
 └── docs/                    # Documentação
 ```
@@ -462,7 +483,6 @@ Desenvolvedores podem validar a instalação:
 
 ```bash
 python scripts/verificar_fase.py --fase all
-python scripts/verificar_fase.py --fase v1.5-estatico
 python -m pytest tests/ -v --tb=short
 ```
 
@@ -474,7 +494,7 @@ python scripts/verificar_recursos_gravacao.py --pid 12345 --duracao 600
 ```
 
 Ele exige crescimento menor que 100 MB, CPU média menor que 10% de um núcleo e
-um único ícone pystray. Documentação SDD atual em `docs/sdd/v1.5/`.
+um único ícone pystray. Documentação SDD atual em `docs/sdd/v1.8/`.
 
 ---
 
@@ -488,11 +508,12 @@ um único ícone pystray. Documentação SDD atual em `docs/sdd/v1.5/`.
 | Ollama | Servidor local para modelos de linguagem (assistente) |
 | ECAPA | Modelo de embedding de voz usado na identificação |
 | CC / Legendas | Closed Captions do Google Meet |
-| `.txt` | Resultado principal legível, em UTF-8 |
-| `.tkpt` | Cópia criptografada adicional (AES-GCM) |
+| `.txt` | Resultado compatível ou exportação explícita, legível em UTF-8 |
+| `.tkpt` | Resultado principal protegido; também pode ser cópia do modo compatível |
+| `.tks` | Áudio protegido em stream TKAS/1 |
 | `.enc` | Perfil de voz e vozes conhecidas criptografados |
 | DPAPI | Proteção da chave mestra pelo Windows (por usuário) |
 
 ---
 
-*Transkriptor v1.5 — Manual do usuário — 2026*
+*Transkriptor — Manual do usuário — 2026*
