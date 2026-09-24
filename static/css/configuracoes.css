@@ -1,0 +1,19 @@
+/* Página Configurações (SDD v1.9, T-14.D2). Só tokens --tk-*. */
+.config { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: var(--tk-space-4); }
+.config__grupo { gap: var(--tk-space-3); }
+.config__titulo { font-size: var(--tk-type-lg-size); font-weight: 600; }
+.config__linha { display: flex; align-items: center; justify-content: space-between; gap: var(--tk-space-4); padding: var(--tk-space-2) 0; border-top: 1px solid var(--tk-border); cursor: pointer; }
+.config__linha:first-of-type { border-top: none; }
+.config__texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.config__rotulo { font-weight: 500; }
+.config__desc { font-size: var(--tk-type-sm-size); line-height: var(--tk-type-sm-line); color: var(--tk-text-3); }
+.config__select { width: 160px; flex-shrink: 0; }
+
+/* Switch acessível sobre <input type=checkbox role=switch> */
+.tk-switch { appearance: none; width: 40px; height: 22px; border-radius: var(--tk-radius-pill); background: var(--tk-bg-3); border: 1px solid var(--tk-border-strong); position: relative; cursor: pointer; flex-shrink: 0; margin: 0; transition: background var(--tk-dur-fast) var(--tk-ease); }
+.tk-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--tk-text-2); transition: transform var(--tk-dur-fast) var(--tk-ease), background var(--tk-dur-fast) var(--tk-ease); }
+.tk-switch:checked { background: var(--tk-accent-fill); border-color: var(--tk-accent-fill); }
+.tk-switch:checked::after { transform: translateX(18px); background: var(--tk-on-accent); }
+.tk-switch:disabled { opacity: 0.5; cursor: not-allowed; }
+.tk-switch:focus-visible { outline: 2px solid var(--tk-accent); outline-offset: 2px; }
+@media (forced-colors: active) { .tk-switch { border: 1px solid CanvasText; } .tk-switch:checked::after { background: CanvasText; } }

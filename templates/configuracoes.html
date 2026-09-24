@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block titulo %}Configurações{% endblock %}
+{% block estilos %}<link rel="stylesheet" href="{{ url_for('static', filename='css/configuracoes.css') }}">{% endblock %}
+{% block conteudo %}
+<div class="tk-page" id="pagina-configuracoes">
+  <div class="tk-page__inner">
+    <div class="tk-page__cabecalho">
+      <div>
+        <h2 class="tk-page__titulo">Configurações</h2>
+        <p class="tk-subtle">As mesmas opções do menu da bandeja, com a consequência de cada uma. Mudanças valem na hora e ficam salvas.</p>
+      </div>
+      <span class="tk-badge" id="config-estado" role="status" aria-live="polite">Carregando…</span>
+    </div>
+
+    <div id="config-indisponivel" class="tk-empty" hidden>
+      <h3 class="tk-empty__titulo">Central sem bandeja</h3>
+      <p class="tk-empty__texto">As configurações só podem ser alteradas com o aplicativo da bandeja aberto e ligado a esta Central.</p>
+    </div>
+
+    <form id="config-form" class="config" hidden>
+      <section class="tk-card config__grupo" aria-labelledby="cfg-gravacao">
+        <h3 class="config__titulo" id="cfg-gravacao">Gravação</h3>
+        <p class="tk-subtle tk-type-sm">O Transkriptor sempre pergunta antes de gravar. Só a resposta "Sim" inicia a captura; "Não" ou silêncio não gravam.</p>
+        <label class="config__linha" for="cfg-deteccao_ativa">
+          <span class="config__texto"><span class="config__rotulo">Gravação automática</span><span class="config__desc">Detecta reuniões do Meet e do Zoom e pergunta antes de gravar. Pausar significa não gravar nenhuma reunião.</span></span>
+          <input type="checkbox" role="switch" id="cfg-deteccao_ativa" data-chave="deteccao_ativa" class="tk-switch">
+        </label>
+        <label class="config__linha" for="cfg-diarizacao_ativa">
+          <span class="config__texto"><span class="config__rotulo">Separar vozes</span><span class="config__desc">Ao terminar a reunião, separa quem falou o quê. Sem isso, a transcrição sai sem falantes.</span></span>
+          <input type="checkbox" role="switch" id="cfg-diarizacao_ativa" data-chave="diarizacao_ativa" class="tk-switch">
+        </label>
+        <div class="config__linha">
+          <label class="config__texto" for="cfg-modelo_whisper"><span class="config__rotulo">Modelo de transcrição</span><span class="config__desc">"auto" escolhe pelo hardware. Vale a partir da próxima transcrição.</span></label>
+          <div class="tk-select-wrap config__select"><select id="cfg-modelo_whisper" data-chave="modelo_whisper"></select><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-chevron-down"/></svg></div>
+        </div>
+      </section>
+
+      <section class="tk-card config__grupo" aria-labelledby="cfg-vozes">
+        <h3 class="config__titulo" id="cfg-vozes">Vozes</h3>
+        <label class="config__linha" for="cfg-identificar_minha_voz">
+          <span class="config__texto"><span class="config__rotulo">Identificar minha voz (VOCÊ)</span><span class="config__desc" id="cfg-voz-desc">Usa o seu perfil de voz para marcar as suas falas. Exige um perfil cadastrado pelo menu da bandeja (20 segundos de microfone).</span></span>
+          <input type="checkbox" role="switch" id="cfg-identificar_minha_voz" data-chave="identificar_minha_voz" class="tk-switch">
+        </label>
+        <div class="config__linha">
+          <span class="config__texto"><span class="config__rotulo">Perfil de voz</span><span class="config__desc" id="cfg-perfil-desc">—</span></span>
+          <button type="button" class="tk-btn tk-btn--danger tk-btn--sm" id="cfg-apagar-perfil" data-chave="apagar_perfil_voz">Apagar perfil</button>
+        </div>
+      </section>
+
+      <section class="tk-card config__grupo" aria-labelledby="cfg-meet">
+        <h3 class="config__titulo" id="cfg-meet">Google Meet</h3>
+        <label class="config__linha" for="cfg-usar_nomes_meet">
+          <span class="config__texto"><span class="config__rotulo">Identificar nomes do Meet</span><span class="config__desc">Liga a ponte local (127.0.0.1) para a extensão enviar os nomes dos participantes.</span></span>
+          <input type="checkbox" role="switch" id="cfg-usar_nomes_meet" data-chave="usar_nomes_meet" class="tk-switch">
+        </label>
+        <label class="config__linha" for="cfg-modo_legendas_meet">
+          <span class="config__texto"><span class="config__rotulo">Usar legendas do Meet</span><span class="config__desc">Prioriza as legendas (CC) para atribuir falas. Liga também a identificação de nomes.</span></span>
+          <input type="checkbox" role="switch" id="cfg-modo_legendas_meet" data-chave="modo_legendas_meet" class="tk-switch">
+        </label>
+      </section>
+
+      <section class="tk-card config__grupo" aria-labelledby="cfg-protecao">
+        <h3 class="config__titulo" id="cfg-protecao">Proteção</h3>
+        <div class="config__linha">
+          <span class="config__texto"><span class="config__rotulo">Modo em vigor</span><span class="config__desc" id="cfg-protecao-desc">—</span></span>
+          <span class="tk-badge tk-badge-protect" id="cfg-protecao-badge">—</span>
+        </div>
+        <label class="config__linha" for="cfg-criptografar_transcricoes">
+          <span class="config__texto"><span class="config__rotulo">Cópia protegida das transcrições</span><span class="config__desc">No modo compatível, guarda também uma cópia cifrada de cada transcrição.</span></span>
+          <input type="checkbox" role="switch" id="cfg-criptografar_transcricoes" data-chave="criptografar_transcricoes" class="tk-switch">
+        </label>
+        <div class="config__linha" id="cfg-linha-protegido">
+          <span class="config__texto"><span class="config__rotulo">Ativar modo protegido</span><span class="config__desc">Novas reuniões passam a ter resultado e eventos cifrados. Arquivos existentes não mudam.</span></span>
+          <button type="button" class="tk-btn tk-btn--secondary tk-btn--sm" id="cfg-ativar-protegido" data-chave="protection_mode">Ativar para novas reuniões</button>
+        </div>
+      </section>
+
+      <section class="tk-card config__grupo" aria-labelledby="cfg-sistema">
+        <h3 class="config__titulo" id="cfg-sistema">Sistema</h3>
+        <label class="config__linha" for="cfg-iniciar_com_windows">
+          <span class="config__texto"><span class="config__rotulo">Iniciar com o Windows</span><span class="config__desc">Cria um atalho na pasta de inicialização para a bandeja abrir sozinha.</span></span>
+          <input type="checkbox" role="switch" id="cfg-iniciar_com_windows" data-chave="iniciar_com_windows" class="tk-switch">
+        </label>
+      </section>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script type="module" src="{{ url_for('static', filename='js/configuracoes.js') }}"></script>{% endblock %}
