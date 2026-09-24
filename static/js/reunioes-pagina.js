@@ -19,27 +19,69 @@ function formatarDuracao(ms) {
   return min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')} min`;
 }
 
+function textoParticipantes(dados) {
+  const nomes = (dados && dados.participantes) || [];
+  const semNome = (dados && dados.sem_nome) || 0;
+  if (!nomes.length && !semNome) return 'Participantes não identificados';
+  if (!nomes.length) return semNome === 1 ? '1 participante sem nome' : `${semNome} participantes sem nome`;
+  return nomes.join(', ') + (semNome ? ` + ${semNome} sem nome` : '');
+}
+
+const participantesCache = new Map();
+
+/** Nomes lidos sob demanda (o índice não guarda nomes — SEC-13.E4). */
+export async function preencherParticipantes(raiz, fetchFn = (u, o) => fetch(u, o)) {
+  const alvos = [...raiz.querySelectorAll('.tk-row[data-id] .tk-row__participantes[data-pendente]')];
+  const fila = alvos.slice();
+  async function trabalhador() {
+    while (fila.length) {
+      const el = fila.shift();
+      const id = el.closest('.tk-row').dataset.id;
+      el.removeAttribute('data-pendente');
+      try {
+        if (!participantesCache.has(id)) {
+          const r = await fetchFn('/api/reunioes/' + encodeURIComponent(id) + '/participantes', { credentials: 'same-origin' });
+          participantesCache.set(id, r.ok ? await r.json() : null);
+        }
+        el.textContent = textoParticipantes(participantesCache.get(id));
+      } catch (_) {
+        el.textContent = 'Participantes não identificados';
+      }
+    }
+  }
+  await Promise.all([1, 2, 3].map(trabalhador));
+}
+
 export function linhaReuniao(r) {
   const div = document.createElement('div');
-  div.className = 'tk-row';
+  div.className = 'tk-row tk-row--reuniao';
   div.dataset.id = r.meeting_id;
-  const principal = document.createElement('span');
+  const principal = document.createElement('div');
   principal.className = 'tk-row__principal';
-  principal.textContent = `${formatarData(r.started_at)}${r.title ? ' · ' + r.title : ''}`;
-  principal.title = r.meeting_id;
+  const abrir = document.createElement('a');
+  abrir.className = 'tk-row__abrir';
+  abrir.href = '/participantes?reuniao=' + encodeURIComponent(r.meeting_id);
+  abrir.textContent = r.title || 'Reunião sem título';
+  abrir.title = 'Abrir a transcrição com nomes e horários';
   const meta = document.createElement('span');
   meta.className = 'tk-row__meta';
-  meta.textContent = `${formatarDuracao(r.duration_ms)} · Revisão ${String(r.revision || '').replace(/^rev-/, '') || '—'}`;
+  meta.textContent = [formatarData(r.started_at), r.duration_ms != null ? formatarDuracao(r.duration_ms) : null].filter(Boolean).join(' · ');
+  meta.title = 'Revisão ' + (String(r.revision || '').replace(/^rev-/, '') || '—');
+  const pessoas = document.createElement('span');
+  pessoas.className = 'tk-row__participantes';
+  pessoas.dataset.pendente = '';
+  pessoas.textContent = 'Carregando participantes…';
+  principal.append(abrir, meta, pessoas);
   const [rotulo, estado] = QUALIDADE[r.quality_state] || ['Parcial', 'separando_vozes'];
   const badge = document.createElement('span');
   badge.className = 'tk-badge tk-badge-state';
   badge.dataset.estado = estado;
   badge.textContent = rotulo;
-  const abrir = document.createElement('a');
-  abrir.className = 'tk-btn tk-btn--sm tk-btn--quiet';
-  abrir.href = '/?reuniao=' + encodeURIComponent(r.meeting_id);
-  abrir.textContent = 'Abrir no Assistente';
-  div.append(principal, meta, badge, abrir);
+  const assistente = document.createElement('a');
+  assistente.className = 'tk-btn tk-btn--sm tk-btn--quiet tk-row__assistente';
+  assistente.href = '/?reuniao=' + encodeURIComponent(r.arquivo || r.meeting_id);
+  assistente.textContent = 'Abrir no Assistente';
+  div.append(principal, badge, assistente);
   return div;
 }
 
@@ -72,11 +114,12 @@ export function criarPaginaReunioes({ raiz, fetchFn = (u, o) => fetch(u, o) }) {
   function renderizar() {
     lista.innerHTML = '';
     const q = (busca && busca.value || '').trim().toLowerCase();
-    const visiveis = q ? itens.filter((r) => (formatarData(r.started_at) + ' ' + (r.title || '') + ' ' + r.meeting_id).toLowerCase().includes(q)) : itens;
+    const visiveis = q ? itens.filter((r) => (formatarData(r.started_at) + ' ' + (r.title || '') + ' ' + r.meeting_id + ' ' + textoParticipantes(participantesCache.get(r.meeting_id))).toLowerCase().includes(q)) : itens;
     if (!itens.length) { mostrarEstado('vazio'); lista.hidden = true; return; }
     if (!visiveis.length) { mostrarEstado('sem-resultado'); lista.hidden = true; return; }
     estadoEl.hidden = true; lista.hidden = false;
     visiveis.forEach((r) => lista.appendChild(linhaReuniao(r)));
+    preencherParticipantes(lista, fetchFn);
   }
 
   async function carregar(reiniciar) {

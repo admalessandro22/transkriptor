@@ -34,10 +34,35 @@ const ORIGENS = { caption: 'legenda', google_entry: 'entrada do Meet', manual: '
 const NUM_CORES = 8;
 
 let dados = null;
+let mapaExib = {};
 let clusters = [];
 let filtroAtivo = '';
 
 // ---- nomes, cores e tempos --------------------------------------------------
+
+/**
+ * Mapeamento usado para EXIBIR: nome confirmado pela legenda do Meet quando
+ * todas as falas confirmadas do falante concordam; correção manual prevalece.
+ * A correção/desfazer continua operando sobre `dados.mapeamento` original.
+ */
+export function mapeamentoExibicao(segmentos, mapeamento) {
+  const porCluster = {};
+  for (const s of segmentos || []) {
+    const a = s && s.assignment;
+    if (!a || a.status !== 'confirmed' || !a.display_name) continue;
+    (porCluster[s.speaker_cluster_id] = porCluster[s.speaker_cluster_id] || []).push(a);
+  }
+  const mapa = {};
+  for (const [cluster, lista] of Object.entries(porCluster)) {
+    if (new Set(lista.map((a) => a.display_name)).size === 1) {
+      mapa[cluster] = { display_name: lista[0].display_name, origem: lista[0].source || 'caption' };
+    }
+  }
+  for (const [cluster, entrada] of Object.entries(mapeamento || {})) {
+    if (entrada && entrada.display_name) mapa[cluster] = entrada;
+  }
+  return mapa;
+}
 
 /** "FALANTE_00" → "Falante 1" (pela ordem estável dos clusters); nomes mapeados prevalecem. */
 export function nomeAmigavel(cluster, mapeamento, ordem) {
@@ -98,14 +123,32 @@ function carregando(sim) {
   [listaFalantes, listaFalas, formCorrecao].forEach((el) => { if (el) el.classList.toggle('is-hidden', sim); });
 }
 
+/** "22/09/2026 · 10:03 · Título" por meeting_id, a partir do índice (sem fala). */
+async function rotulosDoIndice() {
+  const rotulos = {};
+  try {
+    const r = await fetch('/api/reunioes-indice?limit=100', { ...fetchOpts, headers: apiHeaders() });
+    if (!r.ok) return rotulos;
+    for (const item of (await r.json()).reunioes || []) {
+      const d = new Date(item.started_at);
+      const data = Number.isNaN(d.getTime()) ? '' : `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()} · ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      rotulos[item.meeting_id] = [data, item.title].filter(Boolean).join(' · ') || item.meeting_id;
+    }
+  } catch (_) { /* rótulo cai no id */ }
+  return rotulos;
+}
+
 export async function carregarReunioes() {
   if (!selReuniao) return;
   carregando(true);
   try {
     const r = await fetch('/api/reunioes', { ...fetchOpts, headers: apiHeaders() });
     const ids = await r.json();
+    const rotulos = await rotulosDoIndice();
     selReuniao.innerHTML = '';
-    (ids || []).forEach((id) => { const op = document.createElement('option'); op.value = id; op.textContent = id; selReuniao.appendChild(op); });
+    (ids || []).forEach((id) => { const op = document.createElement('option'); op.value = id; op.textContent = rotulos[id] || id; op.title = id; selReuniao.appendChild(op); });
+    const pedida = new URLSearchParams(window.location.search).get('reuniao');
+    if (pedida && (ids || []).includes(pedida)) selReuniao.value = pedida;
     if (selReuniao.value) await carregarResultado();
     else { carregando(false); renderVazio(); }
   } catch (_) {
@@ -134,6 +177,7 @@ export async function carregarResultado() {
   if (inputRevisao) inputRevisao.value = dados.revision || '';
   if (rotuloRevisao) rotuloRevisao.textContent = 'Revisão ' + numeroRevisao(dados.revision);
   clusters = [...new Set((dados.segmentos || []).map((s) => s.speaker_cluster_id))].sort();
+  mapaExib = mapeamentoExibicao(dados.segmentos, dados.mapeamento);
   if (filtroAtivo && !clusters.includes(filtroAtivo)) filtroAtivo = '';
   carregando(false);
   render();
@@ -146,7 +190,7 @@ function avatarDe(cluster) {
   av.className = 'falante__avatar';
   av.dataset.cor = String(corDoFalante(cluster, clusters));
   av.setAttribute('aria-hidden', 'true');
-  const nome = nomeAmigavel(cluster, dados.mapeamento, clusters);
+  const nome = nomeAmigavel(cluster, mapaExib, clusters);
   av.textContent = nome === 'VOCÊ' ? 'V' : nome.replace(/^Falante\s+/, '').slice(0, 1).toUpperCase();
   if (nome.startsWith('Falante ')) av.textContent = nome.replace('Falante ', '');
   return av;
@@ -159,8 +203,8 @@ function renderFalantes() {
   for (const c of clusters) {
     const meus = segs.filter((s) => s.speaker_cluster_id === c);
     const total = meus.reduce((acc, s) => acc + Math.max(0, (s.end_ms || 0) - (s.start_ms || 0)), 0);
-    const info = estadoDoFalante(c, dados.mapeamento, segs);
-    const nome = nomeAmigavel(c, dados.mapeamento, clusters);
+    const info = estadoDoFalante(c, mapaExib, segs);
+    const nome = nomeAmigavel(c, mapaExib, clusters);
     const li = document.createElement('li');
     li.className = 'falante';
     li.dataset.cluster = c;
@@ -208,7 +252,7 @@ function renderFiltro() {
     b.type = 'button'; b.className = 'tk-chip' + (filtroAtivo === c ? ' is-active' : ''); b.dataset.cluster = c;
     b.setAttribute('aria-pressed', filtroAtivo === c ? 'true' : 'false');
     const ponto = document.createElement('span'); ponto.className = 'falante__ponto'; ponto.dataset.cor = String(corDoFalante(c, clusters)); ponto.setAttribute('aria-hidden', 'true');
-    b.append(ponto, document.createTextNode(nomeAmigavel(c, dados.mapeamento, clusters)));
+    b.append(ponto, document.createTextNode(nomeAmigavel(c, mapaExib, clusters)));
     b.addEventListener('click', () => alternarFiltro(c));
     filtroFalante.appendChild(b);
   }
@@ -223,7 +267,7 @@ function porCluster(segs) {
 function renderFalas() {
   if (!listaFalas) return;
   listaFalas.innerHTML = '';
-  const mapa = dados.mapeamento || {};
+  const mapa = mapaExib;
   const segs = dados.segmentos || [];
   const grupos = porCluster(segs);
   const visiveis = filtroAtivo ? segs.filter((s) => s.speaker_cluster_id === filtroAtivo) : segs;
@@ -288,7 +332,7 @@ function renderForm() {
   selCluster.innerHTML = '';
   clusters.forEach((c) => {
     const op = document.createElement('option');
-    op.value = c; op.textContent = nomeAmigavel(c, dados.mapeamento, clusters); op.title = c;
+    op.value = c; op.textContent = nomeAmigavel(c, mapaExib, clusters); op.title = c;
     selCluster.appendChild(op);
   });
   if (atual && clusters.includes(atual)) selCluster.value = atual;
@@ -379,8 +423,8 @@ export async function exportarTxt() {
 
 /** UX-14.C3 (DU-07): ação separada da correção; cadastra a voz só com confirmação própria. */
 export async function aprenderVoz(cluster) {
-  const info = estadoDoFalante(cluster, dados.mapeamento, dados.segmentos || []);
-  const nome = info.estado === 'confirmado' ? nomeAmigavel(cluster, dados.mapeamento, clusters) : (info.sugestao || '');
+  const info = estadoDoFalante(cluster, mapaExib, dados.segmentos || []);
+  const nome = info.estado === 'confirmado' ? nomeAmigavel(cluster, mapaExib, clusters) : (info.sugestao || '');
   if (!nome || /^Falante \d+$/.test(nome)) {
     toast('warning', 'Dê um nome ao falante antes', 'Corrija o nome nesta reunião (ou confirme a sugestão) e depois aprenda a voz.');
     return;

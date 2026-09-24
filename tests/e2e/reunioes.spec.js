@@ -112,3 +112,53 @@ test("página Reuniões: erro mostra ação e vazio orienta", async ({ page }) =
   await carregarPagina(page, "reunioes", { api: (url) => (url.includes("/api/reunioes-indice") ? { reunioes: [], proximo: null } : undefined) });
   await expect(page.locator("#lista-reunioes-estado")).toContainText("Nenhuma reunião ainda");
 });
+
+
+test("linha da reunião mostra título, início, duração e participantes", async ({ page }) => {
+  const ctx = await carregarPagina(page, "reunioes", {
+    api: (url) => {
+      if (url.includes("/api/reunioes-indice")) {
+        const dados = fixtures.indice(2);
+        dados.reunioes[0].title = "Planejamento semanal";
+        dados.reunioes[0].arquivo = "transcricao_2026-09-22_10h03_planejamento";
+        return dados;
+      }
+      if (url.includes("/participantes")) {
+        return url.includes(encodeURIComponent(fixtures.indice(2).reunioes[0].meeting_id))
+          ? { participantes: ["Ana Fictícia", "Bruno Fictício"], sem_nome: 1 }
+          : { participantes: [], sem_nome: 0 };
+      }
+      return undefined;
+    },
+  });
+  const primeira = page.locator("#lista-reunioes .tk-row").first();
+  await expect(primeira).toContainText("Planejamento semanal");
+  await expect(primeira).toContainText("22/09/2026 · 10:03");
+  await expect(primeira).toContainText("30 min");
+  await expect(primeira.locator(".tk-row__participantes")).toHaveText("Ana Fictícia, Bruno Fictício + 1 sem nome");
+  const segunda = page.locator("#lista-reunioes .tk-row").nth(1);
+  await expect(segunda).toContainText("Reunião sem título");
+  await expect(segunda.locator(".tk-row__participantes")).toHaveText("Participantes não identificados");
+  await expect(primeira.locator("a.tk-row__abrir")).toHaveAttribute("href", "/participantes?reuniao=" + fixtures.indice(2).reunioes[0].meeting_id);
+  await expect(primeira.locator("a.tk-row__assistente")).toHaveAttribute("href", "/?reuniao=transcricao_2026-09-22_10h03_planejamento");
+  expect(ctx.violacoes).toEqual([]);
+});
+
+
+test("clicar na linha abre a transcrição daquela reunião com nomes e tempos", async ({ page }) => {
+  await carregarPagina(page, "reunioes", {
+    api: (url) => {
+      if (url.includes("/api/reunioes-indice")) {
+        const dados = fixtures.indice(1);
+        dados.reunioes[0].meeting_id = "reuniao-b";
+        return dados;
+      }
+      if (url.endsWith("/api/reunioes")) return ["reuniao-a", "reuniao-b"];
+      return undefined;
+    },
+  });
+  await page.locator("#lista-reunioes .tk-row").first().click({ position: { x: 20, y: 10 } });
+  await expect(page).toHaveURL(/\/participantes\?reuniao=reuniao-b$/);
+  await expect(page.locator("#reuniao-participantes")).toHaveValue("reuniao-b");
+  await expect(page.locator("#participantes-drawer")).toContainText("00:0");
+});

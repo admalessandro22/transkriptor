@@ -194,36 +194,51 @@ def api_reunioes_indice():
 
 @app.route("/api/reunioes/<meeting_id>/resultado")
 def api_resultado_reuniao(meeting_id: str):
+    dados, codigo = _carregar_resultado_reuniao(meeting_id)
+    if dados is None:
+        return jsonify({"erro": "Reunião não encontrada" if codigo == 404 else "Resultado inválido"}), codigo
+    return jsonify(dados)
+
+
+def _carregar_resultado_reuniao(meeting_id: str) -> tuple[dict | None, int]:
+    """Carrega o resultado aberto ou cifrado; (dados, 200) ou (None, código HTTP)."""
     from resultado_reuniao import carregar_segmentos
 
     protegido = _resultado_protegido(meeting_id)
     if protegido:
         storage, manifesto = protegido
         try:
-            return jsonify(storage.load(manifesto.segments_ref))
+            return storage.load(manifesto.segments_ref), 200
         except ValueError:
-            return jsonify({"erro": "Resultado inválido"}), 422
+            return None, 422
     caminho = _caminho_resultado(meeting_id)
     if caminho is None or not caminho.is_file():
-        return jsonify({"erro": "Reunião não encontrada"}), 404
+        return None, 404
     try:
-        return jsonify(carregar_segmentos(caminho))
+        return carregar_segmentos(caminho), 200
     except ValueError:
-        return jsonify({"erro": "Resultado inválido"}), 422
+        return None, 422
+
+
+@app.route("/api/reunioes/<meeting_id>/participantes")
+def api_participantes_reuniao(meeting_id: str):
+    dados, codigo = _carregar_resultado_reuniao(meeting_id)
+    if dados is None:
+        return jsonify({"erro": "Reunião não encontrada" if codigo == 404 else "Resultado inválido"}), codigo
+    from participantes_reuniao import participantes_do_resultado
+
+    return jsonify(participantes_do_resultado(dados))
 
 
 @app.route("/api/reunioes/<meeting_id>/exportar-txt", methods=["POST"])
 def api_exportar_txt_reuniao(meeting_id: str):
     """Entrega TXT somente após ação explícita, sem gravar plaintext no servidor."""
-    from resultado_reuniao import carregar_segmentos, exportar_txt
+    from resultado_reuniao import exportar_txt
 
-    protegido = _resultado_protegido(meeting_id)
-    caminho = _caminho_resultado(meeting_id) if not protegido else None
-    if not protegido and (caminho is None or not caminho.is_file()):
-        return jsonify({"erro": "Reunião não encontrada"}), 404
+    dados, codigo = _carregar_resultado_reuniao(meeting_id)
+    if dados is None:
+        return jsonify({"erro": "Reunião não encontrada" if codigo == 404 else "Resultado inválido"}), codigo
     try:
-        dados = (protegido[0].load(protegido[1].segments_ref) if protegido
-                 else carregar_segmentos(caminho))
         conteudo = exportar_txt(dados["segmentos"], dados["mapeamento"])
     except (OSError, ValueError, KeyError, TypeError):
         return jsonify({"erro": "Resultado inválido"}), 422
