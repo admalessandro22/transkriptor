@@ -1,5 +1,5 @@
 const { test, expect } = require("@playwright/test");
-const { carregarPagina } = require("./helpers");
+const { carregarPagina, selecionarReuniao } = require("./helpers");
 
 
 test("carregar o assistente sob a CSP normativa não gera violação", async ({ page }) => {
@@ -19,7 +19,7 @@ test("botão parar fica oculto ao carregar e visível só durante a geração", 
   await expect(page.locator("#stop")).toBeHidden();
   await expect(page.locator("#timer")).toBeHidden();
   await expect(page.locator("#send")).toBeVisible();
-  await page.selectOption("#transcricao", "2026-09-22_10h03_diarizado.txt");
+  await selecionarReuniao(page, "2026-09-22_10h03_diarizado.txt");
   await page.fill("#input", "resuma");
   await page.click("#send");
   await expect(page.locator("#stop")).toBeVisible();

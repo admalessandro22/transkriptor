@@ -34,7 +34,7 @@ def test_api_transcricoes_com_sua_voz(tmp_transcricoes, monkeypatch, headers_tok
     sem_voce = tmp_transcricoes / "outra_diarizado.txt"
     sem_voce.write_text("[FALANTE_01 00:00-00:02] so outros\n", encoding="utf-8")
     client = app.test_client()
-    dados = client.get("/api/transcricoes", headers=headers_token).get_json()
+    dados = client.get("/api/transcricoes?detalhes=1", headers=headers_token).get_json()  # v1.9: detalhes sob demanda
     por_arquivo = {d["arquivo"]: d for d in dados}
     assert por_arquivo[com_voce.name]["com_sua_voz"] is True
     assert por_arquivo[sem_voce.name]["com_sua_voz"] is False

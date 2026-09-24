@@ -4,6 +4,9 @@ const sendBtn = document.getElementById('send');
 const stopBtn = document.getElementById('stop');
 const limparBtn = document.getElementById('limpar');
 const selTrans = document.getElementById('transcricao');
+// UX-14.B2: listbox de reuniões (window.TkReunioes de js/reunioes.js); expõe value/options no elemento.
+const listaReunioes = (window.TkReunioes && selTrans && selTrans.tagName === 'UL') ? window.TkReunioes.criarListbox(selTrans) : null;
+const detalhesPorArquivo = {};
 const selMod = document.getElementById('modelo');
 const emptyEl = document.getElementById('empty');
 const ollamaDot = document.getElementById('ollama-dot');
@@ -182,6 +185,25 @@ function atualizarContextBar() {
   if (headerMeta) headerMeta.textContent = `${item.data} · ${item.tamanho_kb} KB`;
 }
 
+async function carregarDetalhesSelecionado() {
+  // UX-14.B2: preview/com_sua_voz exigem abrir o texto; só para a reunião ativa e uma vez.
+  const id = selTrans.value;
+  if (!id || detalhesPorArquivo[id]) return;
+  detalhesPorArquivo[id] = { pendente: true };
+  try {
+    const r = await fetch('/api/transcricoes?detalhes=1&arquivo=' + encodeURIComponent(id), {...fetchOpts, headers: apiHeaders()});
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const lista = await r.json();
+    const det = Array.isArray(lista) && lista[0] ? lista[0] : {};
+    detalhesPorArquivo[id] = det;
+    const alvo = transcricoesLista.find(t => t.arquivo === id);
+    if (alvo) Object.assign(alvo, { com_sua_voz: det.com_sua_voz === true, preview: det.preview || '' });
+    if (selTrans.value === id) atualizarTamanhoKb();
+  } catch (_) {
+    delete detalhesPorArquivo[id];
+  }
+}
+
 function atualizarTamanhoKb() {
   const item = transcricoesLista.find(t => t.arquivo === selTrans.value);
   if (!item) {
@@ -238,27 +260,17 @@ function buildSelectOptions(items) {
 }
 
 function renderTranscricoesSelect(items) {
+  // UX-14.B2: listbox sem fala; a seleção sobrevive ao filtro mesmo quando o item some da vista.
   const prev = selTrans.value;
-  selTrans.replaceChildren();
+  if (!listaReunioes) return;
   if (!items.length) {
-    const opt = document.createElement('option');
-    opt.value = '';
-    const hasFilter = buscaInput && buscaInput.value.trim();
-    opt.textContent = transcricoesLista.length ? '(nenhum resultado para o filtro)' : '(nenhuma transcrição)';
-    selTrans.appendChild(opt);
-    tamanhoKbEl.textContent = '';
+    listaReunioes.estado(transcricoesLista.length ? 'sem-resultado' : 'vazio');
+    if (!transcricoesLista.length) tamanhoKbEl.textContent = '';
     if (countEl) countEl.textContent = transcricoesLista.length ? `0 de ${transcricoesLista.length}` : '';
     atualizarContextBar();
     return;
   }
-  for (const t of items) {
-    const opt = document.createElement('option');
-    opt.value = t.arquivo;
-    let sufixo = t.tipo === 'diarizado' ? ' [vozes]' : ' [texto]';
-    if (t.com_sua_voz) sufixo += ' · com sua voz';
-    opt.textContent = `${t.data} — ${t.preview || '(vazio)'}${sufixo}`;
-    selTrans.appendChild(opt);
-  }
+  listaReunioes.render(items);
   // Restore selection if still present
   if (prev && items.some(x => x.arquivo === prev)) selTrans.value = prev;
   if (countEl) countEl.textContent = items.length === transcricoesLista.length ? `${items.length}` : `${items.length} de ${transcricoesLista.length}`;
@@ -271,24 +283,27 @@ function filtrarTranscricoes() {
     transcricoesFiltradas = transcricoesLista.slice();
   } else {
     transcricoesFiltradas = transcricoesLista.filter(t =>
-      (t.arquivo + ' ' + (t.preview||'') + ' ' + t.data).toLowerCase().includes(q)
+      (t.arquivo + ' ' + t.data).toLowerCase().includes(q)
     );
   }
   renderTranscricoesSelect(transcricoesFiltradas);
 }
 
 async function loadList() {
+  if (listaReunioes) listaReunioes.estado('carregando');
   try {
-    const r = await fetch('/api/transcricoes', {...fetchOpts, headers: apiHeaders()}); const d = await r.json();
+    const r = await fetch('/api/transcricoes', {...fetchOpts, headers: apiHeaders()});
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
     buildSelectOptions(d);
+    const desejada = new URLSearchParams(window.location.search).get('reuniao');
+    if (desejada && listaReunioes && d.some(t => t.arquivo === desejada || t.arquivo.replace(/\.(txt|tkpt)$/, '') === desejada)) {
+      const alvo = d.find(t => t.arquivo === desejada || t.arquivo.replace(/\.(txt|tkpt)$/, '') === desejada);
+      selTrans.value = alvo.arquivo;
+    }
   } catch(e) {
-    selTrans.replaceChildren();
-    const opt = document.createElement('option');
-    opt.value = '';
-    opt.textContent = 'erro ao carregar';
-    selTrans.appendChild(opt);
+    if (listaReunioes) listaReunioes.estado('erro');
     if (countEl) countEl.textContent = '';
-    showToast('Erro ao carregar transcrições.', 'error');
   }
   try {
     const r = await fetch('/api/modelos', {...fetchOpts, headers: apiHeaders()}); const d = await r.json();
@@ -585,6 +600,8 @@ menuToggle.onclick = ()=> abrirDrawer(!sidebarEl.classList.contains('drawer-open
 if (sidebarClose) sidebarClose.onclick = ()=> abrirDrawer(false);
 drawerOverlay.onclick = ()=> abrirDrawer(false);
 selTrans.addEventListener('change', atualizarTamanhoKb);
+selTrans.addEventListener('change', carregarDetalhesSelecionado);
+selTrans.addEventListener('tk-recarregar', loadList);
 selTrans.addEventListener('change', () => trocarReuniao(selTrans.value));
 if (buscaInput) buscaInput.addEventListener('input', filtrarTranscricoes);
 input.addEventListener('keydown', e=>{

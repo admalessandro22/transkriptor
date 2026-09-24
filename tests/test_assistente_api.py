@@ -6,12 +6,13 @@ from assistente import app
 from tests.front_assistente import HTML
 
 CAMPOS_API = ("arquivo", "data", "tipo", "tamanho_kb", "preview", "com_sua_voz")
+# v1.9 (T-14.B2): preview/com_sua_voz só com detalhes=1; a listagem padrão não abre conteúdo.
 
 
 def test_api_transcricoes_retorna_campos_obrigatorios(tmp_transcricoes, monkeypatch, headers_token):
     monkeypatch.setattr("assistente.PASTA_TRANSCRICOES", str(tmp_transcricoes))
     client = app.test_client()
-    resp = client.get("/api/transcricoes", headers=headers_token)
+    resp = client.get("/api/transcricoes?detalhes=1", headers=headers_token)
     assert resp.status_code == 200
     dados = resp.get_json()
     assert len(dados) == 1

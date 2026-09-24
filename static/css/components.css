@@ -2,6 +2,7 @@
 
 /* ---- Botão ---- */
 .tk-btn {
+  text-decoration: none;
   display: inline-flex; align-items: center; justify-content: center; gap: var(--tk-space-2);
   height: 36px; padding: 0 var(--tk-space-4); border-radius: var(--tk-radius-md);
   border: 1px solid var(--tk-border); background: var(--tk-bg-2); color: var(--tk-text-1);
@@ -137,7 +138,9 @@
 
 /* ---- Linha de dados ---- */
 .tk-rows { display: flex; flex-direction: column; border: 1px solid var(--tk-border); border-radius: var(--tk-radius-md); overflow: hidden; background: var(--tk-bg-1); }
-.tk-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--tk-space-4); align-items: center; padding: var(--tk-space-3) var(--tk-space-4); border-bottom: 1px solid var(--tk-border); transition: background var(--tk-dur-fast) var(--tk-ease); }
+.tk-row { display: flex; gap: var(--tk-space-4); align-items: center; padding: var(--tk-space-3) var(--tk-space-4); border-bottom: 1px solid var(--tk-border); transition: background var(--tk-dur-fast) var(--tk-ease); }
+.tk-row > * { flex-shrink: 0; }
+.tk-row__principal { flex: 1 1 auto; }
 .tk-row:last-child { border-bottom: none; }
 .tk-row:hover { background: var(--tk-bg-2); }
 .tk-row.is-selected { background: var(--tk-accent-soft); }

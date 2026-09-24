@@ -23,9 +23,7 @@
           <svg class="tk-icon search-icon" aria-hidden="true"><use href="{{ url_for('static', filename='icones.svg') }}#i-search"/></svg>
           <input id="busca-transcricao" type="search" placeholder="Filtrar transcrições…" aria-label="Filtrar transcrições" autocomplete="off" spellcheck="false">
         </div>
-        <div class="select-wrap">
-          <select id="transcricao" aria-labelledby="lbl-transcricao" title="Transcrição"></select>
-        </div>
+        <ul id="transcricao" class="tk-listbox" role="listbox" aria-labelledby="lbl-transcricao" tabindex="0"></ul>
         <div class="transcricao-meta" id="tamanho-kb" aria-live="polite"></div>
         <div class="ctx-hint" id="ctx-hint" aria-live="polite"></div>
       </section>
@@ -142,4 +140,4 @@
     </div>
   </main>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='assistente.js') }}"></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/reunioes.js') }}"></script><script src="{{ url_for('static', filename='assistente.js') }}"></script>{% endblock %}

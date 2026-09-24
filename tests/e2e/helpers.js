@@ -37,7 +37,13 @@ function template(nome) {
 function apiPadrao(url, opc) {
   const u = new URL(url);
   const p = u.pathname;
-  if (p === "/api/transcricoes") return fx.reunioes(3);
+  if (p === "/api/transcricoes") {
+    const lista = fx.reunioes(3).map((r) => ({ ...r, protegida: /\.tkpt$/.test(r.arquivo), com_sua_voz: null }));
+    if (u.searchParams.get("detalhes") !== "1") return lista;
+    const nome = u.searchParams.get("arquivo");
+    const base = fx.reunioes(3);
+    return (nome ? base.filter((r) => r.arquivo === nome) : base).map((r) => ({ ...r, preview: "Bom dia a todos, vamos começar pela pauta" }));
+  }
   if (p === "/api/reunioes-indice") return fx.indice(3);
   if (p === "/api/modelos") return fx.modelos();
   if (p === "/api/reunioes") return ["reuniao-2026-09-22"];
@@ -94,4 +100,9 @@ async function carregarPagina(page, nome = "assistente", opc = {}) {
   return ctx;
 }
 
-module.exports = { carregarPagina, template, CSP, ORIGEM, fixtures: fx };
+/** Seleciona uma reunião na listbox `#transcricao` (substitui page.selectOption do <select> antigo). */
+async function selecionarReuniao(page, id) {
+  await page.locator(`#transcricao [role="option"][data-id="${id}"]`).click();
+}
+
+module.exports = { carregarPagina, template, selecionarReuniao, CSP, ORIGEM, fixtures: fx };

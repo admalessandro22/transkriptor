@@ -6,6 +6,8 @@ const { resolve } = require("node:path");
 const raiz = resolve(__dirname, "../..");
 const modelo = require("./helpers").template("assistente");
 const js = readFileSync(resolve(raiz, "static/assistente.js"), "utf8");
+const jsLista = readFileSync(resolve(raiz, "static/js/reunioes.js"), "utf8");
+const { selecionarReuniao } = require("./helpers");
 
 
 async function carregar(page, modoChat) {
@@ -15,7 +17,7 @@ async function carregar(page, modoChat) {
     window.__modoChat = modo || { tipo: "instantaneo" };
     window.__liberarStream = null;
     window.fetch = async (url, opc) => {
-      if (String(url).endsWith("/api/transcricoes")) {
+      if (String(url).startsWith("/api/transcricoes")) {
         return { ok: true, json: async () => [
           { arquivo: "a.txt", data: "01/01", tipo: "transcricao", tamanho_kb: 1, preview: "fala A", com_sua_voz: false },
           { arquivo: "b.txt", data: "02/01", tipo: "transcricao", tamanho_kb: 2, preview: "fala B", com_sua_voz: false }
@@ -52,6 +54,7 @@ async function carregar(page, modoChat) {
       return { ok: true, json: async () => ({}) };
     };
   }, modoChat);
+  await page.addScriptTag({ content: jsLista });
   await page.addScriptTag({ content: js });
   await page.waitForFunction(() => document.getElementById("transcricao").options.length === 2);
   await page.evaluate(() => {
@@ -73,7 +76,7 @@ async function perguntar(page, texto) {
 
 test("12a pergunta recebe resposta (janela respeita orcamento)", async ({ page }) => {
   await carregar(page);
-  await page.selectOption("#transcricao", "a.txt");
+  await selecionarReuniao(page, "a.txt");
   for (let i = 1; i <= 12; i++) {
     await perguntar(page, "pergunta " + i);
     await expect(page.locator("#chat")).toContainText("resposta sobre pergunta " + i);
@@ -87,11 +90,11 @@ test("12a pergunta recebe resposta (janela respeita orcamento)", async ({ page }
 
 test("A para B nao mistura historico nem DOM", async ({ page }) => {
   await carregar(page);
-  await page.selectOption("#transcricao", "a.txt");
+  await selecionarReuniao(page, "a.txt");
   await perguntar(page, "conteudo exclusivo A");
   await expect(page.locator("#chat")).toContainText("conteudo exclusivo A");
 
-  await page.selectOption("#transcricao", "b.txt");
+  await selecionarReuniao(page, "b.txt");
   await expect(page.locator("#chat")).not.toContainText("conteudo exclusivo A");
   await perguntar(page, "pergunta B");
   const ultimo = await page.evaluate(() => window.__pedidos.at(-1));
@@ -103,11 +106,11 @@ test("A para B nao mistura historico nem DOM", async ({ page }) => {
 
 test("stream tardio de A nao aparece em B", async ({ page }) => {
   await carregar(page, { tipo: "lento" });
-  await page.selectOption("#transcricao", "a.txt");
+  await selecionarReuniao(page, "a.txt");
   await page.fill("#input", "pergunta lenta A");
   await page.click("#send");
   await page.waitForFunction(() => window.__pedidos.length === 1);
-  await page.selectOption("#transcricao", "b.txt");
+  await selecionarReuniao(page, "b.txt");
   await page.evaluate(() => window.__liberarStream && window.__liberarStream());
   await page.waitForTimeout(300);
   await expect(page.locator("#chat")).not.toContainText("resposta sobre pergunta lenta A");
@@ -116,7 +119,7 @@ test("stream tardio de A nao aparece em B", async ({ page }) => {
 
 test("limpar durante geracao nao reintroduz resposta", async ({ page }) => {
   await carregar(page, { tipo: "lento" });
-  await page.selectOption("#transcricao", "a.txt");
+  await selecionarReuniao(page, "a.txt");
   await page.fill("#input", "pergunta para limpar");
   await page.click("#send");
   await page.waitForFunction(() => window.__pedidos.length === 1);

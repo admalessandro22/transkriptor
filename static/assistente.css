@@ -89,6 +89,10 @@ select:hover { border-color: var(--border-strong); }
 select:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus); }
 select option { background: var(--panel-solid); }
 
+#transcricao { max-height: 38vh; min-height: 96px; }
+#transcricao [role="option"] { grid-template-columns: 1fr; }
+#transcricao .tk-listbox__badges { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+#transcricao .tk-listbox__badges:empty { display: none; }
 .transcricao-meta { font-size: 11px; color: var(--text-3); min-height: 16px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .ctx-hint { font-size: 11px; color: var(--tk-warn); min-height: 14px; line-height: 1.4; }
 .ctx-hint:empty { display: none; }

@@ -6,6 +6,8 @@ const { resolve } = require("node:path");
 const raiz = resolve(__dirname, "../..");
 const modelo = require("./helpers").template("assistente");
 const js = readFileSync(resolve(raiz, "static/assistente.js"), "utf8");
+const jsLista = readFileSync(resolve(raiz, "static/js/reunioes.js"), "utf8");
+const { selecionarReuniao } = require("./helpers");
 
 
 async function carregar(page, cenario) {
@@ -22,7 +24,7 @@ async function carregar(page, cenario) {
     window.__rotear = async (url, opc) => {
       const metodo = (opc && opc.method) || "GET";
       const e = window.__estado;
-      if (url === "/api/transcricoes" || url === "/api/modelos") {
+      if (String(url).startsWith("/api/transcricoes") || url === "/api/modelos") {
         return { status: 200, json: [] };
       }
       if (url === "/api/reunioes" && metodo === "GET") return { status: 200, json: ["reuniao-x"] };
@@ -49,6 +51,7 @@ async function carregar(page, cenario) {
       return { status: 404, json: { erro: "x" } };
     };
   }, cenario);
+  await page.addScriptTag({ content: jsLista });
   await page.addScriptTag({ content: js });
 }
 

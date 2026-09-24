@@ -6,6 +6,8 @@ const { resolve } = require("node:path");
 const raiz = resolve(__dirname, "../..");
 const modelo = require("./helpers").template("assistente");
 const js = readFileSync(resolve(raiz, "static/assistente.js"), "utf8");
+const jsLista = readFileSync(resolve(raiz, "static/js/reunioes.js"), "utf8");
+const { selecionarReuniao } = require("./helpers");
 
 
 async function carregar(page, roteador) {
@@ -13,7 +15,7 @@ async function carregar(page, roteador) {
   await page.evaluate((temRoteador) => {
     window.__roteador = temRoteador;
     window.fetch = async (url, opc) => {
-      if (String(url).endsWith("/api/transcricoes")) {
+      if (String(url).startsWith("/api/transcricoes")) {
         return { ok: true, json: async () => [
           { arquivo: "a.txt", data: "01/01", tipo: "transcricao", tamanho_kb: 1, preview: "fala A", com_sua_voz: false },
           { arquivo: "b.txt", data: "02/01", tipo: "transcricao", tamanho_kb: 2, preview: "fala B", com_sua_voz: false }
@@ -73,6 +75,7 @@ async function carregar(page, roteador) {
       };
     }
   }, roteador || null);
+  await page.addScriptTag({ content: jsLista });
   await page.addScriptTag({ content: js });
   await page.waitForFunction(() => document.getElementById("transcricao").options.length === 2);
 }
@@ -110,9 +113,9 @@ test("clipboard negado mostra erro visivel", async ({ page }) => {
 
 test("filtro preserva selecao e telas nao estouram", async ({ page }) => {
   await carregar(page);
-  await page.selectOption("#transcricao", "b.txt");
+  await selecionarReuniao(page, "b.txt");
   await page.fill("#busca-transcricao", "fala B");
-  await expect(page.locator("#transcricao")).toHaveValue("b.txt");
+  expect(await page.evaluate(() => document.getElementById("transcricao").value)).toBe("b.txt");
   for (const largura of [375, 860, 1366]) {
     await page.setViewportSize({ width: largura, height: 800 });
     await page.click("#abrir-participantes");

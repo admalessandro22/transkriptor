@@ -6,6 +6,8 @@ const { resolve } = require("node:path");
 const raiz = resolve(__dirname, "../..");
 const modelo = require("./helpers").template("assistente");
 const js = readFileSync(resolve(raiz, "static/assistente.js"), "utf8");
+const jsLista = readFileSync(resolve(raiz, "static/js/reunioes.js"), "utf8");
+const { selecionarReuniao } = require("./helpers");
 
 
 async function carregar(page) {
@@ -22,32 +24,25 @@ async function carregar(page) {
           }
         });
       }
-      if (String(url).endsWith("/api/transcricoes")) {
-        return Promise.resolve({ ok: true, json: async () => [] });
+      if (String(url).startsWith("/api/transcricoes")) {
+        return Promise.resolve({ ok: true, json: async () => [{ arquivo: "reuniao.txt", data: "01/01/2026 10:00", tipo: "transcricao", tamanho_kb: 1, protegida: false, com_sua_voz: null }] });
       }
       if (String(url).endsWith("/api/modelos")) {
-        return Promise.resolve({ ok: true, json: async () => [] });
+        return Promise.resolve({ ok: true, json: async () => ["llama3"] });
       }
       return Promise.resolve({ ok: true, json: async () => ({}) });
     };
   });
+  await page.addScriptTag({ content: jsLista });
   await page.addScriptTag({ content: js });
 }
 
 
 test("cancelar fecha o upstream: stop e Esc abortam o fetch", async ({ page }) => {
   await carregar(page);
-  await page.selectOption("#transcricao", []);
-  await page.evaluate(() => {
-    const sel = document.getElementById("transcricao");
-    const op = document.createElement("option");
-    op.value = "reuniao.txt";
-    op.textContent = "reuniao.txt";
-    sel.appendChild(op);
-    sel.value = "reuniao.txt";
-    document.getElementById("modelo").innerHTML = "<option>llama3</option>";
-    document.getElementById("input").value = "resuma";
-  });
+  await page.waitForFunction(() => document.getElementById("transcricao").options.length === 1);
+  await selecionarReuniao(page, "reuniao.txt");
+  await page.fill("#input", "resuma");
   await page.click("#send");
   await expect
     .poll(() => page.evaluate(() => window.__sinais.length))
