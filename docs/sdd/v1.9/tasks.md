@@ -1,6 +1,6 @@
 # Tasks — plataforma visual e Central (SDD v1.9)
 
-**Estado em 24/09/2026: plano aprovado; 5 `DONE` (F14.A concluída, B1–B2), 16 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.B3.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
+**Estado em 24/09/2026: plano aprovado; 6 `DONE` (F14.A concluída, B1–B3), 15 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.B4.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
 
 Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, **Teste final** e **Aceite** são cumulativos. Os arquivos de teste novos são entregáveis da implementação; os seletores são planejados, não testes que já passaram. Nenhuma task usa dados reais; capturas usam `tests/e2e/fixtures/`.
 
@@ -60,7 +60,7 @@ Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, 
 
 ### T-14.B3 — conversa, markdown completo e chips de intenção
 
-- [ ] **Requisito:** UX-14.B3. **Depende de:** B2. **Estado:** `PENDING`.
+- [x] **Requisito:** UX-14.B3. **Depende de:** B2. **Estado:** `DONE`; commit `6480053`; evidência: `evidencias/T-14.B3.md`.
 - **Arquivos:** criar `static/js/markdown.js`, `static/css/assistente.css` (novo, em `static/css/`), `tests/js/markdown.test.js`, `tests/e2e/chat-ui.spec.js`; modificar `static/js/chat.js`, `templates/assistente.html`, `static/assistente.js` (entrada legada importa módulos).
 - **Implementação:** coluna de 72ch; mensagens como blocos (autor, hora, texto) em vez de bolhas; markdown com títulos, listas, tabelas, código, citações, links seguros; streaming renderiza markdown incremental por parágrafo fechado (sem salto final); chips de intenção com rótulo curto, `data-intent`, prompt em `static/js/intencoes.js`, botão "Ver e editar prompt" opcional; ações por mensagem (copiar, reenviar) com erro visível; empty state de primeiro uso com três passos.
 - **RED:** `markdown.test.js::tabela vira table`, `::html escapado`, `::link externo tem rel noopener`; `chat-ui.spec.js::chip envia sem colar prompt no campo`, `::editar prompt mostra texto antes de enviar`, `::streaming nao altera altura ao concluir`, `::copiar negado mostra erro`.
