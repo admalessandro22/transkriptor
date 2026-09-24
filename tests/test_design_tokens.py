@@ -143,3 +143,15 @@ def test_write_recusa_par_abaixo_do_minimo(tmp_path: Path):
     assert resultado.returncode == 1
     assert "CONTRASTE REPROVADO" in resultado.stderr
     assert not (tmp_path / "t.css").exists()
+
+
+def test_pairing_css_gerado_igual(gerador, tokens):
+    """UX-14.E5: a extensão não pode carregar do app; pairing.css é cópia gerada dos tokens."""
+    css = REPO / "extension" / "meet" / "pairing.css"
+    assert css.is_file(), "extension/meet/pairing.css ausente; rode gerar_tokens.py --write"
+    gerado = gerador.gerar_css_extensao(tokens)
+    assert css.read_text(encoding="utf-8") == gerado
+    assert gerado.startswith(gerador.gerar_css(tokens)), "tokens idênticos aos da Central"
+    assert "@import" not in gerado and "http" not in gerado
+    assert "prefers-color-scheme" in gerado and "prefers-reduced-motion" in gerado
+    assert 'html[data-estado="sucesso"], [data-estado="sucesso"]' in gerado or '[data-estado="sucesso"]' in gerado

@@ -32,8 +32,21 @@ Abra o app (`transkriptor.pyw`). Ele gera um código de pareamento de uso
 único (Diagnóstico). **Não há mais segredo em `config.js`.**
 
 1. Abra a página `pairing.html` da extensão (ou `chrome://extensions` → detalhes → página de pareamento)
-2. Cole o código e clique em **Parear**
-3. O service worker (`background.js`) guarda a credencial da sessão e conecta
+2. No Transkriptor, abra **Diagnóstico** e copie o **código de pareamento** (começa com `pair-`)
+3. Cole o código no campo e clique em **Parear** (ou Enter)
+4. O service worker (`background.js`) guarda a credencial da sessão e conecta
+
+A página mostra o estado do pareamento com ícone e cor:
+
+| Estado | O que significa | O que fazer |
+|--------|-----------------|-------------|
+| Carregando (anel girando) | código guardado; conectando ao app | aguarde; se não mudar, confira se **Identificar nomes do Meet** está ligado |
+| Sucesso (✓ verde) | pareado e conectado; campo e botão ficam travados | pode fechar a página |
+| Erro (! vermelho) | código inválido/incompleto ou service worker parado | siga o "Próximo passo" indicado na própria mensagem |
+
+O visual vem de `pairing.css`, gerado por `python scripts/gerar_tokens.py --write`
+a partir dos mesmos tokens da Central (a extensão não carrega nada do app nem
+da rede; só o WebSocket local).
 
 ### 2. Ative a ponte no menu da bandeja
 
