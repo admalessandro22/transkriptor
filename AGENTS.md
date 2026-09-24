@@ -106,7 +106,7 @@ Ver `docs/sdd/v1.3/concept.md`.
 | 1.5 | `docs/sdd/v1.5/` | Legado (implementado) |
 | 1.6 | `docs/sdd/v1.6/` | Histórico (implementado; preservar evidências) |
 | 1.8 | `docs/sdd/v1.8/` | **Em execução (fonte de verdade)** |
-| 1.9 | `docs/sdd/v1.9/` | Aprovada; em execução na branch `sdd-v1.9-design` (UI/UX e Central) |
+| 1.9 | `docs/sdd/v1.9/` | Implementada na branch `sdd-v1.9-design` (UI/UX e Central; gate final em `evidencias/GATE-FINAL.md`; merge e versão a decidir) |
 
 ### Detecção de reunião (v1.4)
 

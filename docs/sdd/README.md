@@ -22,11 +22,13 @@ python scripts/verificar_fase.py --fase v1.8-sdd
 `config.VERSAO` continua sendo a única versão do executável. A versão SDD não
 autoriza bump de produto, release, push, OAuth ou qualquer gate físico.
 
-## Proposta em revisão
+## Interface (v1.9) implementada em branch própria
 
 A [v1.9](v1.9/README.md) (diagnóstico UI/UX, design system e Central) foi
-aprovada em 24/09/2026 e é executada na branch `sdd-v1.9-design`, separada da
-remediação v1.8. Não autoriza bump ou release. Auditar com
+aprovada em 24/09/2026 e implementada no mesmo dia na branch `sdd-v1.9-design`
+(21 tasks, gate final em `v1.9/evidencias/GATE-FINAL.md`), separada da
+remediação v1.8. Não autoriza bump ou release; a integração da branch e a
+decisão de versão (DP-14-11) são do usuário. Auditar com
 `python scripts/verificar_fase.py --fase v1.8-sdd --sdd-root docs/sdd/v1.9`.
 
 ## Histórico preservado

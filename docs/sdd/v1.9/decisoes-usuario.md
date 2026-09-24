@@ -26,6 +26,10 @@ DU-01 a DU-16 da v1.8 continuam válidas. Em particular: processamento local (DU
 - Autorizado em 24/09/2026: commitar os documentos da v1.9 e executar o plano a partir de T-14.A1, uma task por vez, com código, testes, capturas sintéticas e commit local por task, na branch `sdd-v1.9-design`.
 - Continua não autorizado: push, tag, release, bump de `config.VERSAO`, instalar dependência além de `@axe-core/playwright` (DP-14-09), gates com reunião real, alterar a branch `remediacao-auditoria-v18` ou qualquer ação externa.
 
+## Registro DP-14-11 (T-14.G1, 24/09/2026)
+
+Conforme a recomendação aprovada, **nenhum bump** foi feito durante A–G: `config.VERSAO` continua `1.7.0` na branch `sdd-v1.9-design`. Recomendação para o fechamento, a executar pelo usuário quando integrar a branch: a remediação v1.8 vira `1.8.0` e esta entrega vira `1.9.0` na release seguinte (ou ambas em `1.9.0` se forem integradas juntas). O bump deve vir com `python scripts/sincronizar_versao_extensao.py` (a extensão está em `1.7.0` no `manifest.json`) e com o gate de instalação (`scripts/gate_instalacao.py`).
+
 ## Condição para nova consulta
 
 Consultar o usuário apenas se: uma decisão DP-14-* precisar mudar depois de iniciada; uma task exigir dependência nova não listada (DP-14-09); a migração de um teste legado for impossível sem perder cobertura comportamental; ou surgir conflito com trabalho local não commitado.

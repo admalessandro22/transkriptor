@@ -1,6 +1,6 @@
 # Tasks — plataforma visual e Central (SDD v1.9)
 
-**Estado em 24/09/2026: plano aprovado; 20 `DONE` (F14.A–F concluídas), 1 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.G1.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
+**Estado em 24/09/2026: plano aprovado; **21/21 `DONE` (F14.A–G concluídas)**; executado na branch `sdd-v1.9-design` em 24/09/2026; gate final em `evidencias/GATE-FINAL.md`; sem bump de versão (DP-14-11).** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
 
 Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, **Teste final** e **Aceite** são cumulativos. Os arquivos de teste novos são entregáveis da implementação; os seletores são planejados, não testes que já passaram. Nenhuma task usa dados reais; capturas usam `tests/e2e/fixtures/`.
 
@@ -220,7 +220,7 @@ Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, 
 
 ### T-14.G1 — manual, glossário, evidências e decisão de versão
 
-- [ ] **Requisito:** NFR-14.G1. **Depende de:** F2 e DP-14-11. **Estado:** `PENDING`.
+- [x] **Requisito:** NFR-14.G1. **Depende de:** F2 e DP-14-11. **Estado:** `DONE`; commit `b36cc8f`; evidência: `evidencias/T-14.G1.md` e `evidencias/GATE-FINAL.md` (gate G verde).
 - **Arquivos:** modificar `docs/MANUAL-USUARIO.md` (capturas sintéticas de todas as superfícies, §2 e §7 reescritos, glossário), `scripts/gerar_manual_pdf.py` se existir, `docs/sdd/v1.9/README.md` (estado final), `docs/sdd/README.md`, `AGENTS.md` (tabela de versões); criar `docs/sdd/v1.9/evidencias/GATE-FINAL.md`, `tests/test_manual_v19.py`.
 - **Implementação:** manual com uma captura por superfície e por tema; glossário de `design-system.md` §9; gate final de `plan.md` executado; decisão DP-14-11 registrada sem alterar `config.VERSAO` nesta task.
 - **RED:** `test_manual_v19.py::test_manual_referencia_todas_as_superficies`, `::test_capturas_existem_e_sao_sinteticas` (nomes das fixtures presentes, nenhum nome real).

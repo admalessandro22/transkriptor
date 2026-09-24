@@ -2,7 +2,7 @@
 
 Elaborado em 24/09/2026. Base examinada: `5566f074011948457571cf934c8fb02c8855a6e8`, produto `config.VERSAO = 1.7.0`.
 
-**Status: aprovada em 24/09/2026 (todas as DP-14 na recomendação padrão; DP-14-12 revisada para iniciar já) e em execução na branch `sdd-v1.9-design`, a partir de T-14.A1. A v1.8 continua sendo a especificação ativa da remediação** (`docs/sdd/README.md`); as duas execuções não compartilham branch. Este SDD foi produzido sem as skills Superpowers, a pedido do usuário; a execução futura segue o ciclo de `AGENTS.md`.
+**Status: implementada em 24/09/2026 na branch `sdd-v1.9-design` — 21/21 tasks `DONE` (F14.A–G), gate final em [`evidencias/GATE-FINAL.md`](evidencias/GATE-FINAL.md). Sem bump de `config.VERSAO`, sem push, sem release (DP-14-11: decisão de versão registrada em [`decisoes-usuario.md`](decisoes-usuario.md), a executar pelo usuário). Pendências fora do escopo automatizável: roteiro do Narrador ao vivo e capturas na bandeja real (ver gate final). A v1.8 continua sendo a especificação ativa da remediação** (`docs/sdd/README.md`); as duas execuções não compartilham branch. Este SDD foi produzido sem as skills Superpowers, a pedido do usuário; a execução futura segue o ciclo de `AGENTS.md`.
 
 ## Documentos
 
@@ -15,7 +15,7 @@ Elaborado em 24/09/2026. Base examinada: `5566f074011948457571cf934c8fb02c8855a6
 7. [Decisões do usuário](decisoes-usuario.md): 12 decisões pendentes com recomendação e padrão, autorizações e condição de nova consulta.
 8. [Interfaces congeladas](interfaces.md): contrato de tokens, arquivos, IDs de DOM, API da Central, bandeja, consentimento, extensão e fixtures.
 9. [Protocolo para LLM executora](executor-llm.md): escopo, leitura obrigatória, regras de front-end, algoritmo por task, paradas e formato de evidência.
-10. [Evidências](evidencias/README.md): capturas sintéticas e scripts do diagnóstico; evidências futuras por task.
+10. [Evidências](evidencias/README.md): capturas sintéticas e scripts do diagnóstico; uma evidência por task (`T-14.A1` … `T-14.G1`), roteiro do Narrador e gate final.
 
 ## Conclusão principal
 
