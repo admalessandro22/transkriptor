@@ -1,6 +1,6 @@
 # Tasks — plataforma visual e Central (SDD v1.9)
 
-**Estado em 24/09/2026: plano aprovado; 7 `DONE` (F14.A e F14.B concluídas), 14 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.C1.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
+**Estado em 24/09/2026: plano aprovado; 8 `DONE` (F14.A e F14.B concluídas, C1), 13 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.C2.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
 
 Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, **Teste final** e **Aceite** são cumulativos. Os arquivos de teste novos são entregáveis da implementação; os seletores são planejados, não testes que já passaram. Nenhuma task usa dados reais; capturas usam `tests/e2e/fixtures/`.
 
@@ -82,7 +82,7 @@ Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, 
 
 ### T-14.C1 — painel de participantes
 
-- [ ] **Requisito:** UX-14.C1. **Depende de:** B4. **Estado:** `PENDING`.
+- [x] **Requisito:** UX-14.C1. **Depende de:** B4. **Estado:** `DONE`; commit `d55f11b`; evidência: `evidencias/T-14.C1.md`.
 - **Arquivos:** criar `static/js/participantes.js`, `static/css/participantes.css`, `templates/participantes.html`; modificar `templates/assistente.html` (`#participantes-drawer` vira `tk-panel`), `static/assistente.js`; atualizar `tests/e2e/participants.spec.js`.
 - **Implementação:** lista de falantes (nome amigável, cor estável por cluster, número de falas, tempo total, estado confirmado/sugerido/pendente, origem legenda/Meet/voz/manual); `FALANTE_00` exibido como "Falante 1" com o identificador técnico só em `title`; VOCÊ com badge; "Carregando…" substituído por skeleton e limpo após carga; versão da reunião visível como "Revisão 3".
 - **RED:** `participants.spec.js::falante sem nome aparece como Falante N`, `::carregando some apos carga`, `::cores estaveis entre recargas`, `::painel empurra conteudo em 1366 e sobrepoe em 900`.
