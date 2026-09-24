@@ -35,6 +35,22 @@
       <p class="tk-empty__texto">Rodar leva alguns segundos: grava meio segundo de áudio para testar o loopback e o microfone.</p>
     </div>
 
+    <section class="diag__pareamento" id="pareamento" aria-labelledby="pareamento-titulo">
+      <div class="tk-page__cabecalho">
+        <div>
+          <h3 class="tk-page__titulo" id="pareamento-titulo">Extensão do Meet</h3>
+          <p class="tk-subtle">Para identificar os nomes dos participantes, a extensão do Chrome precisa ser pareada com este aplicativo. O código é de uso único e vale cinco minutos.</p>
+        </div>
+        <button type="button" class="tk-btn tk-btn--secondary" id="pareamento-gerar">Gerar código de pareamento</button>
+      </div>
+      <div class="diag__codigo-wrap" id="pareamento-resultado" hidden>
+        <code class="diag__codigo" id="pareamento-codigo" aria-live="polite"></code>
+        <button type="button" class="tk-btn tk-btn--sm" id="pareamento-copiar">Copiar código</button>
+        <span class="tk-subtle" id="pareamento-dica">Cole na página de pareamento da extensão (chrome://extensions → Transkriptor Meet Bridge → Detalhes → Opções da extensão, ou abra <code>pairing.html</code>) e clique em Parear.</span>
+      </div>
+      <p class="tk-subtle" id="pareamento-aviso" hidden></p>
+    </section>
+
     <section class="diag__retranscrever" id="retranscrever" aria-labelledby="retranscrever-titulo">
       <div class="tk-page__cabecalho">
         <div>

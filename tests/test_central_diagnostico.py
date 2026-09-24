@@ -107,3 +107,34 @@ def test_dialogo_tk_de_retranscrever_removido():
     assert "tkinter" not in flows and "simpledialog" not in flows and "_escolher_audio_dialog" not in flows
     for nome in fonte.glob("*.py"):
         assert "import tkinter" not in nome.read_text(encoding="utf-8"), nome.name
+
+
+class _PareadorFalso:
+    def __init__(self):
+        self.emitidos = 0
+
+    def gerar_convite(self):
+        self.emitidos += 1
+        return f"pair-sintetico-{self.emitidos:04d}-0000000000"
+
+
+def test_pareamento_emite_convite_de_uso_unico(cliente, bandeja):
+    """Gap da integração: o convite existia no arranque, mas nunca era mostrado."""
+    bandeja.meet_bridge = SimpleNamespace(pareador=_PareadorFalso())
+    bandeja.usar_nomes_meet = True
+    resposta = cliente.post("/api/acoes/pareamento", json={}, headers=_h())
+    assert resposta.status_code == 200
+    corpo = resposta.get_json()
+    assert corpo["codigo"].startswith("pair-") and corpo["validade_seg"] >= 60 and corpo["ponte_ativa"] is True
+    assert bandeja.convite_pareamento_meet == corpo["codigo"]
+    segundo = cliente.post("/api/acoes/pareamento", json={}, headers=_h()).get_json()
+    assert segundo["codigo"] != corpo["codigo"]
+    assert bandeja.meet_bridge.pareador.emitidos == 2
+
+
+def test_pareamento_exige_token_e_ponte(cliente, bandeja):
+    cliente.set_cookie(COOKIE_TOKEN, obter_token_sessao())
+    assert cliente.post("/api/acoes/pareamento", json={}).status_code == 403
+    resposta = cliente.post("/api/acoes/pareamento", json={}, headers=_h())
+    assert resposta.status_code == 503
+    assert "Identificar nomes do Meet" in resposta.get_json()["erro"]

@@ -124,7 +124,42 @@ async function retranscrever(nome, botao, fetchFn = (u, o) => fetch(u, o)) {
   } finally { botao.classList.remove('is-loading'); botao.disabled = false; }
 }
 
+export async function gerarCodigoPareamento(fetchFn = (u, o) => fetch(u, o)) {
+  const btn = $('pareamento-gerar'), aviso = $('pareamento-aviso'), wrap = $('pareamento-resultado');
+  btn.classList.add('is-loading'); btn.disabled = true; aviso.hidden = true;
+  try {
+    const r = await fetchFn('/api/acoes/pareamento', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const corpo = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      wrap.hidden = true; aviso.hidden = false;
+      aviso.textContent = corpo.erro || 'Não foi possível gerar o código. Verifique se o aplicativo da bandeja está aberto.';
+      return;
+    }
+    $('pareamento-codigo').textContent = corpo.codigo || '';
+    wrap.hidden = false;
+    const minutos = Math.max(1, Math.round((corpo.validade_seg || 300) / 60));
+    aviso.hidden = false;
+    aviso.textContent = (corpo.ponte_ativa ? '' : 'A opção "Identificar nomes do Meet" está desligada: ligue-a em Configurações antes de parear. ') + `Válido por ${minutos} min e só uma vez; gere outro se expirar.`;
+  } catch (_) {
+    wrap.hidden = true; aviso.hidden = false;
+    aviso.textContent = 'Não foi possível gerar o código. Verifique se o aplicativo da bandeja está aberto.';
+  } finally { btn.classList.remove('is-loading'); btn.disabled = false; }
+}
+
+async function copiarCodigo() {
+  const codigo = $('pareamento-codigo').textContent;
+  if (!codigo) return;
+  try {
+    await navigator.clipboard.writeText(codigo);
+    toast('success', 'Código copiado', 'Cole na página de pareamento da extensão.');
+  } catch (_) {
+    toast('error', 'Não foi possível copiar', 'Selecione o código e copie com Ctrl+C.');
+  }
+}
+
 if (typeof document !== 'undefined' && $('pagina-diagnostico')) {
+  $('pareamento-gerar').addEventListener('click', () => gerarCodigoPareamento());
+  $('pareamento-copiar').addEventListener('click', copiarCodigo);
   $('diag-rodar').addEventListener('click', () => rodar());
   $('diag-exportar').addEventListener('click', () => exportar());
   carregarAudios();

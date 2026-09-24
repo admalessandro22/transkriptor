@@ -14,7 +14,7 @@ import threading
 
 from flask import Blueprint, Response, jsonify, request
 
-from config import MODELO_WHISPER, PASTA_AUDIO, PASTA_TRANSCRICOES
+from config import MEET_CONVITE_SEG, MODELO_WHISPER, PASTA_AUDIO, PASTA_TRANSCRICOES
 
 bp = Blueprint("central_diagnostico", __name__)
 logger = logging.getLogger(__name__)
@@ -138,6 +138,29 @@ def api_retranscrever():
 
     threading.Thread(target=_job, daemon=True, name="Retranscrever-Central").start()
     return jsonify({"aceito": True, "nome": nome}), 202
+
+
+@bp.route("/api/acoes/pareamento", methods=["POST"])
+def api_pareamento():
+    """Emite um convite de uso único para a extensão do Meet (pairing.html).
+
+    O convite nasce no `Pareador` da ponte e vale MEET_CONVITE_SEG segundos;
+    antes desta rota ele era gerado no arranque e nunca mostrado. O código não
+    é registrado em log (o sanitizador já o redige, mas nem chega lá).
+    """
+    app = _app()
+    if app is None:
+        return _sem_bandeja()
+    pareador = getattr(getattr(app, "meet_bridge", None), "pareador", None)
+    if pareador is None:
+        return jsonify({"erro": "Ponte do Meet desligada: ative 'Identificar nomes do Meet' em Configurações e tente de novo."}), 503
+    codigo = pareador.gerar_convite()
+    app.convite_pareamento_meet = codigo
+    return jsonify({
+        "codigo": codigo,
+        "validade_seg": int(MEET_CONVITE_SEG),
+        "ponte_ativa": bool(getattr(app, "usar_nomes_meet", False)),
+    })
 
 
 @bp.route("/api/acoes/retranscrever")

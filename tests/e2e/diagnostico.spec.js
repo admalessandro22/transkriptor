@@ -14,6 +14,7 @@ function api(extra = {}) {
     if (p === "/api/diagnostico/exportar") return { status: 200, body: "Diagnóstico do Transkriptor 1.7.0\n[ERRO ] Microfone  <pasta-pessoal>\n", contentType: "text/plain; charset=utf-8" };
     if (p === "/api/audios-retidos") return extra.audios || AUDIOS;
     if (p === "/api/acoes/retranscrever" && req.method() === "POST") return extra.retranscrever || { status: 202, body: JSON.stringify({ aceito: true, nome: JSON.parse(req.postData()).nome }) };
+    if (p === "/api/acoes/pareamento" && req.method() === "POST") return extra.pareamento || { codigo: "pair-sintetico-0001-0000000000", validade_seg: 300, ponte_ativa: true };
     return undefined;
   };
 }
@@ -76,4 +77,26 @@ test("sem bandeja e sem áudios, a página explica", async ({ page }) => {
   await page.click("#diag-rodar");
   await expect(page.locator("#diag-indisponivel")).toBeVisible();
   await expect(page.locator("#toast-region .tk-toast")).toHaveCount(0);
+});
+
+
+test("gera o código de pareamento da extensão e permite copiar", async ({ page }) => {
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  const ctx = await carregarPagina(page, "diagnostico", { api: api() });
+  await expect(page.locator("#pareamento-resultado")).toBeHidden();
+  await page.click("#pareamento-gerar");
+  await expect(page.locator("#pareamento-codigo")).toHaveText("pair-sintetico-0001-0000000000");
+  await expect(page.locator("#pareamento-aviso")).toContainText("5 min");
+  await page.click("#pareamento-copiar");
+  await expect(page.locator("#toast-region")).toContainText("Código copiado");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("pair-sintetico-0001-0000000000");
+  expect(ctx.violacoes).toEqual([]);
+});
+
+
+test("sem ponte do Meet, o pareamento explica o próximo passo", async ({ page }) => {
+  await carregarPagina(page, "diagnostico", { api: api({ pareamento: { status: 503, body: JSON.stringify({ erro: "Ponte do Meet desligada: ative 'Identificar nomes do Meet' em Configurações e tente de novo." }) } }) });
+  await page.click("#pareamento-gerar");
+  await expect(page.locator("#pareamento-resultado")).toBeHidden();
+  await expect(page.locator("#pareamento-aviso")).toContainText("Identificar nomes do Meet");
 });
