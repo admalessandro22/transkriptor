@@ -10,10 +10,28 @@ const ORIGEM = "http://127.0.0.1:5050";
 const CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
 const TIPOS = { ".css": "text/css", ".js": "application/javascript", ".svg": "image/svg+xml", ".ico": "image/x-icon", ".png": "image/png", ".html": "text/html; charset=utf-8" };
 
+function lerTemplate(nome) {
+  return readFileSync(resolve(raiz, "templates", nome + ".html"), "utf8");
+}
+
+// Subconjunto de Jinja suficiente para os templates da Central: extends + blocks.
+function renderJinja(fonte, blocosFilho = {}) {
+  const ext = fonte.match(/\{%\s*extends\s+"([^"]+)"\s*%\}/);
+  const blocos = { ...blocosFilho };
+  const re = /\{%\s*block\s+(\w+)\s*%\}([\s\S]*?)\{%\s*endblock\s*%\}/g;
+  let m;
+  while ((m = re.exec(fonte)) !== null) if (!(m[1] in blocos)) blocos[m[1]] = m[2];
+  if (ext) return renderJinja(lerTemplate(ext[1].replace(/\.html$/, "")), blocos);
+  let saida = fonte.replace(re, (_, nome, padrao) => (nome in blocos ? blocos[nome] : padrao));
+  saida = saida.replace(/\{\{\s*self\.(\w+)\(\)\s*\}\}/g, (_, nome) => blocos[nome] || "");
+  return saida;
+}
+
 function template(nome) {
-  return readFileSync(resolve(raiz, "templates", nome + ".html"), "utf8")
+  return renderJinja(lerTemplate(nome))
     .replace(/\{\{\s*url_for\('static',\s*filename='([^']+)'\)\s*\}\}/g, "/static/$1")
-    .replace(/\{\{[^}]*\}\}/g, "");
+    .replace(/\{\{[^}]*\}\}/g, "")
+    .replace(/\{%[^%]*%\}/g, "");
 }
 
 function apiPadrao(url, opc) {

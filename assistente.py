@@ -13,6 +13,7 @@ import urllib.request
 from flask import Flask, jsonify, make_response, redirect, render_template, request
 
 from assistente_cabecalhos import aplicar_cabecalhos
+from central_paginas import bp as central_paginas_bp
 from assistente_ollama import (
     _cache_ctx,
     chamar_ollama_sync as _chamar_ollama_sync,
@@ -35,6 +36,7 @@ from config import (
 )
 
 app = Flask(__name__, root_path=str(BASE_DIR))
+app.register_blueprint(central_paginas_bp)
 app.config["MAX_CONTENT_LENGTH"] = MAX_CORPO_CHAT_BYTES
 
 _semaforo_chat = threading.BoundedSemaphore(CHAT_MAX_CONCORRENTES)
@@ -355,14 +357,6 @@ def index():
         )
         return resp
     return render_template("assistente.html")
-
-
-@app.route("/galeria")
-def galeria():
-    """UX-14.A3: galeria de componentes, só para revisão visual local."""
-    if os.environ.get("TRANSKRIPTOR_GALERIA") != "1":
-        return jsonify({"erro": "Galeria desativada"}), 404
-    return render_template("galeria.html")
 
 
 @app.route("/api/saude")

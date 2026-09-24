@@ -1,0 +1,68 @@
+/* App shell da Central (SDD v1.9, T-14.B1): nav lateral, barra superior, área de conteúdo. */
+html, body.tk-shell { height: 100%; overflow: hidden; }
+body.tk-shell { display: grid; grid-template-columns: 240px minmax(0, 1fr); grid-template-rows: 100%; }
+.tk-skip { position: absolute; left: var(--tk-space-3); top: -48px; z-index: 100; padding: var(--tk-space-2) var(--tk-space-3); border-radius: var(--tk-radius-md); background: var(--tk-accent-fill); color: var(--tk-on-accent); text-decoration: none; transition: top var(--tk-dur-fast) var(--tk-ease); }
+.tk-skip:focus { top: var(--tk-space-3); }
+
+/* Navegação */
+.tk-nav { display: flex; flex-direction: column; background: var(--tk-bg-1); border-right: 1px solid var(--tk-border); min-height: 0; }
+.tk-brand { display: flex; align-items: center; gap: var(--tk-space-3); padding: var(--tk-space-4) var(--tk-space-4) var(--tk-space-3); border-bottom: 1px solid var(--tk-border); min-height: 56px; }
+.tk-brand__marca { width: 32px; height: 32px; border-radius: var(--tk-radius-sm); background: var(--tk-accent-fill); color: var(--tk-on-accent); display: grid; place-items: center; flex-shrink: 0; }
+.tk-brand__marca .tk-icon { width: 18px; height: 18px; }
+.tk-brand__texto { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.tk-brand__nome { font-family: var(--tk-font-display); font-weight: 600; font-size: var(--tk-type-lg-size); white-space: nowrap; }
+.tk-brand__sub { font-size: var(--tk-type-xs-size); color: var(--tk-text-3); white-space: nowrap; }
+.tk-nav .tk-nav__fechar { display: none; margin-left: auto; }
+.tk-nav__lista { list-style: none; display: flex; flex-direction: column; gap: 2px; padding: var(--tk-space-3) var(--tk-space-2); flex: 1; overflow-y: auto; }
+.tk-nav__item { display: flex; align-items: center; gap: var(--tk-space-3); height: 40px; padding: 0 var(--tk-space-3); border-radius: var(--tk-radius-md); color: var(--tk-text-2); text-decoration: none; font-weight: 500; white-space: nowrap; transition: background var(--tk-dur-fast) var(--tk-ease), color var(--tk-dur-fast) var(--tk-ease); }
+.tk-nav__item:hover { background: var(--tk-bg-2); color: var(--tk-text-1); }
+.tk-nav__item[aria-current="page"] { background: var(--tk-accent-soft); color: var(--tk-text-1); box-shadow: inset 3px 0 0 var(--tk-accent); }
+.tk-nav__item .tk-icon { color: var(--tk-text-3); }
+.tk-nav__item[aria-current="page"] .tk-icon, .tk-nav__item:hover .tk-icon { color: var(--tk-accent); }
+.tk-nav__rodape { padding: var(--tk-space-3) var(--tk-space-4); border-top: 1px solid var(--tk-border); white-space: nowrap; overflow: hidden; }
+.tk-nav-scrim { display: none; position: fixed; inset: 0; z-index: 35; background: var(--tk-scrim); }
+
+/* Área principal */
+.tk-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--tk-bg-0); }
+.tk-topbar { display: flex; align-items: center; gap: var(--tk-space-3); height: 56px; padding: 0 var(--tk-space-5); border-bottom: 1px solid var(--tk-border); background: var(--tk-bg-1); flex-shrink: 0; }
+.tk-topbar .tk-topbar__nav { display: none; }
+.tk-topbar__titulo { font-size: var(--tk-type-lg-size); line-height: var(--tk-type-lg-line); font-weight: 600; font-family: var(--tk-font-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.tk-topbar__acoes { margin-left: auto; display: flex; align-items: center; gap: var(--tk-space-2); flex-shrink: 0; }
+.tk-tema__claro { display: none; }
+[data-theme="light"] .tk-tema__claro, [data-theme="light"] .tk-tema__escuro { display: none; }
+[data-theme="light"] .tk-tema__escuro { display: block; }
+[data-theme="dark"] .tk-tema__claro { display: block; }
+[data-theme="dark"] .tk-tema__escuro { display: none; }
+@media (prefers-color-scheme: light) { :root:not([data-theme]) .tk-tema__claro { display: none; } :root:not([data-theme]) .tk-tema__escuro { display: block; } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme]) .tk-tema__claro { display: block; } :root:not([data-theme]) .tk-tema__escuro { display: none; } }
+.tk-content { flex: 1; min-height: 0; display: flex; position: relative; outline: none; }
+.tk-content > .tk-page { flex: 1; min-width: 0; overflow-y: auto; padding: var(--tk-space-5); }
+.tk-page__inner { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--tk-space-5); }
+.tk-page__cabecalho { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--tk-space-4); flex-wrap: wrap; }
+.tk-page__titulo { font-size: var(--tk-type-xl-size); line-height: var(--tk-type-xl-line); font-weight: 600; font-family: var(--tk-font-display); }
+
+/* Colapso e drawer da navegação */
+@media (max-width: 1199px) {
+  body.tk-shell { grid-template-columns: 64px minmax(0, 1fr); }
+  .tk-brand { justify-content: center; padding: var(--tk-space-3) 0; }
+  .tk-brand__texto, .tk-nav__item span, .tk-nav__rodape { display: none; }
+  .tk-nav__item { justify-content: center; padding: 0; }
+  .tk-nav__lista { padding: var(--tk-space-3) var(--tk-space-2); }
+}
+@media (max-width: 899px) {
+  body.tk-shell { grid-template-columns: minmax(0, 1fr); }
+  .tk-nav { position: fixed; top: 0; left: 0; bottom: 0; width: min(280px, 100vw); z-index: 40; transform: translateX(-100%); transition: transform var(--tk-dur-slow) var(--tk-ease); box-shadow: var(--tk-elev-3); }
+  .tk-nav.is-open { transform: translateX(0); }
+  .tk-nav-scrim.is-open { display: block; }
+  .tk-brand { justify-content: flex-start; padding: var(--tk-space-4) var(--tk-space-4) var(--tk-space-3); }
+  .tk-brand__texto, .tk-nav__item span, .tk-nav__rodape { display: initial; }
+  .tk-brand__texto { display: flex; }
+  .tk-nav .tk-nav__fechar { display: inline-flex; }
+  .tk-nav__item { justify-content: flex-start; padding: 0 var(--tk-space-3); }
+  .tk-topbar { padding: 0 var(--tk-space-3); }
+  .tk-topbar .tk-topbar__nav { display: inline-flex; }
+  .tk-statusbar__texto { max-width: 34vw; overflow: hidden; text-overflow: ellipsis; }
+}
+@media (max-width: 480px) {
+  .tk-topbar__titulo { font-size: var(--tk-type-md-size); }
+}

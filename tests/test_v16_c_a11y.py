@@ -10,8 +10,10 @@ FRONT = HTML + "\n" + CSS + "\n" + JS
 
 
 def test_color_scheme_dark():
-    assert "color-scheme" in CSS
-    assert "dark" in CSS
+    # v1.9 (T-14.B1): o esquema de cores é declarado nos tokens gerados e na base
+    tokens = (REPO / "static" / "css" / "tokens.css").read_text(encoding="utf-8")
+    assert "color-scheme: dark light" in tokens
+    assert "@import url(\"css/tokens.css\")" in CSS
 
 
 def test_focus_visible_accent():

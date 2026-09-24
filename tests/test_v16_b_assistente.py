@@ -58,6 +58,7 @@ def test_html_tem_search_wrap_e_header_meta():
     assert 'search-wrap' in HTML
     assert 'search-icon' in HTML
     assert 'header-meta' in HTML
+    assert 'id="statusbar"' in (REPO / 'templates' / 'base.html').read_text(encoding='utf-8')
     assert 'context-bar' in CSS
     assert '.toast-region' in CSS
 

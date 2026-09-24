@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark light">
+<title>Transkriptor · {% block titulo %}Central{% endblock %}</title>
+<link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/layout.css') }}">
+{% block estilos %}{% endblock %}
+</head>
+<body class="tk-shell">
+  <a class="tk-skip" href="#conteudo">Ir para o conteúdo</a>
+  <div class="tk-nav-scrim" id="nav-scrim" aria-hidden="true"></div>
+  <nav class="tk-nav" id="nav" aria-label="Navegação principal">
+    <div class="tk-brand">
+      <span class="tk-brand__marca" aria-hidden="true"><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-mic"/></svg></span>
+      <span class="tk-brand__texto"><span class="tk-brand__nome">Transkriptor</span><span class="tk-brand__sub">Reuniões locais</span></span>
+      <button type="button" class="tk-btn tk-btn--quiet tk-btn--icon tk-nav__fechar" id="nav-fechar" aria-label="Fechar navegação"><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-x"/></svg></button>
+    </div>
+    <ul class="tk-nav__lista">
+      <li><a class="tk-nav__item" href="/inicio" data-page="inicio" title="Início"><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-home"/></svg><span>Início</span></a></li>
+      <li><a class="tk-nav__item" href="/reunioes" data-page="reunioes" title="Reuniões"><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-list"/></svg><span>Reuniões</span></a></li>
+      <li><a class="tk-nav__item" href="/" data-page="assistente" title="Assistente"><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-sparkles"/></svg><span>Assistente</span></a></li>
+      <li><a class="tk-nav__item" href="/participantes" data-page="participantes" title="Participantes"><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-users"/></svg><span>Participantes</span></a></li>
+      <li><a class="tk-nav__item" href="/configuracoes" data-page="configuracoes" title="Configurações"><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-gear"/></svg><span>Configurações</span></a></li>
+      <li><a class="tk-nav__item" href="/diagnostico" data-page="diagnostico" title="Diagnóstico"><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-activity"/></svg><span>Diagnóstico</span></a></li>
+    </ul>
+    <div class="tk-nav__rodape"><span class="tk-subtle tk-type-xs">Local em 127.0.0.1</span></div>
+  </nav>
+  <div class="tk-main">
+    <header class="tk-topbar">
+      <button type="button" class="tk-btn tk-btn--quiet tk-btn--icon tk-topbar__nav" id="nav-toggle" aria-label="Abrir navegação" aria-expanded="false" aria-controls="nav"><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-menu"/></svg></button>
+      <h1 class="tk-topbar__titulo">{% block titulo_pagina %}{{ self.titulo() }}{% endblock %}</h1>
+      <div class="tk-topbar__acoes">
+        <span class="tk-statusbar" id="statusbar" data-estado="indisponivel" role="status" aria-live="polite"><span class="tk-statusbar__ponto" aria-hidden="true"></span><span class="tk-statusbar__texto">Central sem bandeja</span></span>
+        <button type="button" class="tk-btn tk-btn--quiet tk-btn--icon" id="tema-toggle" data-tema-toggle aria-pressed="false" aria-label="Alternar tema"><svg class="tk-icon tk-tema__escuro"><use href="{{ url_for('static', filename='icones.svg') }}#i-moon"/></svg><svg class="tk-icon tk-tema__claro"><use href="{{ url_for('static', filename='icones.svg') }}#i-sun"/></svg></button>
+      </div>
+    </header>
+    <div class="tk-content" id="conteudo" tabindex="-1">{% block conteudo %}{% endblock %}</div>
+  </div>
+  <div id="toast-region" class="tk-toast-region" aria-live="polite" aria-atomic="true"></div>
+  <script type="module" src="{{ url_for('static', filename='js/shell.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -461,7 +461,4 @@ def iniciar_assistente_ui(app) -> None:
         app._assistente_token = None
 
 
-def _abrir_navegador(url: str, token: str) -> None:
-    import webbrowser
-
-    webbrowser.open(f"{url}?token={token}")
+from central_janela import _abrir_navegador  # noqa: E402,F401 — usado por iniciar_assistente_ui

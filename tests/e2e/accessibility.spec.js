@@ -4,8 +4,7 @@ const { resolve } = require("node:path");
 
 
 const raiz = resolve(__dirname, "../..");
-const modelo = readFileSync(resolve(raiz, "templates/assistente.html"), "utf8")
-  .replace(/\{\{[^}]*\}\}/g, "#");
+const modelo = require("./helpers").template("assistente");
 const js = readFileSync(resolve(raiz, "static/assistente.js"), "utf8");
 
 

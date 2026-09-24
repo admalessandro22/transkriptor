@@ -64,7 +64,8 @@ def test_html_sem_atributo_style():
 
 def test_html_sem_glifo_de_compatibilidade_e_com_favicon():
     assert "☰" not in HTML and "&#9776;" not in HTML
-    assert 'rel="icon"' in HTML
+    base = (REPO / "templates" / "base.html").read_text(encoding="utf-8")
+    assert 'rel="icon"' in base  # v1.9 (T-14.B1): o shell base.html carrega o favicon
     assert (REPO / "static" / "favicon.ico").is_file()
 
 
