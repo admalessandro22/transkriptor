@@ -13,6 +13,7 @@ Ver `tests/test_ciclo_reuniao_sem_deadlock.py` e `tests/test_lock_sem_callback.p
 
 from __future__ import annotations
 
+import functools
 import logging
 import threading
 import time
@@ -323,9 +324,13 @@ class CicloReuniaoMixin:
     def _pedir_e_iniciar(self):
         """Solicita consentimento antes de abrir dispositivo ou arquivo de áudio."""
         try:
-            perguntar = getattr(self, "_pedir_consentimento", None) or pedir_consentimento
-            autorizado = bool(perguntar())
             detector = getattr(self, "detector", None)
+            perguntar = getattr(self, "_pedir_consentimento", None)
+            if perguntar is None:
+                # UX-14.E3: o diálogo mostra a fonte detectada (rótulo fixo por fonte).
+                fontes = tuple(getattr(detector, "fontes_da_reuniao", None) or ())
+                perguntar = functools.partial(pedir_consentimento, fontes=fontes)
+            autorizado = bool(perguntar())
             reuniao_ainda_ativa = bool(
                 detector is not None and getattr(detector, "reuniao_ativa", False)
             )
