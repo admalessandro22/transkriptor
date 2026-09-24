@@ -1,6 +1,6 @@
 # Tasks — plataforma visual e Central (SDD v1.9)
 
-**Estado em 24/09/2026: plano aprovado; 4 `DONE` (F14.A concluída, B1), 17 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.B2.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
+**Estado em 24/09/2026: plano aprovado; 5 `DONE` (F14.A concluída, B1–B2), 16 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.B3.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
 
 Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, **Teste final** e **Aceite** são cumulativos. Os arquivos de teste novos são entregáveis da implementação; os seletores são planejados, não testes que já passaram. Nenhuma task usa dados reais; capturas usam `tests/e2e/fixtures/`.
 
@@ -50,7 +50,7 @@ Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, 
 
 ### T-14.B2 — lista de reuniões sobre o índice paginado
 
-- [ ] **Requisito:** UX-14.B2. **Depende de:** B1. **Estado:** `PENDING`.
+- [x] **Requisito:** UX-14.B2. **Depende de:** B1. **Estado:** `DONE`; commit `87bcd9d`; evidência: `evidencias/T-14.B2.md`.
 - **Arquivos:** criar `static/js/reunioes.js`, `templates/reunioes.html`, `tests/e2e/reunioes.spec.js`; modificar `templates/assistente.html` (`#transcricao` vira listbox), `static/js/chat.js` (extraído de `assistente.js`), `assistente.py` (`/api/transcricoes` deixa de enviar `preview` por padrão; `?preview=1` mantém o campo para compatibilidade), `tests/test_assistente_api.py`.
 - **Implementação:** listbox com `role="listbox"`, `aria-activedescendant`, setas/Home/End/digitação; linhas com data, duração, badges (Protegida/Legível, Separada por vozes, Com sua voz), estado do processamento; busca preserva seleção; paginação "Carregar mais" via `/api/reunioes-indice`; estados vazio (primeiro uso com instrução), sem resultado, carregando (skeleton), erro (com "Tentar de novo"); página Reuniões reutiliza o mesmo módulo em largura total.
 - **RED:** `reunioes.spec.js::lista nao mostra fala por padrao`, `::filtro preserva selecao`, `::teclado seleciona e move foco`, `::erro mostra acao e nao entra na lista`, `::carregar mais anexa sem duplicar`, `::selecionar troca contexto do chat`; `test_assistente_api.py::test_transcricoes_sem_preview_por_padrao`.
