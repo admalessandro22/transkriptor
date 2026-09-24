@@ -17,6 +17,8 @@ let ws = null;
 let pronto = false;
 let tentativas = 0;
 let timerReconectar = null;
+/** "nenhum" | "pendente" | "confirmado" | "recusado" — lido pela pairing.html. */
+let pareamento = "nenhum";
 const abas = new Map();
 
 function novoId() {
@@ -144,6 +146,19 @@ function enviarPonte(mensagem) {
   }
 }
 
+function registrarPareamento(estado) {
+  pareamento = estado;
+}
+
+function estadoPareamento() {
+  return pareamento;
+}
+
+/** 1008 = o app recusou a credencial (código expirado, usado ou errado). */
+function tratarFechamento(evento) {
+  if (evento && evento.code === 1008 && pareamento !== "confirmado") pareamento = "recusado";
+}
+
 function agendarReconexao() {
   if (typeof chrome === "undefined" || !chrome.storage) return;
   if (timerReconectar !== null) return;
@@ -153,6 +168,24 @@ function agendarReconexao() {
     timerReconectar = null;
     conectar();
   }, espera);
+}
+
+/** Novo código de pareamento: descarta o socket da credencial antiga. */
+function reconectarComNovaCredencial() {
+  if (timerReconectar !== null) {
+    clearTimeout(timerReconectar);
+    timerReconectar = null;
+  }
+  if (ws) {
+    const antigo = ws;
+    ws = null;
+    pronto = false;
+    antigo.onclose = null;
+    try {
+      antigo.close();
+    } catch (_e) {}
+  }
+  conectar();
 }
 
 function conectar() {
@@ -178,7 +211,8 @@ function conectar() {
         estado.session = null;
       }
     };
-    ws.onclose = function () {
+    ws.onclose = function (evento) {
+      tratarFechamento(evento);
       pronto = false;
       ws = null;
       agendarReconexao();
@@ -193,6 +227,7 @@ function conectar() {
         const msg = JSON.parse(evento.data);
         if (msg && msg.tipo === "pareado" && msg.token && chrome.storage) {
           chrome.storage.session.set({ [CHAVE_CREDENCIAL]: msg.token });
+          registrarPareamento("confirmado");
         }
         if (msg && msg.tipo === "sessao") aceitarSessao(msg);
       } catch (_e) {}
@@ -206,8 +241,15 @@ function aoReceberMensagem(mensagem, remetente, responder, dependencias = {}) {
     const runtimeId = dependencias.runtimeId || (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.id);
     if (!validarSenderPareamento(remetente, runtimeId)) return false;
     tentativas = 0;
-    (dependencias.conectar || conectar)();
-    if (typeof responder === "function") responder({ pronto });
+    registrarPareamento("pendente");
+    (dependencias.conectar || reconectarComNovaCredencial)();
+    if (typeof responder === "function") responder({ pronto, pareamento });
+    return true;
+  }
+  if (mensagem.tipo === "estadoPareamento") {
+    const runtimeId = dependencias.runtimeId || (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.id);
+    if (!validarSenderPareamento(remetente, runtimeId)) return false;
+    if (typeof responder === "function") responder({ pronto, pareamento });
     return true;
   }
   if (!validarSenderMeet(remetente)) return false;
@@ -253,6 +295,9 @@ if (typeof module !== "undefined" && module.exports) {
     aceitarSessao,
     atrasoReconexao,
     montarEnvelope,
+    registrarPareamento,
+    estadoPareamento,
+    tratarFechamento,
     PONTE_URL,
     RECONECTAR_BASE_MS,
     RECONECTAR_MAX_MS,

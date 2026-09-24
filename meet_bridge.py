@@ -340,12 +340,14 @@ async def _servidor_ws(bridge: MeetBridge, host: str, porta: int) -> None:
                 # Transição D2→D4: instalações antigas (token em config.js)
                 # seguem válidas até o re-pareamento; novas usam o pareador.
                 if not token_url_valido(token_url, bridge.token):
+                    logger.info("Extensão Meet recusada: credencial inválida, expirada ou já usada.")
                     await websocket.close(1008, "Unauthorized")
                     return
                 token_sessao, era_convite = bridge.token, False
             if era_convite:
                 try:
                     await websocket.send(json.dumps({"tipo": "pareado", "token": token_sessao}))
+                    logger.info("Extensão Meet pareada.")
                 except Exception:  # noqa: BLE001
                     logger.debug("Falha ao entregar credencial de pareamento", exc_info=True)
                     return

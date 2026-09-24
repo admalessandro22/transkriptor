@@ -88,13 +88,46 @@ function aoParear() {
         );
         return;
       }
-      if (resposta && resposta.pronto) {
-        definirEstado("sucesso", "Pareado e conectado. Pode fechar esta página.");
-      } else {
-        definirEstado("carregando", "Código guardado. Conectando ao Transkriptor…");
-      }
+      definirEstado("carregando", "Código guardado. Conectando ao Transkriptor…");
+      aguardarConfirmacao(resposta, 0);
     });
   });
+}
+
+var ESPERA_MS = 1000;
+var MAX_CONSULTAS = 20;
+
+/**
+ * Consulta o service worker até o app confirmar ("pareado") ou recusar (1008).
+ * Socket aberto não basta: o app só recusa o código depois do handshake.
+ */
+function aguardarConfirmacao(resposta, consultas) {
+  var estado = resposta && resposta.pareamento;
+  if (estado === "confirmado") {
+    definirEstado("sucesso", "Pareado e conectado. Pode fechar esta página.");
+    return;
+  }
+  if (estado === "recusado") {
+    definirEstado(
+      "erro",
+      "O Transkriptor recusou o código (expirado, já usado ou de outra sessão).",
+      "gere um novo código no Diagnóstico e pareie de novo."
+    );
+    return;
+  }
+  if (consultas >= MAX_CONSULTAS) {
+    definirEstado(
+      "erro",
+      "O Transkriptor não respondeu.",
+      "confira se o app está aberto e se Identificar nomes do Meet está ligado na bandeja; depois pareie de novo."
+    );
+    return;
+  }
+  setTimeout(function () {
+    chrome.runtime.sendMessage({ tipo: "estadoPareamento" }, function (proxima) {
+      aguardarConfirmacao(chrome.runtime.lastError ? null : proxima, consultas + 1);
+    });
+  }, ESPERA_MS);
 }
 
 function iniciar() {
@@ -113,5 +146,5 @@ if (typeof document !== "undefined") {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { validarCodigo, definirEstado, aoParear, iniciar, informar };
+  module.exports = { validarCodigo, definirEstado, aoParear, iniciar, informar, aguardarConfirmacao };
 }

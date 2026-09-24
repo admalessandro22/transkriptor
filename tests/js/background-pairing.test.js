@@ -41,3 +41,26 @@ describe("listener real do service worker", () => {
     expect(fundo.aoReceberMensagem({ tipo: "meet-evento", evento: { tipo: "reuniao" } }, sender)).toBe(false);
   });
 });
+
+describe("estado do pareamento", () => {
+  const sender = { id: runtimeId, frameId: 0, url: `chrome-extension://${runtimeId}/pairing.html` };
+
+  it("só a página de pareamento consulta; responde o estado registrado", () => {
+    fundo.registrarPareamento("pendente");
+    const resposta = vi.fn();
+    expect(fundo.aoReceberMensagem({ tipo: "estadoPareamento" }, sender, resposta, { runtimeId })).toBe(true);
+    expect(resposta).toHaveBeenCalledWith({ pronto: false, pareamento: "pendente" });
+
+    const meet = { frameId: 0, tab: { id: 3 }, url: "https://meet.google.com/abc-defg-hij" };
+    expect(fundo.aoReceberMensagem({ tipo: "estadoPareamento" }, meet, vi.fn(), { runtimeId })).toBe(false);
+  });
+
+  it("mensagem 'pareado' do app confirma; fechamento 1008 recusa", () => {
+    fundo.registrarPareamento("pendente");
+    fundo.tratarFechamento({ code: 1008 });
+    expect(fundo.estadoPareamento()).toBe("recusado");
+    fundo.registrarPareamento("confirmado");
+    fundo.tratarFechamento({ code: 1006 });
+    expect(fundo.estadoPareamento()).toBe("confirmado");
+  });
+});

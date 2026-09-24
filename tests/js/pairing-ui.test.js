@@ -18,12 +18,12 @@ function montar(chrome) {
   return require(caminho);
 }
 
-function chromeFalso({ pronto = true, lastError = undefined, adiar = false } = {}) {
+function chromeFalso({ pronto = true, pareamento = "confirmado", lastError = undefined, adiar = false } = {}) {
   return {
     storage: { session: { set: (obj, cb) => cb && cb() } },
     runtime: {
       lastError,
-      sendMessage: (msg, cb) => { if (!adiar && cb) cb({ pronto }); },
+      sendMessage: (msg, cb) => { if (!adiar && cb) cb({ pronto, pareamento }); },
     },
   };
 }
@@ -45,8 +45,8 @@ describe("pareamento (pairing.html + pairing.js)", () => {
     expect(html).not.toMatch(/https?:\/\//);
   });
 
-  it("sucesso mostra estado e desabilita campo", () => {
-    montar(chromeFalso({ pronto: true }));
+  it("sucesso (app confirmou o código) mostra estado e desabilita campo", () => {
+    montar(chromeFalso({ pronto: true, pareamento: "confirmado" }));
     document.querySelector("#codigo").value = "pair-codigo-de-uso-unico-12345";
     document.querySelector("#parear").click();
     const estado = document.querySelector("#estado");
@@ -90,7 +90,7 @@ describe("pareamento (pairing.html + pairing.js)", () => {
   });
 
   it("resposta sem pronto guarda o código e informa que está conectando", () => {
-    montar(chromeFalso({ pronto: false }));
+    montar(chromeFalso({ pronto: false, pareamento: "pendente" }));
     document.querySelector("#codigo").value = "pair-codigo-de-uso-unico-12345";
     document.querySelector("#parear").click();
     expect(document.querySelector("#estado").dataset.estado).toBe("carregando");
