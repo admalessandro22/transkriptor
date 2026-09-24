@@ -17,7 +17,8 @@ async function carregar(page, cenario) {
     window.fetch = async (url, opc) => {
       window.__chamadas.push({ url, metodo: (opc && opc.method) || "GET", corpo: opc && opc.body });
       const corpo = await window.__rotear(url, opc);
-      return { ok: corpo.status < 400, status: corpo.status, json: async () => corpo.json };
+      return { ok: corpo.status < 400, status: corpo.status,
+        json: async () => corpo.json, blob: async () => new Blob([corpo.text || ""]) };
     };
     window.__rotear = async (url, opc) => {
       const metodo = (opc && opc.method) || "GET";
@@ -42,6 +43,9 @@ async function carregar(page, cenario) {
         e.revisao = "rev-3";
         e.mapeamento = {};
         return { status: 200, json: { revision: e.revisao } };
+      }
+      if (url.endsWith("/exportar-txt") && metodo === "POST") {
+        return { status: 200, text: "fala exportada\n" };
       }
       return { status: 404, json: { erro: "x" } };
     };
@@ -82,6 +86,27 @@ test("drawer lista, corrige e desfaz com foco restaurado", async ({ page }) => {
 
   await page.click("#fechar-participantes");
   await expect(page.locator("#abrir-participantes")).toBeFocused();
+});
+
+
+test("exportação TXT exige confirmação e aciona download explícito", async ({ page }) => {
+  await carregar(page, { base: BASE, revisao: "rev-1", mapeamento: {} });
+  await page.click("#abrir-participantes");
+  await page.evaluate(() => {
+    window.__download = null;
+    HTMLAnchorElement.prototype.click = function () {
+      window.__download = { nome: this.download, url: this.href };
+    };
+  });
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await page.click("#exportar-txt");
+  expect(await page.evaluate(() => window.__chamadas.filter((c) => c.url.endsWith("/exportar-txt")))).toHaveLength(0);
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.click("#exportar-txt");
+  await expect(page.locator("#participantes-estado")).toContainText("TXT exportado");
+  expect(await page.evaluate(() => window.__download.nome)).toBe("reuniao-reuniao-x.txt");
+  expect(await page.evaluate(() => window.__chamadas.filter((c) => c.url.endsWith("/exportar-txt")))).toHaveLength(1);
 });
 
 

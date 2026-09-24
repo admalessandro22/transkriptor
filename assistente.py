@@ -203,6 +203,28 @@ def api_resultado_reuniao(meeting_id: str):
         return jsonify({"erro": "Resultado inválido"}), 422
 
 
+@app.route("/api/reunioes/<meeting_id>/exportar-txt", methods=["POST"])
+def api_exportar_txt_reuniao(meeting_id: str):
+    """Entrega TXT somente após ação explícita, sem gravar plaintext no servidor."""
+    from resultado_reuniao import carregar_segmentos, exportar_txt
+
+    protegido = _resultado_protegido(meeting_id)
+    caminho = _caminho_resultado(meeting_id) if not protegido else None
+    if not protegido and (caminho is None or not caminho.is_file()):
+        return jsonify({"erro": "Reunião não encontrada"}), 404
+    try:
+        dados = (protegido[0].load(protegido[1].segments_ref) if protegido
+                 else carregar_segmentos(caminho))
+        conteudo = exportar_txt(dados["segmentos"], dados["mapeamento"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return jsonify({"erro": "Resultado inválido"}), 422
+    resposta = make_response(conteudo)
+    resposta.mimetype = "text/plain"
+    resposta.charset = "utf-8"
+    resposta.headers["Content-Disposition"] = f'attachment; filename="reuniao-{meeting_id}.txt"'
+    return resposta
+
+
 @app.route("/api/reunioes/<meeting_id>/correcao", methods=["POST"])
 def api_corrigir_reuniao(meeting_id: str):
     from renomear_falante_flow import corrigir_nome_reuniao

@@ -645,6 +645,7 @@ const inputRevisao = document.getElementById('correcao-revisao');
 const estadoParticipantes = document.getElementById('participantes-estado');
 const formCorrecao = document.getElementById('form-correcao');
 const btnDesfazer = document.getElementById('desfazer-correcao');
+const btnExportarTxt = document.getElementById('exportar-txt');
 const btnFecharPart = document.getElementById('fechar-participantes');
 let ultimoFocoParticipantes = null;
 
@@ -815,11 +816,35 @@ async function desfazerCorrecao() {
   dizerParticipantes('Desfeito (' + dados.revision + ').');
 }
 
+async function exportarTxt() {
+  if (!selReuniao || !selReuniao.value) return;
+  if (!window.confirm('Exportar TXT legível desta reunião? O arquivo contém dados sensíveis.')) return;
+  const id = selReuniao.value;
+  const r = await fetch('/api/reunioes/' + encodeURIComponent(id) + '/exportar-txt', {
+    ...fetchOpts, method: 'POST', headers: apiHeaders({'Content-Type': 'application/json'}),
+    body: '{}'
+  });
+  if (!r.ok) { dizerParticipantes('Falha ao exportar TXT.'); return; }
+  const url = URL.createObjectURL(await r.blob());
+  try {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'reuniao-' + id + '.txt';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    dizerParticipantes('TXT exportado. Guarde o arquivo com cuidado.');
+  } finally {
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+}
+
 if (btnParticipantes) btnParticipantes.onclick = () => abrirParticipantes(true);
 if (btnFecharPart) btnFecharPart.onclick = () => abrirParticipantes(false);
 if (selReuniao) selReuniao.addEventListener('change', carregarResultado);
 if (formCorrecao) formCorrecao.addEventListener('submit', salvarCorrecao);
 if (btnDesfazer) btnDesfazer.onclick = desfazerCorrecao;
+if (btnExportarTxt) btnExportarTxt.onclick = exportarTxt;
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && drawerParticipantes && !drawerParticipantes.hidden) abrirParticipantes(false);
 });
