@@ -357,6 +357,14 @@ def index():
     return render_template("assistente.html")
 
 
+@app.route("/galeria")
+def galeria():
+    """UX-14.A3: galeria de componentes, só para revisão visual local."""
+    if os.environ.get("TRANSKRIPTOR_GALERIA") != "1":
+        return jsonify({"erro": "Galeria desativada"}), 404
+    return render_template("galeria.html")
+
+
 @app.route("/api/saude")
 def api_saude():
     ollama_ok = False

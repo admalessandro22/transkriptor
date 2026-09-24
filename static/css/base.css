@@ -1,0 +1,55 @@
+/* Base tipográfica e reset da Central (SDD v1.9, T-14.A3). Consome só tokens --tk-*. */
+*, *::before, *::after { box-sizing: border-box; }
+html { color-scheme: dark light; scrollbar-gutter: stable; -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  font-family: var(--tk-font-sans);
+  font-size: var(--tk-type-md-size);
+  line-height: var(--tk-type-md-line);
+  color: var(--tk-text-1);
+  background: var(--tk-bg-0);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+h1, h2, h3, h4, p, ul, ol, figure { margin: 0; }
+ul, ol { padding: 0; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: var(--tk-accent); text-decoration: underline; text-underline-offset: 2px; }
+a:hover { color: var(--tk-text-1); }
+code, kbd, pre { font-family: var(--tk-font-mono); }
+img, svg { display: block; max-width: 100%; }
+
+/* Escala tipográfica */
+.tk-type-xs { font-size: var(--tk-type-xs-size); line-height: var(--tk-type-xs-line); }
+.tk-type-sm { font-size: var(--tk-type-sm-size); line-height: var(--tk-type-sm-line); }
+.tk-type-md { font-size: var(--tk-type-md-size); line-height: var(--tk-type-md-line); }
+.tk-type-lg { font-size: var(--tk-type-lg-size); line-height: var(--tk-type-lg-line); font-weight: 500; }
+.tk-type-xl { font-size: var(--tk-type-xl-size); line-height: var(--tk-type-xl-line); font-weight: 600; font-family: var(--tk-font-display); }
+.tk-type-2xl { font-size: var(--tk-type-2xl-size); line-height: var(--tk-type-2xl-line); font-weight: 600; font-family: var(--tk-font-display); }
+.tk-type-3xl { font-size: var(--tk-type-3xl-size); line-height: var(--tk-type-3xl-line); font-weight: 600; font-family: var(--tk-font-display); font-variant-numeric: tabular-nums; }
+.tk-label { font-size: var(--tk-type-xs-size); line-height: var(--tk-type-xs-line); font-weight: 500; letter-spacing: 0.4px; text-transform: uppercase; color: var(--tk-text-3); }
+.tk-muted { color: var(--tk-text-2); }
+.tk-subtle { color: var(--tk-text-3); }
+.tk-num { font-variant-numeric: tabular-nums; }
+.tk-prose { max-width: 72ch; }
+
+/* Utilitários de estado e acessibilidade */
+.is-hidden { display: none !important; }
+.tk-visually-hidden { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.tk-icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+.tk-icon--sm { width: 16px; height: 16px; }
+.tk-icon--lg { width: 24px; height: 24px; }
+
+/* Foco: anel de dois tons, visível nos dois temas */
+:focus-visible { outline: 2px solid var(--tk-accent); outline-offset: 2px; }
+.tk-focus-ring:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--tk-bg-1), 0 0 0 4px var(--tk-accent); }
+
+/* Movimento e contraste forçado */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
+@media (forced-colors: active) {
+  .tk-btn, .tk-field input, .tk-field select, .tk-field textarea, .tk-listbox, .tk-row, .tk-toast, .tk-dialog, .tk-panel, .tk-chip, .tk-badge { border: 1px solid CanvasText; }
+  .tk-icon { forced-color-adjust: auto; }
+}

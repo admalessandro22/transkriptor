@@ -35,7 +35,8 @@ def test_drawer_860_e_375():
     assert "drawer-open" in CSS
     assert "drawer-overlay" in HTML
     assert "translateX(-100%)" in CSS
-    assert "cubic-bezier(0.32,0.72,0,1)" in CSS
+    # v1.9 (T-14.A3): a easing vem do token de movimento
+    assert "transition: transform var(--tk-dur-slow) var(--tk-ease)" in CSS
 
 
 def test_keyboard_nav_cards():
