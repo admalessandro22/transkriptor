@@ -1,0 +1,64 @@
+- link "Ir para o conteúdo":
+  - /url: "#conteudo"
+- navigation "Navegação principal":
+  - text: Transkriptor Reuniões locais
+  - list:
+    - listitem:
+      - link "Início":
+        - /url: /inicio
+        - img
+        - text: Início
+    - listitem:
+      - link "Reuniões":
+        - /url: /reunioes
+        - img
+        - text: Reuniões
+    - listitem:
+      - link "Assistente":
+        - /url: /
+        - img
+        - text: Assistente
+    - listitem:
+      - link "Participantes":
+        - /url: /participantes
+        - img
+        - text: Participantes
+    - listitem:
+      - link "Configurações":
+        - /url: /configuracoes
+        - img
+        - text: Configurações
+    - listitem:
+      - link "Diagnóstico":
+        - /url: /diagnostico
+        - img
+        - text: Diagnóstico
+  - text: Local em 127.0.0.1
+- banner:
+  - heading "Início" [level=1]
+  - status: Aguardando reunião
+  - button "Mudar para tema escuro":
+    - img
+- main:
+  - heading "Início" [level=2]
+  - paragraph: O que o Transkriptor está fazendo agora, a última reunião e a proteção em vigor. Tudo local, em 127.0.0.1.
+  - link "Abrir assistente":
+    - /url: /
+  - link "Diagnóstico":
+    - /url: /diagnostico
+  - region "Agora": Agora Aguardando reunião Nenhuma reunião à vista. Ao detectar uma, o Transkriptor pergunta antes de gravar.
+  - region "Última reunião": "Última reunião 22/09 · 10:03 Estado: Pronta."
+  - region "Proteção": Proteção Protegida Resultados e eventos cifrados em repouso; exportar texto legível exige ação explícita.
+  - region "Últimas reuniões":
+    - heading "Últimas reuniões" [level=3]
+    - link "Ver todas":
+      - /url: /reunioes
+    - text: 22/09/2026 · 10:03 30 min · Revisão 1 Pronta
+    - link "Abrir no Assistente":
+      - /url: /?reuniao=2026-09-22_10h03_diarizado
+    - text: 21/09/2026 · 10:03 31 min · Revisão 2 Parcial
+    - link "Abrir no Assistente":
+      - /url: /?reuniao=2026-09-18_15h30
+    - text: 20/09/2026 · 10:03 32 min · Revisão 3 Parcial
+    - link "Abrir no Assistente":
+      - /url: /?reuniao=2026-09-11_09h00_diarizado

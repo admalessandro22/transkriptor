@@ -12,6 +12,7 @@ const parserScript = readFileSync(resolve(raiz, "extension/meet/parser.js"), "ut
 const fundoScript = readFileSync(resolve(raiz, "extension/meet/background.js"), "utf8");
 const pairingHtml = readFileSync(resolve(raiz, "extension/meet/pairing.html"), "utf8");
 const pairingJs = readFileSync(resolve(raiz, "extension/meet/pairing.js"), "utf8");
+const pairingCss = readFileSync(resolve(raiz, "extension/meet/pairing.css"), "utf8");
 
 
 test("manifesto MV3: service worker, sem segredo no content script", async () => {
@@ -57,6 +58,43 @@ test("pareamento real guarda o código e aciona o service worker", async ({ page
     .poll(() => page.evaluate(() => window.__enviado))
     .toEqual([{ tipo: "parear" }]);
   await expect(page.locator("#estado")).not.toBeEmpty();
+  // UX-14.E5: resposta sem `pronto` = ainda conectando (estado carregando)
+  await expect(page.locator("#estado")).toHaveAttribute("data-estado", "carregando");
+});
+
+
+test("página de pareamento: IDs mantidos, passos, estados e nenhuma rede externa", async ({ page }) => {
+  expect(pairingHtml).toMatch(/id="codigo"/);
+  expect(pairingHtml).toMatch(/id="parear"/);
+  expect(pairingHtml).toMatch(/id="estado"/);
+  expect(pairingHtml).toMatch(/<link rel="stylesheet" href="pairing.css">/);
+  expect(pairingHtml).not.toMatch(/<style|style=|https?:\/\//);
+  expect(pairingCss).not.toMatch(/@import|https?:\/\/|url\(/);
+  expect(manifest.icons).toMatchObject({ "16": "icons/icone-16.png", "128": "icons/icone-128.png" });
+  const pedidos = [];
+  page.on("request", (req) => pedidos.push(req.url()));
+  await page.route("**/*", (rota) => {
+    const url = rota.request().url();
+    if (url.endsWith("/pairing.css")) return rota.fulfill({ status: 200, contentType: "text/css", body: pairingCss });
+    if (url.endsWith("/pairing.js")) return rota.fulfill({ status: 200, contentType: "text/javascript", body: pairingJs });
+    if (url.endsWith("/icons/icone-48.png")) return rota.fulfill({ status: 200, contentType: "image/png", body: readFileSync(resolve(raiz, "extension/meet/icons/icone-48.png")) });
+    if (url.startsWith("http://extensao.local/")) return rota.fulfill({ status: 200, contentType: "text/html", body: pairingHtml });
+    return rota.abort();
+  });
+  await page.addInitScript(() => {
+    window.chrome = {
+      storage: { session: { set: (obj, cb) => cb && cb() } },
+      runtime: { lastError: undefined, sendMessage: (msg, cb) => cb && cb({ pronto: true }) },
+    };
+  });
+  await page.goto("http://extensao.local/pairing.html");
+  await expect(page.locator("ol.passos li")).toHaveCount(4);
+  await page.fill("#codigo", "pair-codigo-de-uso-unico-12345");
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#estado")).toHaveAttribute("data-estado", "sucesso");
+  await expect(page.locator("#codigo")).toBeDisabled();
+  await expect(page.locator("#parear")).toBeDisabled();
+  expect(pedidos.filter((u) => !u.startsWith("http://extensao.local/"))).toEqual([]);
 });
 
 

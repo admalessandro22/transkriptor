@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block titulo %}Página indisponível{% endblock %}
+{% block conteudo %}
+<div class="tk-page">
+  <div class="tk-empty">
+    <svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-layout"/></svg>
+    <h2 class="tk-empty__titulo">Esta página ainda não existe</h2>
+    <p class="tk-empty__texto">Ela chega numa próxima etapa da Central. Enquanto isso, o Assistente continua disponível.</p>
+    <a class="tk-btn tk-btn--primary" href="/">Ir para o Assistente</a>
+  </div>
+</div>
+{% endblock %}

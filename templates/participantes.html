@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block titulo %}Participantes{% endblock %}
+{% block estilos %}<link rel="stylesheet" href="{{ url_for('static', filename='css/participantes.css') }}">{% endblock %}
+{% block conteudo %}
+<div class="tk-page" id="pagina-participantes">
+  <div class="tk-page__inner">
+    <div class="tk-page__cabecalho">
+      <div>
+        <h2 class="tk-page__titulo">Participantes</h2>
+        <p class="tk-subtle">Quem falou em cada reunião, com a origem de cada nome. Corrija nomes só para esta reunião; nenhuma voz é cadastrada sem uma ação separada.</p>
+      </div>
+      <span class="tk-badge" id="reuniao-revisao" aria-live="polite">Revisão —</span>
+    </div>
+    <section id="participantes-drawer" class="participantes participantes--pagina" aria-labelledby="participantes-titulo">
+      <h2 id="participantes-titulo" class="tk-visually-hidden">Participantes da reunião</h2>
+      {% include "_participantes_corpo.html" %}
+    </section>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script type="module" src="{{ url_for('static', filename='js/participantes-pagina.js') }}"></script>{% endblock %}

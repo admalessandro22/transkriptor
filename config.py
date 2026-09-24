@@ -138,6 +138,14 @@ FATOR_TRAVAMENTO_MONITOR = 3        # 3 x INTERVALO_MONITOR_MEET = 15 s
 # Portão do consentimento: se a pergunta morrer sem responder, o portão precisa
 # reabrir sozinho — senão uma falha cega todas as reuniões seguintes.
 LIMITE_PORTAO_CONSENTIMENTO_SEG = TIMEOUT_AVISO_GRAVACAO_SEG + 30
+
+# Diálogo de consentimento (UX-14.E3): geometria base em 96 dpi, escalada por
+# consentimento_layout.layout_consentimento(dpi). Botão primário >= 36 px (alvo de toque).
+CONSENTIMENTO_DPI_BASE = 96
+CONSENTIMENTO_LARGURA_BASE = 520
+CONSENTIMENTO_MARGEM_BASE = 22
+CONSENTIMENTO_BOTAO_ALTURA_MIN = 36
+CONSENTIMENTO_ICONE_BASE = 32
 # ---- Aviso de gravação (FR-2.9 / FR-9.4) ----
 PERGUNTAR_ANTES_DE_GRAVAR = True    # diálogo Sim/Não ao detectar reunião
 

@@ -1,0 +1,10 @@
+/* Layout da galeria de componentes (SDD v1.9, T-14.A3). */
+.galeria { max-width: 1200px; margin: 0 auto; padding: var(--tk-space-5) var(--tk-space-4) var(--tk-space-8); display: flex; flex-direction: column; gap: var(--tk-space-6); }
+.galeria__cabecalho { display: flex; align-items: center; justify-content: space-between; gap: var(--tk-space-4); flex-wrap: wrap; }
+.galeria__secao { display: flex; flex-direction: column; gap: var(--tk-space-3); padding-top: var(--tk-space-4); border-top: 1px solid var(--tk-border); }
+.galeria__linha { display: flex; flex-wrap: wrap; gap: var(--tk-space-3); align-items: center; }
+.galeria__grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--tk-space-4); }
+.galeria__coluna { display: flex; flex-direction: column; gap: var(--tk-space-3); max-width: 560px; }
+.galeria__toasts-estaticos { display: flex; flex-wrap: wrap; gap: var(--tk-space-3); }
+.galeria__toasts-estaticos .tk-toast { animation: none; }
+.galeria__barra-62 { width: 62%; }

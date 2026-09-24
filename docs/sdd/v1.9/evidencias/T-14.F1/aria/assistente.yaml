@@ -1,0 +1,78 @@
+- link "Ir para o conteúdo":
+  - /url: "#conteudo"
+- navigation "Navegação principal":
+  - text: Transkriptor Reuniões locais
+  - list:
+    - listitem:
+      - link "Início":
+        - /url: /inicio
+        - img
+        - text: Início
+    - listitem:
+      - link "Reuniões":
+        - /url: /reunioes
+        - img
+        - text: Reuniões
+    - listitem:
+      - link "Assistente":
+        - /url: /
+        - img
+        - text: Assistente
+    - listitem:
+      - link "Participantes":
+        - /url: /participantes
+        - img
+        - text: Participantes
+    - listitem:
+      - link "Configurações":
+        - /url: /configuracoes
+        - img
+        - text: Configurações
+    - listitem:
+      - link "Diagnóstico":
+        - /url: /diagnostico
+        - img
+        - text: Diagnóstico
+  - text: Local em 127.0.0.1
+- banner:
+  - heading "Assistente" [level=1]
+  - status: Aguardando reunião
+  - button "Mudar para tema escuro":
+    - img
+- main:
+  - complementary "Controles da reunião":
+    - text: Reunião e modelo Reunião 3
+    - searchbox "Filtrar reuniões"
+    - listbox "Reunião":
+      - option "22/09/2026 10:03 96.4 KB Separada por vozes"
+      - option "18/09/2026 15:30 41.2 KB"
+      - option "11/09/2026 09:00 12.8 KB Protegida Separada por vozes"
+    - text: Modelo IA
+    - combobox "Modelo IA":
+      - option "llama3.1:8b" [selected]
+      - option "qwen2.5:7b"
+    - status: llama3.1:8b
+  - text: Reunião ativa Nenhuma selecionada
+  - button "Participantes"
+  - log "Histórico da conversa":
+    - status:
+      - heading "Pergunte sobre uma reunião" [level=2]
+      - list:
+        - listitem: 1 Escolha uma reunião na lista ao lado.
+        - listitem: 2 Use uma ação rápida ou escreva sua pergunta.
+        - listitem: 3 A resposta é gerada localmente pelo Ollama. Nada sai da sua máquina.
+      - text: Enter enviar Shift + Enter nova linha Esc cancelar
+  - group "Ações rápidas de análise":
+    - button "Resumir reunião"
+    - button "Pontos principais"
+    - button "Tarefas e ações"
+    - button "Decisões"
+    - button "Próximos passos"
+    - button "Pendências e riscos"
+  - button "Editar prompt"
+  - textbox "Campo de pergunta":
+    - /placeholder: Pergunte algo sobre a reunião…
+  - button "Enviar pergunta"
+  - text: Enter enviar · Shift + Enter nova linha · Esc parar
+  - button "Limpar conversa"
+  - button "Copiar última resposta da IA" [disabled]: Copiar última

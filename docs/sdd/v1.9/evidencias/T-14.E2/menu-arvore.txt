@@ -1,0 +1,36 @@
+Aguardando reunião · nenhuma reunião à vista
+──────────
+Abrir Transkriptor (padrão)
+Gravação automática [x]
+Separar vozes [x]
+──────────
+Reuniões
+  Abrir assistente (IA local)
+  Renomear falante e participantes (Central)
+  Retranscrever áudio…
+  Abrir pasta de transcrições
+Configurações
+  Minha voz
+    Cadastrar minha voz (20s)
+    Identificar minha voz [ ]
+    Apagar perfil de voz
+    Abrir pasta vozes conhecidas
+  Google Meet
+    Identificar nomes do Meet [x]
+    Modo legendas Meet (Tactiq) [ ]
+    Instalar extensão Meet (pasta)
+  Proteção
+    Criar cópia criptografada (.tkpt) [x]
+    Ativar modo protegido para novas reuniões…
+  Modelo Whisper
+    auto [x]
+    tiny [ ]
+    base [ ]
+    small [ ]
+    medium [ ]
+    large-v3 [ ]
+  Iniciar com o Windows [ ]
+  Abrir log
+Diagnóstico (por que não está gravando?)
+──────────
+Sair

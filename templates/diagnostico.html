@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block titulo %}Diagnóstico{% endblock %}
+{% block estilos %}<link rel="stylesheet" href="{{ url_for('static', filename='css/diagnostico.css') }}">{% endblock %}
+{% block conteudo %}
+<div class="tk-page" id="pagina-diagnostico">
+  <div class="tk-page__inner">
+    <div class="tk-page__cabecalho">
+      <div>
+        <h2 class="tk-page__titulo">Diagnóstico</h2>
+        <p class="tk-subtle">Por que não está gravando? Testa áudio, detecção, dependências e modelo, e sugere o próximo passo para cada item.</p>
+      </div>
+      <div class="diag__acoes">
+        <button type="button" class="tk-btn tk-btn--primary" id="diag-rodar">Rodar diagnóstico</button>
+        <button type="button" class="tk-btn tk-btn--secondary" id="diag-exportar" disabled>Exportar sem dados pessoais</button>
+      </div>
+    </div>
+
+    <div id="diag-indisponivel" class="tk-empty" hidden>
+      <h3 class="tk-empty__titulo">Central sem bandeja</h3>
+      <p class="tk-empty__texto">O diagnóstico precisa do aplicativo da bandeja aberto e ligado a esta Central.</p>
+    </div>
+
+    <section class="diag__resumo" id="diag-resumo" hidden aria-live="polite">
+      <span class="tk-badge tk-badge-state" id="diag-resumo-badge" data-estado="aguardando">—</span>
+      <span class="tk-subtle" id="diag-resumo-texto"></span>
+    </section>
+
+    <div class="tk-rows" id="diag-lista" aria-label="Itens do diagnóstico" hidden></div>
+    <div class="diag__skeleton" id="diag-skeleton" hidden aria-hidden="true">
+      <span class="tk-skeleton tk-skeleton--card"></span><span class="tk-skeleton tk-skeleton--card"></span><span class="tk-skeleton tk-skeleton--card"></span>
+    </div>
+    <div class="tk-empty" id="diag-vazio">
+      <svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-activity"/></svg>
+      <h3 class="tk-empty__titulo">Nenhum diagnóstico ainda</h3>
+      <p class="tk-empty__texto">Rodar leva alguns segundos: grava meio segundo de áudio para testar o loopback e o microfone.</p>
+    </div>
+
+    <section class="diag__retranscrever" id="retranscrever" aria-labelledby="retranscrever-titulo">
+      <div class="tk-page__cabecalho">
+        <div>
+          <h3 class="tk-page__titulo" id="retranscrever-titulo">Áudios retidos</h3>
+          <p class="tk-subtle">Reprocesse um áudio guardado em transcrições/audio. A transcrição sai com as configurações atuais (separação de vozes, proteção, identificação).</p>
+        </div>
+        <span class="tk-badge" id="retranscrever-estado" role="status" aria-live="polite"></span>
+      </div>
+      <div class="tk-rows" id="retranscrever-lista" hidden></div>
+      <div class="tk-empty" id="retranscrever-vazio" hidden></div>
+    </section>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script type="module" src="{{ url_for('static', filename='js/diagnostico.js') }}"></script>{% endblock %}

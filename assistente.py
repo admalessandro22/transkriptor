@@ -12,6 +12,16 @@ import urllib.request
 
 from flask import Flask, jsonify, make_response, redirect, render_template, request
 
+from assistente_cabecalhos import aplicar_cabecalhos
+from central_api import bp as central_api_bp
+from central_config import bp as central_config_bp
+from central_diagnostico import bp as central_diagnostico_bp
+from central_paginas import PAGINAS_CENTRAL, bp as central_paginas_bp
+from transcricoes_meta import (  # noqa: F401 — reexportados para compatibilidade
+    detalhes_transcricao,
+    rotulo_usuario_efetivo,
+    transcricao_contem_voce,
+)
 from assistente_ollama import (
     _cache_ctx,
     chamar_ollama_sync as _chamar_ollama_sync,
@@ -34,6 +44,10 @@ from config import (
 )
 
 app = Flask(__name__, root_path=str(BASE_DIR))
+app.register_blueprint(central_paginas_bp)
+app.register_blueprint(central_api_bp)
+app.register_blueprint(central_config_bp)
+app.register_blueprint(central_diagnostico_bp)
 app.config["MAX_CONTENT_LENGTH"] = MAX_CORPO_CHAT_BYTES
 
 _semaforo_chat = threading.BoundedSemaphore(CHAT_MAX_CONCORRENTES)
@@ -73,12 +87,7 @@ def verificar_token():
 
 @app.after_request
 def cabecalhos_privacidade(resposta):
-    resposta.headers["Cache-Control"] = "no-store"
-    resposta.headers["Referrer-Policy"] = "no-referrer"
-    resposta.headers["X-Content-Type-Options"] = "nosniff"
-    resposta.headers["X-Frame-Options"] = "DENY"
-    resposta.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'"
-    return resposta
+    return aplicar_cabecalhos(resposta)
 
 
 @app.errorhandler(413)
@@ -298,25 +307,6 @@ def caminho_transcricao_seguro(nome: str):
     return caminho
 
 
-def rotulo_usuario_efetivo() -> str:
-    """Lê rotulo_usuario de config_user.json; fallback para ROTULO_USUARIO (FR-5.7)."""
-    try:
-        import config_user
-
-        valor = config_user.carregar().get("rotulo_usuario")
-        if valor:
-            return str(valor)
-    except Exception:
-        pass
-    return ROTULO_USUARIO
-
-
-def transcricao_contem_voce(conteudo: str, rotulo: str | None = None) -> bool:
-    """True se diarização inclui o rótulo efetivo do usuário (FR-5.7)."""
-    rotulo_efetivo = rotulo if rotulo is not None else ROTULO_USUARIO
-    return bool(rotulo_efetivo) and rotulo_efetivo in conteudo
-
-
 def ler_conteudo_transcricao(nome: str) -> str | None:
     """Único caminho de leitura de transcrições para a API (FR-3.4)."""
     if not caminho_transcricao_seguro(nome):
@@ -353,7 +343,9 @@ def aguardar_servidor(url, timeout=10, intervalo=0.5):
 def index():
     token_q = request.args.get("token")
     if token_q and token_q == SESSAO_TOKEN:
-        resp = make_response(redirect("/", code=302))
+        destino = request.args.get("next", "")
+        alvo = f"/{destino}" if destino in PAGINAS_CENTRAL else "/"
+        resp = make_response(redirect(alvo, code=302))
         resp.set_cookie(
             COOKIE_TOKEN, SESSAO_TOKEN, httponly=True, samesite="Strict", path="/"
         )
@@ -379,38 +371,35 @@ def api_saude():
 
 @app.route("/api/transcricoes")
 def api_transcricoes():
+    """UX-14.B2: metadados sem abrir conteúdo; `detalhes=1` (opcionalmente por
+    `arquivo`) acrescenta preview e `com_sua_voz`, que exigem ler o texto."""
     os.makedirs(PASTA_TRANSCRICOES, exist_ok=True)
+    detalhes = request.args.get("detalhes") == "1"
+    apenas = request.args.get("arquivo")
     arquivos = sorted(
         f
         for f in os.listdir(PASTA_TRANSCRICOES)
         if _extensao_transcricao_permitida(f)
         and os.path.isfile(os.path.join(PASTA_TRANSCRICOES, f))
     )
+    if apenas is not None:
+        arquivos = [f for f in arquivos if f == apenas and caminho_transcricao_seguro(f)]
     resultado = []
     rotulo = rotulo_usuario_efetivo()
     for nome in arquivos:
-        caminho = os.path.join(PASTA_TRANSCRICOES, nome)
-        stat = os.stat(caminho)
-        preview, conteudo = "", ""
-        try:
-            conteudo = ler_conteudo_transcricao(nome) or ""
-            linhas = [
-                l.strip()
-                for l in conteudo[:500].split("\n")
-                if l.strip() and not l.startswith("===")
-            ]
-            preview = linhas[0][:80] if linhas else ""
-        except Exception:
-            pass
+        stat = os.stat(os.path.join(PASTA_TRANSCRICOES, nome))
         tipo = "diarizado" if "_diarizado" in nome else "transcricao"
-        resultado.append({
+        item = {
             "arquivo": nome,
             "data": datetime.datetime.fromtimestamp(stat.st_mtime).strftime("%d/%m/%Y %H:%M"),
             "tipo": tipo,
             "tamanho_kb": round(stat.st_size / 1024, 1),
-            "preview": preview,
-            "com_sua_voz": tipo == "diarizado" and transcricao_contem_voce(conteudo, rotulo),
-        })
+            "protegida": nome.endswith(".tkpt"),
+            "com_sua_voz": None,
+        }
+        if detalhes:
+            item.update(detalhes_transcricao(nome, tipo, rotulo, ler_conteudo_transcricao))
+        resultado.append(item)
     return jsonify(resultado)
 
 

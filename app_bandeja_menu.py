@@ -10,6 +10,7 @@ import threading
 
 import pystray
 
+from confirmacoes import confirmar_na_bandeja
 from config import (
     ARQUIVO_PERFIL_VOZ,
     ARQUIVO_PERFIL_VOZ_ENC,
@@ -39,12 +40,11 @@ from transkriptor_acoes import (
     confirmacao_saida_necessaria,
     deve_confirmar_pausa,
     saida_permitida,
-    texto_deteccao_menu,
 )
 from transkriptor_lock import liberar_lock
 from transkriptor_menu_flows import (
+    abrir_central,
     iniciar_assistente_ui,
-    iniciar_renomear_falante_ui,
     iniciar_retranscricao_ui,
     rodar_diagnostico_ui,
 )
@@ -69,49 +69,29 @@ class MenuBandejaMixin:
         iniciar_retranscricao_ui(self)
 
     def _confirmar_saida(self):
-        try:
-            import ctypes
-
-            return (
-                ctypes.windll.user32.MessageBoxW(
-                    0,
-                    "Transcricao em andamento. Parar e sair?",
-                    "Transkriptor",
-                    0x00000004 | 0x00000030,
-                )
-                == 6
-            )
-        except Exception:
-            return False
+        return confirmar_na_bandeja("sair_gravando")
 
     def abrir_assistente(self, _icone=None, _item=None):
         threading.Thread(target=iniciar_assistente_ui, args=(self,), daemon=True).start()
 
-    def _texto_pergunta_gravacao(self, _item=None):
-        return "✓ Confirmar antes de gravar (obrigatório)"
+    def abrir_central(self, _icone=None, _item=None):
+        """UX-14.D2: a Central é a interface principal; a bandeja lança e indica."""
+        abrir_central(self, "inicio")
 
     def abrir_diagnostico(self, _icone=None, _item=None):
         threading.Thread(target=rodar_diagnostico_ui, args=(self,), daemon=True).start()
 
     def _confirmar_pausa_padrao(self) -> bool:
-        try:
-            import ctypes
-
-            return (
-                ctypes.windll.user32.MessageBoxW(
-                    0,
-                    "O Transkriptor NÃO gravará reuniões enquanto pausado. Continuar?",
-                    "Transkriptor",
-                    0x34,
-                )
-                == 6
-            )
-        except Exception:
-            return True
+        # UX-14.E4: mesmo texto da Central; caixa indisponível = não pausa.
+        return confirmar_na_bandeja("pausar_gravacao")
 
     def alternar_deteccao(self, _icone=None, _item=None):
+        # pystray só aceita ações com até dois parâmetros; a Central usa `_com`.
+        self.alternar_deteccao_com()
+
+    def alternar_deteccao_com(self, confirmar=None):
         if deve_confirmar_pausa(self.deteccao_ativa):
-            confirmar = getattr(self, "_confirmar_pausa", None) or self._confirmar_pausa_padrao
+            confirmar = confirmar or getattr(self, "_confirmar_pausa", None) or self._confirmar_pausa_padrao
             if not confirmar():
                 return
         with self._lock:
@@ -167,8 +147,14 @@ class MenuBandejaMixin:
         self._atualizar_tooltip()
 
     def apagar_perfil_voz(self, _icone=None, _item=None):
+        # UX-14.E4: ação irreversível pede confirmação também na bandeja.
+        self.apagar_perfil_voz_com(confirmar=lambda: confirmar_na_bandeja("apagar_perfil_voz"))
+
+    def apagar_perfil_voz_com(self, confirmar=None):
         import config_user
 
+        if confirmar is not None and not confirmar():
+            return
         apagar_arquivos_perfil()
         self.identificar_minha_voz = False
         desativar_perfil_na_config(config_user.carregar, config_user.salvar)
@@ -195,11 +181,10 @@ class MenuBandejaMixin:
             def _fazer_acao(n=nome):
                 return lambda icone=None, item=None: self.definir_modelo_whisper(icone, n)
 
-            def _texto(item=None, n=nome):
-                marca = "✓ " if getattr(self, "modelo_whisper", MODELO_WHISPER) == n else ""
-                return f"{marca}{n}"
+            def _marcado(item=None, n=nome):
+                return getattr(self, "modelo_whisper", MODELO_WHISPER) == n
 
-            itens.append(pystray.MenuItem(_texto, _fazer_acao(), radio=True))
+            itens.append(pystray.MenuItem(nome, _fazer_acao(), checked=_marcado, radio=True))
         return pystray.Menu(*itens)
 
     def alternar_criptografia(self, _icone=None, _item=None):
@@ -221,19 +206,12 @@ class MenuBandejaMixin:
         self._atualizar_tooltip()
 
     def _confirmar_modo_protegido(self):
-        try:
-            import ctypes
-
-            return ctypes.windll.user32.MessageBoxW(
-                0,
-                "Ativar modo protegido para novas reuniões? Arquivos existentes não serão migrados ou apagados.",
-                "Transkriptor",
-                0x00000004 | 0x00000030,
-            ) == 6
-        except Exception:
-            return False
+        return confirmar_na_bandeja("modo_protegido")
 
     def ativar_modo_protegido(self, _icone=None, _item=None):
+        self.ativar_modo_protegido_com()
+
+    def ativar_modo_protegido_com(self, confirmar=None):
         import config_user
         from politica_privacidade import ProtectionMode, modo_efetivo
 
@@ -246,7 +224,7 @@ class MenuBandejaMixin:
         if not chave_disponivel():
             self._status("Chave de proteção indisponível. Modo não alterado.")
             return
-        if not self._confirmar_modo_protegido():
+        if not (confirmar or self._confirmar_modo_protegido)():
             return
         config_user.atualizar(protection_mode=ProtectionMode.PROTECTED.value)
         self._status("Modo protegido ativado para novas reuniões. Arquivos existentes preservados.")
@@ -283,23 +261,26 @@ class MenuBandejaMixin:
         logging.info("Transkriptor encerrado.")
 
     def _texto_status(self, _item=None):
+        """UX-14.E2: primeira linha do menu com o mesmo vocabulário da Central."""
         # Sem lock: o pystray monta o menu a partir daqui e só lê atributos.
         # Esperar por `self._lock` no desenho do menu transformaria qualquer
         # operação lenta em bandeja congelada.
+        from app_estado_ui import ROTULOS
+
         transcritor = self.transcritor
         if transcritor and getattr(transcritor, "diarizando", False):
-            return "Separando vozes (pós-processamento)..."
+            return ROTULOS["separando_vozes"]
         if transcritor and transcritor.rodando:
             fontes = ", ".join(
                 getattr(getattr(self, "detector", None), "fontes_da_reuniao", None) or []
             )
-            return f"Gravando reunião ({fontes})..." if fontes else "Gravando reunião..."
+            return f"{ROTULOS['gravando']} · {fontes}" if fontes else ROTULOS["gravando"]
         estado = getattr(self, "_estado_processamento", None)
         if estado:
-            return f"Pós-processamento: {estado}"
+            return f"{ROTULOS['processando']} · {estado}"
         if not self.deteccao_ativa:
-            return "PAUSADO — não está gravando"
-        return f"Aguardando reunião — {self._resumo_fontes()}"
+            return f"{ROTULOS['pausado']} · não grava reuniões"
+        return f"{ROTULOS['aguardando']} · {self._resumo_fontes()}"
 
     def _resumo_fontes(self):
         """UX-9.1: o menu diz o que o detector está enxergando agora."""
@@ -311,56 +292,6 @@ class MenuBandejaMixin:
         except Exception:
             return "falha ao consultar fontes"
         return f"sinal de: {', '.join(ativos)}" if ativos else "nenhuma reunião à vista"
-
-    def _texto_deteccao(self, _item=None):
-        return texto_deteccao_menu(self.deteccao_ativa)
-
-    def _texto_diarizacao(self, _item=None):
-        return (
-            "Desativar separação de vozes"
-            if self.diarizacao_ativa
-            else "Ativar separação de vozes"
-        )
-
-    def _texto_criptografia(self, _item=None):
-        try:
-            from politica_privacidade import modo_efetivo
-
-            modo = modo_efetivo().value
-        except Exception:  # noqa: BLE001 — menu nunca quebra por política
-            modo = "?"
-        base = (
-            "✓ Criar cópia criptografada (.tkpt)"
-            if self.criptografar_transcricoes
-            else "Criar cópia criptografada (.tkpt)"
-        )
-        return f"{base} [{modo}]"
-
-    def _texto_startup(self, _item=None):
-        return (
-            "✓ Iniciar com o Windows"
-            if self.iniciar_com_windows
-            else "Iniciar com o Windows"
-        )
-
-    def _texto_identificar_voz(self, _item=None):
-        if self.identificar_minha_voz:
-            return f"✓ Identificar minha voz ({self.rotulo_usuario})"
-        return "Identificar minha voz"
-
-    def _texto_nomes_meet(self, _item=None):
-        return (
-            "✓ Identificar nomes do Meet"
-            if self.usar_nomes_meet
-            else "Identificar nomes do Meet"
-        )
-
-    def _texto_legendas_meet(self, _item=None):
-        return (
-            "✓ Modo legendas Meet (Tactiq)"
-            if self.modo_legendas_meet
-            else "Modo legendas Meet (Tactiq)"
-        )
 
     def _garantir_bridge(self):
         if self.usar_nomes_meet and self._meet_bridge_thread is None:
@@ -398,9 +329,8 @@ class MenuBandejaMixin:
         os.startfile(pasta)
 
     def renomear_falante_menu(self, _icone=None, _item=None):
-        threading.Thread(
-            target=iniciar_renomear_falante_ui, args=(self,), daemon=True
-        ).start()
+        """UX-14.C3: correção por reunião e aprendizado de voz vivem na Central."""
+        abrir_central(self, "participantes")
 
     def abrir_vozes_conhecidas(self, _icone=None, _item=None):
         pasta = os.path.dirname(ARQUIVO_VOZES_CONHECIDAS)
@@ -411,47 +341,56 @@ class MenuBandejaMixin:
         os.startfile(pasta)
 
     def _menu(self):
+        # UX-14.D2/E2: ≤ 9 itens de topo, ≤ 2 níveis, estado por `checked` nativo.
         return pystray.Menu(
             pystray.MenuItem(self._texto_status, None, enabled=False),
             pystray.Menu.SEPARATOR,
+            pystray.MenuItem("Abrir Transkriptor", self.abrir_central, default=True),
+            pystray.MenuItem("Gravação automática", self.alternar_deteccao, checked=lambda item: self.deteccao_ativa),
+            pystray.MenuItem("Separar vozes", self.alternar_diarizacao, checked=lambda item: self.diarizacao_ativa),
+            pystray.Menu.SEPARATOR,
             pystray.MenuItem(
-                "Transcrições",
+                "Reuniões",
                 pystray.Menu(
-                    pystray.MenuItem("Abrir pasta de transcrições", self.abrir_pasta),
                     pystray.MenuItem("Abrir assistente (IA local)", self.abrir_assistente),
+                    pystray.MenuItem("Renomear falante e participantes (Central)", self.renomear_falante_menu),
                     pystray.MenuItem("Retranscrever áudio…", self.retranscrever_audio_menu),
-                    pystray.MenuItem("Abrir pasta vozes conhecidas", self.abrir_vozes_conhecidas),
+                    pystray.MenuItem("Abrir pasta de transcrições", self.abrir_pasta),
+                ),
+            ),
+            pystray.MenuItem(
+                "Configurações",
+                pystray.Menu(
+                    pystray.MenuItem(
+                        "Minha voz",
+                        pystray.Menu(
+                            pystray.MenuItem("Cadastrar minha voz (20s)", self.cadastrar_minha_voz),
+                            pystray.MenuItem("Identificar minha voz", self.alternar_identificar_voz, checked=lambda item: self.identificar_minha_voz),
+                            pystray.MenuItem("Apagar perfil de voz", self.apagar_perfil_voz),
+                            pystray.MenuItem("Abrir pasta vozes conhecidas", self.abrir_vozes_conhecidas),
+                        ),
+                    ),
+                    pystray.MenuItem(
+                        "Google Meet",
+                        pystray.Menu(
+                            pystray.MenuItem("Identificar nomes do Meet", self.alternar_nomes_meet, checked=lambda item: self.usar_nomes_meet),
+                            pystray.MenuItem("Modo legendas Meet (Tactiq)", self.alternar_legendas_meet, checked=lambda item: self.modo_legendas_meet),
+                            pystray.MenuItem("Instalar extensão Meet (pasta)", self.abrir_extensao_meet),
+                        ),
+                    ),
+                    pystray.MenuItem(
+                        "Proteção",
+                        pystray.Menu(
+                            pystray.MenuItem("Criar cópia criptografada (.tkpt)", self.alternar_criptografia, checked=lambda item: self.criptografar_transcricoes),
+                            pystray.MenuItem("Ativar modo protegido para novas reuniões…", self.ativar_modo_protegido),
+                        ),
+                    ),
+                    pystray.MenuItem("Modelo Whisper", self._submenu_modelo_whisper()),
+                    pystray.MenuItem("Iniciar com o Windows", self.alternar_startup, checked=lambda item: self.iniciar_com_windows),
+                    pystray.MenuItem("Abrir log", self.abrir_log),
                 ),
             ),
             pystray.MenuItem("Diagnóstico (por que não está gravando?)", self.abrir_diagnostico),
-            pystray.MenuItem("Abrir log", self.abrir_log),
-            pystray.Menu.SEPARATOR,
-            pystray.MenuItem(self._texto_deteccao, self.alternar_deteccao),
-            pystray.MenuItem(self._texto_pergunta_gravacao, None, enabled=False),
-            pystray.MenuItem(self._texto_diarizacao, self.alternar_diarizacao),
-            pystray.Menu.SEPARATOR,
-            pystray.MenuItem(
-                "Minha voz",
-                pystray.Menu(
-                    pystray.MenuItem("Cadastrar minha voz (20s)", self.cadastrar_minha_voz),
-                    pystray.MenuItem(self._texto_identificar_voz, self.alternar_identificar_voz),
-                    pystray.MenuItem("Apagar perfil de voz", self.apagar_perfil_voz),
-                ),
-            ),
-            pystray.MenuItem(
-                "Google Meet",
-                pystray.Menu(
-                    pystray.MenuItem(self._texto_nomes_meet, self.alternar_nomes_meet),
-                    pystray.MenuItem(self._texto_legendas_meet, self.alternar_legendas_meet),
-                    pystray.MenuItem("Instalar extensão Meet (pasta)", self.abrir_extensao_meet),
-                    pystray.MenuItem("Renomear falante (última diarização)", self.renomear_falante_menu),
-                ),
-            ),
-            pystray.Menu.SEPARATOR,
-            pystray.MenuItem(self._texto_criptografia, self.alternar_criptografia),
-            pystray.MenuItem("Ativar modo protegido para novas reuniões…", self.ativar_modo_protegido),
-            pystray.MenuItem("Modelo Whisper", self._submenu_modelo_whisper()),
-            pystray.MenuItem(self._texto_startup, self.alternar_startup),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Sair", self.sair),
         )
