@@ -1,6 +1,6 @@
 # Tasks — plataforma visual e Central (SDD v1.9)
 
-**Estado em 24/09/2026: plano aprovado; 11 `DONE` (F14.A–C concluídas, D1), 10 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.D2.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
+**Estado em 24/09/2026: plano aprovado; 12 `DONE` (F14.A–C concluídas, D1–D2), 9 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.D3.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
 
 Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, **Teste final** e **Aceite** são cumulativos. Os arquivos de teste novos são entregáveis da implementação; os seletores são planejados, não testes que já passaram. Nenhuma task usa dados reais; capturas usam `tests/e2e/fixtures/`.
 
@@ -124,7 +124,7 @@ Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, 
 
 ### T-14.D2 — configurações na Central e menu reduzido
 
-- [ ] **Requisito:** FR-14.D2. **Depende de:** D1 e DP-14-08. **Estado:** `PENDING`.
+- [x] **Requisito:** FR-14.D2. **Depende de:** D1 e DP-14-08. **Estado:** `DONE`; commit `43dc10a`; evidência: `evidencias/T-14.D2.md`.
 - **Arquivos:** criar `templates/configuracoes.html`, `static/js/configuracoes.js`, `tests/e2e/configuracoes.spec.js`; modificar `assistente.py` (`GET/POST /api/config`), `app_bandeja_menu.py` (funções de toggle recebem `confirmar: Callable | None` e são reutilizadas pela API), `tests/test_central_api.py`, `tests/test_v16_d_bandeja.py`.
 - **Implementação:** formulário agrupado (Gravação, Vozes, Google Meet, Proteção, Sistema) com consequência ao lado de cada toggle sensível; 409 com `consequencia` abre `tk-dialog` e reenvia com `confirmado`; espelhamento imediato no menu via `update_menu()`; menu reduzido conforme `interfaces.md` §5 sem remover funções.
 - **RED:** `test_central_api.py::test_config_post_exige_header_secreto`, `::test_pausar_sem_confirmacao_409`, `::test_toggle_persiste_config_user`, `::test_chave_desconhecida_400`; `configuracoes.spec.js::409 abre dialogo e reenvia confirmado`; `test_v16_d_bandeja.py::test_menu_tem_no_maximo_nove_itens_de_topo`, `::test_itens_com_estado_usam_checked`.
