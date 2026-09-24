@@ -22,6 +22,13 @@ python scripts/verificar_fase.py --fase v1.8-sdd
 `config.VERSAO` continua sendo a única versão do executável. A versão SDD não
 autoriza bump de produto, release, push, OAuth ou qualquer gate físico.
 
+## Proposta em revisão
+
+A [v1.9](v1.9/README.md) (diagnóstico UI/UX, design system e Central) foi
+aprovada em 24/09/2026 e é executada na branch `sdd-v1.9-design`, separada da
+remediação v1.8. Não autoriza bump ou release. Auditar com
+`python scripts/verificar_fase.py --fase v1.8-sdd --sdd-root docs/sdd/v1.9`.
+
 ## Histórico preservado
 
 As pastas v1.1–v1.6 e [VERIFICACAO.md](../VERIFICACAO.md) são registros
