@@ -35,6 +35,17 @@ CONSEQUENCIAS: dict[str, dict[str, str]] = {
 }
 
 
+ACOES = tuple(CONSEQUENCIAS)
+
+# MessageBoxW: Sim/Não, ícone de aviso e botão padrão no Não (a saída segura).
+MB_YESNO = 0x00000004
+MB_ICONWARNING = 0x00000030
+MB_DEFBUTTON2 = 0x00000100
+MB_SETFOREGROUND = 0x00010000
+IDYES = 6
+TITULO_BANDEJA = "Transkriptor"
+
+
 def consequencia(acao: str) -> dict[str, str]:
     """Textos da ação; KeyError para ação desconhecida (falha explícita, nunca texto vazio)."""
     return dict(CONSEQUENCIAS[acao])
@@ -44,3 +55,20 @@ def texto_para_messagebox(acao: str) -> str:
     """Título e consequência numa string para o MessageBoxW da bandeja."""
     dados = consequencia(acao)
     return f"{dados['titulo']}\n\n{dados['consequencia']}"
+
+
+def confirmar_na_bandeja(acao: str, messagebox=None) -> bool:
+    """Confirmação da bandeja com o mesmo texto da Central (UX-14.E4).
+
+    Só `Sim` (IDYES) devolve True; Não, fechar, erro e caixa indisponível
+    devolvem False — o padrão é sempre não executar a ação.
+    """
+    texto = texto_para_messagebox(acao)
+    try:
+        if messagebox is None:
+            import ctypes
+
+            messagebox = ctypes.windll.user32.MessageBoxW
+        return int(messagebox(0, texto, TITULO_BANDEJA, MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2 | MB_SETFOREGROUND)) == IDYES
+    except Exception:  # noqa: BLE001
+        return False

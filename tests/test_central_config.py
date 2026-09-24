@@ -65,6 +65,11 @@ class AppFalso:
         self.chamadas.append(("protegido", True))
 
     def apagar_perfil_voz(self, *_a):
+        self.apagar_perfil_voz_com()
+
+    def apagar_perfil_voz_com(self, confirmar=None):
+        if confirmar is not None and not confirmar():
+            return
         self.chamadas.append(("apagar_perfil", True))
 
 

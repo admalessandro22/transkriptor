@@ -105,7 +105,7 @@ def aplicar(app, chave: str, valor, confirmar: Callable[[], bool]) -> tuple[dict
             return None, ({"erro": "Só é possível ativar o modo protegido; ele não é desativado pela Central"}, 400)
         app.ativar_modo_protegido_com(confirmar=confirmar)
     elif chave == "apagar_perfil_voz":
-        app.apagar_perfil_voz()
+        app.apagar_perfil_voz_com(confirmar=confirmar)
     return estado_config(app), None
 
 

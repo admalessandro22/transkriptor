@@ -10,6 +10,7 @@ import threading
 
 import pystray
 
+from confirmacoes import confirmar_na_bandeja
 from config import (
     ARQUIVO_PERFIL_VOZ,
     ARQUIVO_PERFIL_VOZ_ENC,
@@ -68,20 +69,7 @@ class MenuBandejaMixin:
         iniciar_retranscricao_ui(self)
 
     def _confirmar_saida(self):
-        try:
-            import ctypes
-
-            return (
-                ctypes.windll.user32.MessageBoxW(
-                    0,
-                    "Transcricao em andamento. Parar e sair?",
-                    "Transkriptor",
-                    0x00000004 | 0x00000030,
-                )
-                == 6
-            )
-        except Exception:
-            return False
+        return confirmar_na_bandeja("sair_gravando")
 
     def abrir_assistente(self, _icone=None, _item=None):
         threading.Thread(target=iniciar_assistente_ui, args=(self,), daemon=True).start()
@@ -94,20 +82,8 @@ class MenuBandejaMixin:
         threading.Thread(target=rodar_diagnostico_ui, args=(self,), daemon=True).start()
 
     def _confirmar_pausa_padrao(self) -> bool:
-        try:
-            import ctypes
-
-            return (
-                ctypes.windll.user32.MessageBoxW(
-                    0,
-                    "O Transkriptor NÃO gravará reuniões enquanto pausado. Continuar?",
-                    "Transkriptor",
-                    0x34,
-                )
-                == 6
-            )
-        except Exception:
-            return True
+        # UX-14.E4: mesmo texto da Central; caixa indisponível = não pausa.
+        return confirmar_na_bandeja("pausar_gravacao")
 
     def alternar_deteccao(self, _icone=None, _item=None):
         # pystray só aceita ações com até dois parâmetros; a Central usa `_com`.
@@ -171,8 +147,14 @@ class MenuBandejaMixin:
         self._atualizar_tooltip()
 
     def apagar_perfil_voz(self, _icone=None, _item=None):
+        # UX-14.E4: ação irreversível pede confirmação também na bandeja.
+        self.apagar_perfil_voz_com(confirmar=lambda: confirmar_na_bandeja("apagar_perfil_voz"))
+
+    def apagar_perfil_voz_com(self, confirmar=None):
         import config_user
 
+        if confirmar is not None and not confirmar():
+            return
         apagar_arquivos_perfil()
         self.identificar_minha_voz = False
         desativar_perfil_na_config(config_user.carregar, config_user.salvar)
@@ -224,17 +206,7 @@ class MenuBandejaMixin:
         self._atualizar_tooltip()
 
     def _confirmar_modo_protegido(self):
-        try:
-            import ctypes
-
-            return ctypes.windll.user32.MessageBoxW(
-                0,
-                "Ativar modo protegido para novas reuniões? Arquivos existentes não serão migrados ou apagados.",
-                "Transkriptor",
-                0x00000004 | 0x00000030,
-            ) == 6
-        except Exception:
-            return False
+        return confirmar_na_bandeja("modo_protegido")
 
     def ativar_modo_protegido(self, _icone=None, _item=None):
         self.ativar_modo_protegido_com()
