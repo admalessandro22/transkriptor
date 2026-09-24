@@ -1,6 +1,6 @@
 # Tasks — plataforma visual e Central (SDD v1.9)
 
-**Estado em 24/09/2026: plano aprovado; 2 `DONE` (T-14.A1–A2), 19 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.A3.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
+**Estado em 24/09/2026: plano aprovado; 3 `DONE` (F14.A concluída), 18 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.B1.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
 
 Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, **Teste final** e **Aceite** são cumulativos. Os arquivos de teste novos são entregáveis da implementação; os seletores são planejados, não testes que já passaram. Nenhuma task usa dados reais; capturas usam `tests/e2e/fixtures/`.
 
@@ -28,7 +28,7 @@ Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, 
 
 ### T-14.A3 — base tipográfica, ícones e componentes com galeria
 
-- [ ] **Requisito:** UX-14.A3. **Depende de:** A2. **Estado:** `PENDING`.
+- [x] **Requisito:** UX-14.A3. **Depende de:** A2. **Estado:** `DONE`; commit `d367631`; evidência: `evidencias/T-14.A3.md` (gate da fase A verde).
 - **Arquivos:** criar `static/css/base.css`, `static/css/components.css`, `templates/galeria.html`, `static/js/ui.js` (toast, dialog, panel, tema), `tests/e2e/galeria.spec.js`, `tests/e2e/fixtures/central.js`, `tests/e2e/capturar.js`; modificar `assistente.py` (rota `/galeria` só com `TRANSKRIPTOR_GALERIA=1`), `static/icones.svg` (conjunto completo), `static/assistente.css` (remove `backdrop-filter`, radiais, textura, serifa, dourado).
 - **Implementação:** escala tipográfica e reset em `base.css`; componentes `tk-*` de `design-system.md` §6 com todos os estados; `ui.js` expõe `toast(tipo, titulo, texto)`, `confirmar({titulo, consequencia, perigo})` sobre `<dialog>`, `abrirPainel(id)`/`fecharPainel(id)` com foco restaurado, `aplicarTema()`; galeria renderiza cada componente em cada estado e em ambos os temas.
 - **RED:** `galeria.spec.js::todos os componentes presentes em ambos os temas`, `::dialogo foca botao seguro e Esc cancela`, `::painel restaura foco`, `::toast de erro persiste e info fecha em 4s`, `::snapshot visual por componente` (baseline criada nesta task).
