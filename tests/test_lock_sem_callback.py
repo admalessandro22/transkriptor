@@ -15,7 +15,7 @@ import pytest
 
 RAIZ = Path(__file__).resolve().parent.parent
 
-MODULOS = ("transkriptor.pyw", "app_processamento.py", "app_bandeja_menu.py")
+MODULOS = ("transkriptor.pyw", "app_processamento.py", "app_bandeja_menu.py", "app_estado_ui.py")
 
 # Chamadas que voltam (direta ou indiretamente) para `_status`/`_atualizar_tooltip`.
 PROIBIDAS = {

@@ -33,15 +33,22 @@ export function aplicarEstado(barra, snapshot) {
 let timer = null;
 let emCurso = false;
 
+function publicar(snap) {
+  document.dispatchEvent(new CustomEvent('tk-estado', { detail: snap }));
+}
+
 async function ler(barra, fetchFn) {
   if (emCurso) return;
   emCurso = true;
   try {
     const r = await fetchFn('/api/estado', { credentials: 'same-origin' });
-    if (!r.ok) { aplicarEstado(barra, null); return; }
-    aplicarEstado(barra, await r.json());
+    if (!r.ok) { aplicarEstado(barra, null); publicar(null); return; }
+    const snap = await r.json();
+    aplicarEstado(barra, snap);
+    publicar(snap);
   } catch (_) {
     aplicarEstado(barra, null);
+    publicar(null);
   } finally {
     emCurso = false;
   }

@@ -37,6 +37,21 @@ def centroides_atuais() -> Mapping | None:
         return None
 
 
+@bp.route("/api/estado")
+def api_estado():
+    """FR-14.D1: snapshot da bandeja sem lock e sem dados sensíveis; 503 sem provedor."""
+    import app_estado_ui
+
+    provedor = app_estado_ui.provedor_atual()
+    if provedor is None:
+        return jsonify({"erro": "estado indisponível: o aplicativo da bandeja não está ligado a esta Central"}), 503
+    try:
+        snap = provedor()
+    except Exception:  # noqa: BLE001 — a Central nunca cai por causa da bandeja
+        return jsonify({"erro": "estado indisponível"}), 503
+    return jsonify(snap.como_dict())
+
+
 @bp.route("/api/acoes/aprender-voz", methods=["POST"])
 def api_aprender_voz():
     """UX-14.C3: ação separada e explícita; a correção por reunião nunca chega aqui."""
