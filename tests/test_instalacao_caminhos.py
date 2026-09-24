@@ -81,6 +81,25 @@ def test_processo_ativo_detecta_gravacao():
     assert processo_ativo(vazio) is False
 
 
+def test_desinstalador_consulta_linha_de_comando_e_falha_fechado():
+    from scripts.instalar_helper import processo_ativo
+
+    comandos = []
+
+    def falha(cmd):
+        comandos.append(cmd)
+
+        class R:
+            returncode = 1
+            stdout = ""
+            stderr = "sem acesso"
+
+        return R()
+
+    assert processo_ativo(falha) is True
+    assert "Get-CimInstance" in " ".join(comandos[0])
+
+
 def test_alvos_desinstalacao_exatos_sem_apagar_dados(tmp_path, monkeypatch):
     import scripts.instalar_helper as helper
 

@@ -22,8 +22,11 @@ def carregar_config_user():
 def atualizar_config_user(**kv):
     """Mescla valores do bootstrap sem sobrescrever chaves concorrentes."""
     import config_user
+    from pathlib import Path
 
     try:
+        if not Path(config_user.CONFIG_USER_FILE).is_file():
+            kv.setdefault("protection_mode", "protected")
         return config_user.atualizar(**kv)
     except Exception as e:  # noqa: BLE001 — config ruim não pode derrubar a subida
         logging.error(f"Erro ao atualizar config_user: {e}")

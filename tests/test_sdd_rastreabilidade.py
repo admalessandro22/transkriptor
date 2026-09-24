@@ -16,6 +16,17 @@ SDD_ATIVO = REPO / "docs" / "sdd" / "v1.8"
 VERIFICADOR = REPO / "scripts" / "verificar_fase.py"
 
 
+def test_remediacao_reabre_tarefas_incompletas():
+    tasks = (SDD_ATIVO / "tasks.md").read_text(encoding="utf-8")
+    for tarefa in ("D1", "D2", "D4", "D5", "D6", "D7", "E1", "E4", "F3", "G1", "G2"):
+        linha = next(
+            linha for linha in tasks.splitlines()
+            if f"T-13.{tarefa}" in linha and "Requisito" in linha
+        )
+        assert "REOPENED" in linha or "BLOCKED" in linha
+    assert "23 DONE" not in tasks
+
+
 def _verificar(
     sdd_root: Path, *, tarefa: str | None = None
 ) -> subprocess.CompletedProcess[str]:

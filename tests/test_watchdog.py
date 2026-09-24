@@ -88,7 +88,7 @@ def test_watchdog_loop_para_quando_stop():
     assert not w._thread.is_alive()
 
 
-def test_reiniciar_processar_somente_audio_continua_gravando_wav(tmp_path, monkeypatch):
+def test_reiniciar_processar_somente_audio_continua_gravando_wav(tmp_path, monkeypatch, chave_teste):
     """FR-2.4×FR-6.1: em modo somente áudio, restart deve usar _processar_somente_audio."""
     import wave
 
@@ -141,7 +141,7 @@ def test_reiniciar_processar_somente_audio_continua_gravando_wav(tmp_path, monke
 
 
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
-def test_reiniciar_processar_preserva_arquivo_e_continua_escrevendo(tmp_path):
+def test_reiniciar_processar_preserva_arquivo_e_continua_escrevendo(tmp_path, chave_teste):
     """FR-6.1: matar processar, reiniciar e provar que o texto continua no arquivo."""
     t = Transcritor(
         pasta_saida=str(tmp_path),

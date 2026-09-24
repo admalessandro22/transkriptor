@@ -29,7 +29,9 @@ def test_transkriptor_pyw_sem_versao_hardcoded():
 
 def test_instalar_bat_le_versao_de_config():
     bat = (REPO / "instalar.bat").read_text(encoding="utf-8")
-    assert "from config import VERSAO" in bat
+    helper = (REPO / "scripts" / "instalar_helper.py").read_text(encoding="utf-8")
+    assert "instalar_helper.py --version" in bat
+    assert '"config.py"' in helper and '["VERSAO"]' in helper
     assert re.search(r"Instalando Transkriptor 1\.2\.\d", bat) is None
 
 

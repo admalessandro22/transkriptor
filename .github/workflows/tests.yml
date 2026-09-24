@@ -22,15 +22,25 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-      - name: Instalar dependências (trava CPU)
+      - name: Criar ambiente de teste limpo
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt -c requirements/constraints-cpu.txt
-          python -m pip check
+          python -m venv .ci-venv
+          .ci-venv\Scripts\python.exe -m pip install --require-hashes -r requirements/requirements-cpu.lock
+          .ci-venv\Scripts\python.exe -m pip install --require-hashes -r requirements/requirements-dev.lock
+          .ci-venv\Scripts\python.exe -m pip check
+      - name: pip-audit de dependências
+        run: |
+          if ((Get-Date).Date -gt [datetime]'2026-10-15') { throw 'Exceções de dependências expiradas' }
+          New-Item -ItemType Directory -Force test-results | Out-Null
+          .ci-venv\Scripts\python.exe -m pip_audit --no-deps --disable-pip -r requirements/requirements-cpu.lock --ignore-vuln PYSEC-2026-3447 --ignore-vuln PYSEC-2025-194 -f json -o test-results/audit-cpu.json
+      - name: SBOM CycloneDX
+        run: |
+          .ci-venv\Scripts\python.exe scripts/gerar_sbom.py --python .ci-venv\Scripts\python.exe --output test-results/sbom.json
+          .ci-venv\Scripts\python.exe -c "import json; from pathlib import Path; a=json.loads(Path('docs/sbom.json').read_text(encoding='utf-8')); b=json.loads(Path('test-results/sbom.json').read_text(encoding='utf-8')); assert a == b, 'SBOM commitado divergente'"
       - name: Pré-checagem do instalador
-        run: python scripts/instalar_helper.py --check deps --rota cpu
+        run: .ci-venv\Scripts\python.exe scripts/instalar_helper.py --check deps --rota cpu
       - name: Python — suíte completa
-        run: python -m pytest tests/ -q --tb=short --junitxml=test-results/pytest.xml
+        run: .ci-venv\Scripts\python.exe -m pytest tests/ -q --tb=short --junitxml=test-results/pytest.xml
       - name: JS — unidade e e2e
         run: |
           npm ci

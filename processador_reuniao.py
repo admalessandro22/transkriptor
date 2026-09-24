@@ -151,7 +151,7 @@ def processar_job(
             except Exception:
                 logger.error("Falha ao registrar aviso de eventos")
         preferencias = dict(job.preferencias or {})
-        resultado = retranscritor.retranscrever(
+        processamento = retranscritor.retranscrever_resultado(
             job.audio,
             caminho_mic=job.mic,
             pasta_saida=str(fila.pasta_transcricoes),
@@ -166,29 +166,72 @@ def processar_job(
             usar_vozes_conhecidas=bool(preferencias.get("usar_vozes_conhecidas", True)),
             rotulo_usuario=preferencias.get("rotulo_usuario"),
             eventos_meet=eventos_meet,
+            clock_uncertainty_ms=5000 if (job.sessao or {}).get("relogio_incerto", True) else 0,
             on_status=_on_status,
         )
         if fila.obter(job_id).cancel_solicitado:
             raise JobCancelado("cancelado")
-        from resultado_reuniao import criar_manifesto_inicial, salvar_manifesto
+        from resultado_reuniao import (
+            carregar_segmentos, criar_manifesto_estruturado, exportar_txt,
+            salvar_manifesto, salvar_segmentos, validar_manifesto,
+        )
+        from politica_privacidade import ProtectionMode, modo_efetivo
+        from resultado_edicao import montar_payload
+        from resultado_storage import ResultadoStorage
+        from artefatos import criar_referencia
 
-        caminho_resultado = Path(resultado)
+        modo = (ProtectionMode.PROTECTED if Path(job.audio).suffix.lower() == ".tks"
+                else modo_efetivo())
+        storage = ResultadoStorage(fila.pasta_transcricoes, modo)
+        caminho_txt = Path(processamento.txt_path)
+        caminho_resultado = (caminho_txt.with_suffix(".tkpt") if modo == ProtectionMode.PROTECTED else caminho_txt)
+        caminho_segmentos = storage.caminho(job.id)
+        if caminho_resultado.exists() or caminho_segmentos.exists() or caminho_txt.exists():
+            raise FileExistsError("resultado existente; revisão manual preservada")
+        if modo == ProtectionMode.PROTECTED:
+            dados_segmentos = montar_payload(processamento.segmentos, {})
+            ref_segmentos = storage.save(job.id, dados_segmentos)
+        else:
+            salvar_segmentos(caminho_segmentos, processamento.segmentos, {})
+            dados_segmentos = carregar_segmentos(caminho_segmentos)
+            ref_segmentos = None
+        texto_txt = exportar_txt(dados_segmentos["segmentos"], dados_segmentos["mapeamento"])
+        if modo == ProtectionMode.PROTECTED:
+            from crypto_storage import salvar_transcricao
+
+            salvar_transcricao(str(caminho_resultado), texto_txt)
+            ref_resultado = criar_referencia(caminho_resultado, fila.pasta_transcricoes, format="application/vnd.transkriptor.tkpt", schema_version=1)
+        else:
+            retranscritor._escrever_texto_atomico(caminho_resultado, texto_txt)
+            ref_resultado = None
+        if processamento.gerar_copia_tkpt and modo != ProtectionMode.PROTECTED:
+            from crypto_storage import salvar_transcricao
+
+            salvar_transcricao(str(caminho_resultado.with_suffix(".tkpt")), texto_txt)
         fontes_audio = [Path(job.audio)]
         if job.mic:
             fontes_audio.append(Path(job.mic))
-        manifesto = criar_manifesto_inicial(
+        manifesto = criar_manifesto_estruturado(
             meeting_id=job.id,
+            segmentos=caminho_segmentos,
             resultado=caminho_resultado,
             fontes_audio=fontes_audio,
             raiz=fila.pasta_transcricoes,
+            warnings=processamento.warnings,
+            diarizacao_solicitada=bool(metadados.get("diarizar", True)),
+            segmentos_ref=ref_segmentos,
+            resultado_ref=ref_resultado,
+            dados_segmentos=dados_segmentos,
         )
-        caminho_manifesto = caminho_resultado.with_suffix(".resultado.json")
+        caminho_manifesto = caminho_txt.with_suffix(".resultado.json")
         salvar_manifesto(caminho_manifesto, manifesto)
+        if not validar_manifesto(caminho_manifesto, fila.pasta_transcricoes):
+            raise ValueError("manifesto estruturado inválido")
         fila.registrar_progresso(job_id, ETAPA_FINAL, unidades + 1)
         if fila.obter(job_id).cancel_solicitado:
             raise JobCancelado("cancelado")
-        fila.concluir(job_id, resultado, str(caminho_manifesto))
-        return Path(resultado)
+        fila.concluir(job_id, str(caminho_resultado), str(caminho_manifesto))
+        return caminho_resultado
     except JobCancelado:
         try:
             fila.cancelar(job_id)

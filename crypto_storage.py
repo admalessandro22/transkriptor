@@ -180,6 +180,19 @@ def obter_chave_mestra() -> bytes:
     return _exigir_chave()
 
 
+def cifrar_audio_tkas(source: Path, destination: Path):
+    """Cifra WAV longo com SecretStream e devolve referência verificável."""
+    from crypto_stream import encrypt_file
+
+    return encrypt_file(Path(source), Path(destination), _exigir_chave())
+
+
+def iterar_audio_tkas(path: Path):
+    from crypto_stream import iter_decrypt_file
+
+    return iter_decrypt_file(Path(path), _exigir_chave())
+
+
 def criptografar_bytes(plano: bytes) -> bytes:
     chave = _exigir_chave()
     nonce = secrets.token_bytes(NONCE_SIZE)
@@ -278,13 +291,17 @@ def nome_base_transcricao(timestamp: str | None = None, titulo_reuniao: str | No
 
 
 def caminho_transcricao_novo(pasta: str, diarizado: bool = False, criptografar: bool | None = None, titulo_reuniao: str | None = None) -> str:
+    from politica_privacidade import ProtectionMode, modo_efetivo
+
     base = nome_base_transcricao(titulo_reuniao=titulo_reuniao)
     if diarizado:
         base += "_diarizado"
     if criptografar is None:
         ext = extensao_transcricao()
     else:
-        ext = ".tkpt" if criptografar and chave_disponivel() else ".txt"
+        ext = (".tkpt" if criptografar and
+               (chave_disponivel() or modo_efetivo() == ProtectionMode.PROTECTED)
+               else ".txt")
     # O relógio tem precisão de minuto por compatibilidade visual. Nunca
     # reutilizar, porém, o mesmo conjunto de TXT/WAV de uma reunião anterior.
     indice = 1
@@ -438,18 +455,23 @@ def criptografar_wav(caminho: str) -> str:
 
 def recuperar_orfaos_wav(pasta_audio: str) -> int:
     """Criptografa WAVs plaintext órfãos em PASTA_AUDIO (recuperação pós-crash)."""
-    if not (criptografia_ativa() and chave_disponivel()):
+    from politica_privacidade import ProtectionMode, ProtectionState, modo_efetivo, proteger_audio_tkas
+
+    modo = modo_efetivo()
+    if modo == ProtectionMode.COMPATIBLE and not (criptografia_ativa() and chave_disponivel()):
         return 0
     pasta = Path(pasta_audio)
     if not pasta.is_dir():
         return 0
     n = 0
     for wav in sorted(pasta.glob("*.wav")):
-        # ignora se já existe .enc correspondente e o plaintext é residual
         try:
-            out = criptografar_wav(str(wav))
-            if out.endswith(".wav.enc") and not wav.exists():
-                n += 1
+            if modo == ProtectionMode.PROTECTED:
+                estado = proteger_audio_tkas(wav, modo)
+                n += int(estado.state == ProtectionState.PROTECTED)
+            else:
+                out = criptografar_wav(str(wav))
+                n += int(out.endswith(".wav.enc") and not wav.exists())
         except Exception:
             logger.warning("Falha ao recuperar órfão %s", wav.name, exc_info=True)
     return n

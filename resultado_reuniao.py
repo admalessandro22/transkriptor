@@ -5,7 +5,7 @@ import json
 import os
 import re
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from enum import StrEnum
 from pathlib import Path
@@ -51,6 +51,7 @@ class SegmentoResultado:
     text: str
     speaker_cluster_id: str
     overlap: bool = False
+    assignment: Mapping[str, object] | None = None
 
 
 def _agora_utc() -> str:
@@ -224,7 +225,22 @@ def validar_manifesto(caminho: Path, raiz: Path) -> bool:
     referencias: list[ArtifactRef] = [manifesto.segments_ref, *manifesto.exports]
     if manifesto.participants_ref is not None:
         referencias.append(manifesto.participants_ref)
-    return all(referencia_integra(referencia, raiz_resolvida) for referencia in referencias)
+    if not all(referencia_integra(referencia, raiz_resolvida) for referencia in referencias):
+        return False
+    if manifesto.segments_ref.format == "application/vnd.transkriptor.segments+json":
+        try:
+            carregar_segmentos(raiz_resolvida / manifesto.segments_ref.relative_path)
+        except (OSError, ValueError, json.JSONDecodeError):
+            return False
+    elif manifesto.segments_ref.format == "application/vnd.transkriptor.segments+json+encrypted":
+        try:
+            from politica_privacidade import ProtectionMode
+            from resultado_storage import ResultadoStorage
+
+            ResultadoStorage(raiz_resolvida, ProtectionMode.PROTECTED).load(manifesto.segments_ref)
+        except Exception:  # noqa: BLE001 — chave/cifra inválida não libera job/retencão
+            return False
+    return True
 
 
 def validar_manifesto_para_job(
@@ -303,6 +319,102 @@ def criar_manifesto_inicial(
         created_at=created_at or _agora_utc(),
         pipeline_version=config.VERSAO,
     )
+
+
+def criar_manifesto_estruturado(
+    *, meeting_id: str, segmentos: Path, resultado: Path,
+    fontes_audio: Sequence[Path], raiz: Path, warnings: Sequence[str] = (),
+    diarizacao_solicitada: bool = False,
+    segmentos_ref: ArtifactRef | None = None,
+    resultado_ref: ArtifactRef | None = None,
+    dados_segmentos: Mapping | None = None,
+) -> ResultManifest:
+    """Referencia o JSON canônico e seu TXT derivado, ambos já persistidos."""
+    raiz = Path(raiz).resolve(strict=True)
+    ref_json = segmentos_ref or criar_referencia(Path(segmentos), raiz, format="application/vnd.transkriptor.segments+json", schema_version=1)
+    ref_txt = resultado_ref or criar_referencia(Path(resultado), raiz, format="text/plain; charset=utf-8", schema_version=1)
+    tem_segmentos = bool((dados_segmentos or carregar_segmentos(segmentos))["segmentos"])
+    avisos = tuple(warnings) + (() if tem_segmentos else ("stt_sem_fala",))
+    return ResultManifest(
+        meeting_id=meeting_id,
+        schema_version=VERSAO_MANIFESTO,
+        source_audio_hashes=tuple(sha256_arquivo(Path(fonte).resolve(strict=True)) for fonte in fontes_audio),
+        participants_ref=None,
+        segments_ref=ref_json,
+        stage_status={
+            "stt": StageState.COMPLETE if tem_segmentos else StageState.PARTIAL,
+            "diarizacao": (
+                StageState.SKIPPED if not diarizacao_solicitada else
+                StageState.PARTIAL if "diarizacao_falhou" in avisos or "segment_alignment_failed" in avisos else
+                StageState.COMPLETE
+            ),
+        },
+        warnings=avisos,
+        exports=(ref_txt,),
+        created_at=_agora_utc(),
+        pipeline_version=config.VERSAO,
+    )
+
+
+def _manifesto_da_edicao(caminho_segmentos: Path):
+    caminho_segmentos = Path(caminho_segmentos).resolve(strict=True)
+    raiz = caminho_segmentos.parent.parent
+    relativo = caminho_segmentos.relative_to(raiz).as_posix()
+    encontrados = []
+    for candidato in raiz.glob("*.resultado.json"):
+        try:
+            manifesto = carregar_manifesto(candidato)
+        except (OSError, ValueError, json.JSONDecodeError):
+            continue
+        if manifesto.segments_ref.relative_path == relativo and manifesto.segments_ref.format == "application/vnd.transkriptor.segments+json":
+            encontrados.append((candidato, manifesto))
+    if not encontrados:
+        return None  # JSON avulso sem exportação vinculada
+    if len(encontrados) != 1:
+        raise ValueError("resultado associado a múltiplos manifestos")
+    return encontrados[0]
+
+
+def validar_exportacao_antes_edicao(caminho_segmentos: Path) -> None:
+    encontrado = _manifesto_da_edicao(caminho_segmentos)
+    if encontrado is None:
+        return
+    _caminho_manifesto, manifesto = encontrado
+    raiz = Path(caminho_segmentos).resolve(strict=True).parent.parent
+    refs_txt = [ref for ref in manifesto.exports if ref.format == "text/plain; charset=utf-8"]
+    if (len(refs_txt) != 1 or not referencia_integra(refs_txt[0], raiz)
+            or not referencia_integra(manifesto.segments_ref, raiz)):
+        raise ValueError("TXT alterado fora da revisão; exportação preservada")
+
+
+def atualizar_exportacao_apos_edicao(caminho_segmentos: Path) -> None:
+    """Atualiza TXT e refs da reunião editada sem tocar exportação alheia."""
+    encontrado = _manifesto_da_edicao(caminho_segmentos)
+    if encontrado is None:
+        return
+    caminho_manifesto, manifesto = encontrado
+    caminho_segmentos = Path(caminho_segmentos).resolve(strict=True)
+    raiz = caminho_segmentos.parent.parent
+    refs_txt = [ref for ref in manifesto.exports if ref.format == "text/plain; charset=utf-8"]
+    if len(refs_txt) != 1 or not referencia_integra(refs_txt[0], raiz):
+        raise ValueError("TXT alterado fora da revisão; exportação preservada")
+    caminho_txt = (raiz / refs_txt[0].relative_path).resolve(strict=True)
+    dados = carregar_segmentos(caminho_segmentos)
+    texto = exportar_txt(dados["segmentos"], dados["mapeamento"])
+    fd, temporario = tempfile.mkstemp(prefix=f"{caminho_txt.stem}_", suffix=".tmp", dir=str(caminho_txt.parent))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as arquivo:
+            arquivo.write(texto)
+            arquivo.flush()
+            os.fsync(arquivo.fileno())
+        os.replace(temporario, caminho_txt)
+    finally:
+        if os.path.exists(temporario):
+            os.unlink(temporario)
+    novo_json = criar_referencia(caminho_segmentos, raiz, format=manifesto.segments_ref.format, schema_version=manifesto.segments_ref.schema_version)
+    novo_txt = criar_referencia(caminho_txt, raiz, format=refs_txt[0].format, schema_version=refs_txt[0].schema_version)
+    exports = tuple(novo_txt if ref == refs_txt[0] else ref for ref in manifesto.exports)
+    salvar_manifesto(caminho_manifesto, replace(manifesto, segments_ref=novo_json, exports=exports))
 
 
 # Reexportações D7 (implementação em resultado_edicao para o limite de linhas).

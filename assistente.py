@@ -61,6 +61,14 @@ def verificar_token():
             return jsonify({"erro": "Token inválido"}), 403
         if not token_requisicao_valido():
             return jsonify({"erro": "Token inválido"}), 403
+        if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+            from assistente_validacao import validar_mutacao_local
+
+            _dados, erro = validar_mutacao_local(
+                request, header_secreto_valido=request.headers.get(HEADER_TOKEN) == SESSAO_TOKEN
+            )
+            if erro is not None:
+                return erro
 
 
 @app.after_request
@@ -122,9 +130,32 @@ def _caminho_resultado(meeting_id: str):
     return caminho
 
 
+def _resultado_protegido(meeting_id: str):
+    from politica_privacidade import ProtectionMode
+    from resultado_storage import ResultadoStorage, FORMATO_CIFRADO
+
+    storage = ResultadoStorage(_pasta_resultados().parent, ProtectionMode.PROTECTED)
+    try:
+        _caminho, manifesto = storage.manifesto(meeting_id)
+    except ValueError:
+        return None
+    return (storage, manifesto) if manifesto.segments_ref.format == FORMATO_CIFRADO else None
+
+
 @app.route("/api/reunioes")
 def api_reunioes():
-    return jsonify(sorted(p.stem for p in _pasta_resultados().glob("*.json")))
+    ids = {p.stem for p in _pasta_resultados().glob("*.json")}
+    from resultado_reuniao import carregar_manifesto
+    from resultado_storage import FORMATO_CIFRADO
+
+    for caminho in _pasta_resultados().parent.glob("*.resultado.json"):
+        try:
+            manifesto = carregar_manifesto(caminho)
+            if manifesto.segments_ref.format == FORMATO_CIFRADO:
+                ids.add(manifesto.meeting_id)
+        except (OSError, ValueError):
+            continue
+    return jsonify(sorted(ids))
 
 
 @app.route("/api/reunioes-indice")
@@ -156,6 +187,13 @@ def api_reunioes_indice():
 def api_resultado_reuniao(meeting_id: str):
     from resultado_reuniao import carregar_segmentos
 
+    protegido = _resultado_protegido(meeting_id)
+    if protegido:
+        storage, manifesto = protegido
+        try:
+            return jsonify(storage.load(manifesto.segments_ref))
+        except ValueError:
+            return jsonify({"erro": "Resultado inválido"}), 422
     caminho = _caminho_resultado(meeting_id)
     if caminho is None or not caminho.is_file():
         return jsonify({"erro": "Reunião não encontrada"}), 404
@@ -165,23 +203,53 @@ def api_resultado_reuniao(meeting_id: str):
         return jsonify({"erro": "Resultado inválido"}), 422
 
 
+@app.route("/api/reunioes/<meeting_id>/exportar-txt", methods=["POST"])
+def api_exportar_txt_reuniao(meeting_id: str):
+    """Entrega TXT somente após ação explícita, sem gravar plaintext no servidor."""
+    from resultado_reuniao import carregar_segmentos, exportar_txt
+
+    protegido = _resultado_protegido(meeting_id)
+    caminho = _caminho_resultado(meeting_id) if not protegido else None
+    if not protegido and (caminho is None or not caminho.is_file()):
+        return jsonify({"erro": "Reunião não encontrada"}), 404
+    try:
+        dados = (protegido[0].load(protegido[1].segments_ref) if protegido
+                 else carregar_segmentos(caminho))
+        conteudo = exportar_txt(dados["segmentos"], dados["mapeamento"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return jsonify({"erro": "Resultado inválido"}), 422
+    resposta = make_response(conteudo)
+    resposta.mimetype = "text/plain"
+    resposta.charset = "utf-8"
+    resposta.headers["Content-Disposition"] = f'attachment; filename="reuniao-{meeting_id}.txt"'
+    return resposta
+
+
 @app.route("/api/reunioes/<meeting_id>/correcao", methods=["POST"])
 def api_corrigir_reuniao(meeting_id: str):
     from renomear_falante_flow import corrigir_nome_reuniao
 
     if (request.content_length or 0) > MAX_CORPO_CHAT_BYTES:
         return jsonify({"erro": "Corpo da requisição muito grande"}), 413
-    caminho = _caminho_resultado(meeting_id)
-    if caminho is None or not caminho.is_file():
+    protegido = _resultado_protegido(meeting_id)
+    caminho = _caminho_resultado(meeting_id) if not protegido else None
+    if not protegido and (caminho is None or not caminho.is_file()):
         return jsonify({"erro": "Reunião não encontrada"}), 404
     dados = request.get_json(silent=True) or {}
     try:
-        revisao = corrigir_nome_reuniao(
-            str(caminho),
-            expected_revision=str(dados.get("expected_revision", "")),
-            cluster_falante=str(dados.get("speaker_cluster_id", "")),
-            novo_nome=str(dados.get("display_name", "")),
-        )
+        if protegido:
+            revisao = protegido[0].editar(
+                meeting_id, acao="corrigir",
+                expected_revision=str(dados.get("expected_revision", "")),
+                speaker_cluster_id=str(dados.get("speaker_cluster_id", "")),
+                display_name=str(dados.get("display_name", "")),
+            )
+        else:
+            revisao = corrigir_nome_reuniao(
+                str(caminho), expected_revision=str(dados.get("expected_revision", "")),
+                cluster_falante=str(dados.get("speaker_cluster_id", "")),
+                novo_nome=str(dados.get("display_name", "")),
+            )
     except ValueError as exc:
         codigo = 409 if "divergente" in str(exc) else 400
         return jsonify({"erro": str(exc)}), codigo
@@ -194,14 +262,21 @@ def api_desfazer_reuniao(meeting_id: str):
 
     if (request.content_length or 0) > MAX_CORPO_CHAT_BYTES:
         return jsonify({"erro": "Corpo da requisição muito grande"}), 413
-    caminho = _caminho_resultado(meeting_id)
-    if caminho is None or not caminho.is_file():
+    protegido = _resultado_protegido(meeting_id)
+    caminho = _caminho_resultado(meeting_id) if not protegido else None
+    if not protegido and (caminho is None or not caminho.is_file()):
         return jsonify({"erro": "Reunião não encontrada"}), 404
     dados = request.get_json(silent=True) or {}
     try:
-        revisao = desfazer_correcao(
-            caminho, expected_revision=str(dados.get("expected_revision", ""))
-        )
+        if protegido:
+            revisao = protegido[0].editar(
+                meeting_id, acao="desfazer",
+                expected_revision=str(dados.get("expected_revision", "")),
+            )
+        else:
+            revisao = desfazer_correcao(
+                caminho, expected_revision=str(dados.get("expected_revision", ""))
+            )
     except ValueError as exc:
         codigo = 409 if "divergente" in str(exc) else 400
         return jsonify({"erro": str(exc)}), codigo
@@ -353,15 +428,9 @@ def api_modelos():
 def api_chat():
     from assistente_validacao import (
         PayloadInvalido,
-        hosts_locais_aceitos,
-        origem_permitida_chat,
         validar_chat_request,
     )
 
-    if not hosts_locais_aceitos(request.host):
-        return jsonify({"erro": "Host não permitido"}), 403
-    if not origem_permitida_chat(request.headers.get("Origin")):
-        return jsonify({"erro": "Origem não permitida"}), 403
     try:
         pedido = validar_chat_request(request.get_json(silent=True))
     except PayloadInvalido as exc:

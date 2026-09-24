@@ -136,10 +136,11 @@ def encrypt_file(source: Path, destination: Path, master_key: bytes) -> Artifact
             saida.flush()
             os.fsync(saida.fileno())
         temporario_path = Path(temporario)
-        temporario = None
         # Validação por leitura autenticada antes de qualquer replace.
-        list(iter_decrypt_file(temporario_path, master_key))
+        for _chunk in iter_decrypt_file(temporario_path, master_key):
+            pass
         os.replace(temporario_path, destino)
+        temporario = None
         return ArtifactRef(
             relative_path=destino.name,
             format="tks/1",
@@ -167,7 +168,7 @@ def iter_decrypt_file(path: Path, master_key: bytes) -> Iterator[bytes]:
         if cabecalho[4] != VERSAO:
             raise ErroTKAS("versão TKAS não suportada")
         tamanho = int.from_bytes(cabecalho[5:9], "little")
-        if tamanho <= 0 or tamanho > 64 * 1024 * 1024:
+        if tamanho != TAMANHO_CHUNK:
             raise ErroTKAS("chunk size TKAS inválido")
         cabeca_stream = entrada.read(lig["HEADERBYTES"])
         if len(cabeca_stream) != lig["HEADERBYTES"]:
@@ -188,6 +189,8 @@ def iter_decrypt_file(path: Path, master_key: bytes) -> Iterator[bytes]:
                 raise ErroTKAS("dados após tag final")
             if etiqueta == lig["TAG_FINAL"]:
                 viu_final = True
+                if entrada.read(1):
+                    raise ErroTKAS("dados após tag final")
             elif etiqueta != lig["TAG_MESSAGE"]:
                 raise ErroTKAS(f"tag inesperada no chunk {indice}")
             yield bytes(plano)

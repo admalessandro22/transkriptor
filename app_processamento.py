@@ -300,13 +300,13 @@ class ProcessamentoReuniaoMixin:
         mic = None
         for caminho in caminhos:
             nome = Path(caminho).name.lower()
-            if "_mic.wav" in nome:
+            if nome.endswith(("_mic.wav", "_mic.wav.enc", "_mic.tks")):
                 mic = caminho
             elif principal is None:
                 principal = caminho
         return principal, mic
 
-    def _enfileirar_reuniao(self, transcritor, caminho_saida):
+    def _enfileirar_reuniao(self, transcritor, caminho_saida, *, eventos_refs=()):
         audios = list(getattr(transcritor, "audios_preservados", None) or [])
         audio, mic = self._separar_audios(audios)
         if not audio or not caminho_saida:
@@ -340,7 +340,12 @@ class ProcessamentoReuniaoMixin:
         base_saida = Path(caminho_saida).stem
         # T-13.D5: snapshot da sessão + refs seladas + preferências congeladas.
         sessao_dict = None
-        eventos_refs: list[dict] = []
+        import dataclasses
+
+        refs_dict = [
+            dataclasses.asdict(ref) if dataclasses.is_dataclass(ref) else dict(ref)
+            for ref in eventos_refs
+        ]
         sessao = getattr(self, "_sessao_ativa", None)
         if sessao is not None:
             sessao_dict = {
@@ -352,14 +357,6 @@ class ProcessamentoReuniaoMixin:
                 "offset_ms": getattr(sessao, "offset_ms", 0.0),
                 "relogio_incerto": bool(getattr(sessao, "relogio_incerto", True)),
             }
-        store = getattr(self, "_eventos_store", None)
-        if store is not None:
-            try:
-                import dataclasses
-
-                eventos_refs = [dataclasses.asdict(r) for r in store.seal()]
-            except Exception:  # noqa: BLE001 — sem refs, worker segue sem nomes
-                eventos_refs = []
         preferencias = {
             "rotulo_usuario": getattr(transcritor, "rotulo_usuario", None),
             "usar_vozes_conhecidas": bool(
@@ -372,7 +369,7 @@ class ProcessamentoReuniaoMixin:
             base_saida,
             metadados,
             sessao=sessao_dict,
-            eventos_refs=eventos_refs,
+            eventos_refs=refs_dict,
             preferencias=preferencias,
         )
         self._definir_estado_processamento("Em fila", job_id)

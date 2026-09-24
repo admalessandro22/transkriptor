@@ -1,5 +1,7 @@
 # ============================================
-# Transkiptor 1.1 — Dependências
+# Interface legada, sem uso no instalador atual.
+# Instalar via requirements/requirements-cpu.lock ou
+# requirements/requirements-cuda.lock com pip --require-hashes.
 # ============================================
 # IMPORTANTE: O PyTorch (torch/torchaudio) deve ser instalado ANTES,
 # usando o index CUDA apropriado para sua GPU:

@@ -16,7 +16,21 @@ Este plano está em execução na tarefa corrente registrada em `tasks.md`. Não
 bump de versão, instalação de extensão, OAuth, publicação ou migração sem a
 autorização específica exigida por `decisoes-usuario.md`.
 
-## Checkpoint de execução — 19/09/2026
+## Estado vigente da remediação — 22/09/2026
+
+Base auditada: `64b415bdc1ae26100b533cbd3c94abafa2dcb0e8`. O plano sequencial ativo é `docs/superpowers/plans/2026-09-22-remediacao-auditoria-v18.md`. As Tasks 1–12 desse plano reabrem D1, D2, D4–D7, E1, E4, F3, G1 e G2; G3 continua bloqueada até CI, gates físicos e release autorizada. O histórico abaixo registra o que foi observado em 19/09, sem comprovar os contratos de produção apontados pela auditoria.
+
+Estados: `REOPENED` significa que a implementação existente não satisfaz o contrato auditado e exige novo RED→GREEN; `BLOCKED` significa que a implementação automatizável está verde, mas falta gate externo autorizado; `DONE` exige requisito, teste específico, regressão, aceite, evidência e SHA concordantes. `PENDING` e `IN_PROGRESS` continuam disponíveis durante execução. A dependência corrente é Task 1 → Task 2 → … → Task 12; nenhuma fase reaberta é declarada concluída com base no checkpoint histórico.
+
+**Checkpoint da remediação em 24/09/2026:** Tasks 1–11 implementadas e commitadas em sequência; complemento da Task 8 no SHA `8527b1ddaf5bda27b97d7857f3478ba1ef8b7111` adicionou escolha explícita do modo protegido e exportação TXT. Índice de SHAs e limites em `evidencias/REMEDIACAO-2026-09-22.md`. O Step 1 automatizado da Task 12 passou no código atualizado (804 Python, 238 do verificador, 22 JS, 21 E2E, `npm ci`, compilação, `pip check` e diff). O fechamento documental está em curso. G1, G2, D2 e G3 continuam sem aceite final: CI remoto, CUDA real, duas partidas da bandeja, captura 25/600 s, Chrome/Edge e reunião consentida de três pessoas ainda faltam. A instância em uso não foi encerrada; o usuário informou que poderá preparar os gates físicos depois. Sem bump ou release.
+
+**Uso operacional em 24/09/2026:** O usuário posteriormente dispensou os testes reais, autorizou atualizar a bandeja e publicar a branch. A instância antiga foi substituída após checagem de ociosidade; a nova registrou prontidão com uma instância. A dispensa não promove D2/G1/G2/G3 a DONE: os gates físicos e CUDA não foram executados, e a precisão seletiva de nomes permanece sem medição no corpus exigido. A automação passou no SHA `5566f074011948457571cf934c8fb02c8855a6e8`; CI remoto foi acionado. Evidência e limites em `evidencias/REMEDIACAO-2026-09-22.md`. Uso local autorizado não equivale à release formal definida abaixo; versão permanece 1.7.0.
+
+**Fechamento automatizado em 24/09/2026:** Depois de corrigir o teste COM do runner sem alto-falantes, o candidato `4128cd6253ab94a0e83c4234b737f5ec4bf1291a` passou localmente (806 Python, 238 no verificador, 22 JS, 21 E2E) e no CI Windows CPU (804 Python, 2 skipped por ausência comprovada de dispositivo, 22 JS, 21 E2E, auditoria/SBOM/instalação). Workflow dispatch `36003594423` e PR #1 check `36004713892` verdes no mesmo SHA; branch publicada, PR aberta. O checkpoint anterior registra a tentativa histórica. Task 12/G3 continuam bloqueados pelos gates reais dispensados e pelo aceite das exceções; sem release formal.
+
+Emenda de contrato aprovada com a ordem de continuação: o código de sala observado no `hello` é vinculado em memória à `meeting_key` opaca da sessão consentida somente quando houver uma única sala ativa. Ambiguidade ou ausência de código mantém nomes indisponíveis; o áudio local segue seu fluxo. Detalhes normativos: `spec.md` e `interfaces.md`.
+
+## Checkpoint histórico de execução — 19/09/2026
 
 Este é o estado factual para retomada por outra LLM. Ele não substitui a
 definição de pronto nem altera a ordem obrigatória das tarefas.
@@ -82,9 +96,9 @@ definição de pronto nem altera a ordem obrigatória das tarefas.
 
 ### Próximos passos (C2 em diante)
 
-1. C1 está DONE. Próxima tarefa elegível: T-13.C2, uma por vez, com RED→GREEN, teste final, evidência e commit local; push autorizado pelo usuário.
+1. Este roteiro era válido em 19/09. A partir de 22/09, executar a Task 1 do plano de remediação, seguida das demais em ordem, com RED→GREEN, teste final, evidência e commit local por tarefa.
 2. C3 encerra F13.C com o gate longo já validado aqui mais o streaming em blocos.
-3. F13.D–G exigem gates reais próprios (Chrome/Edge, corpus, instalação); cada um pede autorização específica na hora, por DU-12.
+3. F13.D–G exigem gates reais próprios (Chrome/Edge, corpus, instalação); cada um pede autorização específica na hora, por DU-12. Push e release também exigem autorização própria.
 
 Antes de implementar, a LLM executora deve ler integralmente `interfaces.md` e `executor-llm.md`. Esses documentos fecham assinaturas, escolhas técnicas, escopo autorizado, formato de evidência e condições de parada. Não substituir uma decisão fechada por preferência do agente. Se uma decisão se provar inviável, propor emenda documental e parar a task antes de alterar consumidores.
 

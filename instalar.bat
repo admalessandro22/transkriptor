@@ -2,6 +2,8 @@
 chcp 65001 >nul
 cd /d "%~dp0"
 setlocal EnableExtensions
+REM --non-interactive --route cpu|cuda --skip-warmup --shortcut-dir <temporario>
+if /I "%~1"=="--non-interactive" goto instalar_isolado
 
 echo ============================================
 echo   Transkriptor — instalador
@@ -26,29 +28,45 @@ if not exist ".venv\Scripts\python.exe" (
   )
 )
 set "VENV_PY=%~dp0.venv\Scripts\python.exe"
-set "VENV_PIP=%~dp0.venv\Scripts\pip.exe"
 
-echo [3/5] Instalando PyTorch (GPU se disponivel)...
+echo [3/5] Selecionando rota CPU/CUDA...
 python scripts\instalar_helper.py --check gpu
-%VENV_PY% -m pip install --upgrade pip
-%VENV_PY% -c "from scripts.instalar_helper import tem_gpu_nvidia, comando_torch; import subprocess,sys; cmd=comando_torch(tem_gpu_nvidia()); cmd[0]=sys.executable; print(' '.join(cmd)); raise SystemExit(subprocess.call(cmd))"
-if errorlevel 1 (
-  echo [AVISO] Falha no torch CUDA/CPU automatico — tentando CPU...
-  %VENV_PY% -m pip install torch torchaudio
+set "ROTA="
+for /f "delims=" %%R in ('python scripts\instalar_helper.py --route') do set "ROTA=%%R"
+if not defined ROTA (
+  echo [ERRO] Nao foi possivel selecionar CPU/CUDA.
+  pause
+  exit /b 1
 )
-
-echo [4/5] Dependencias do projeto + warm-up opcional...
-%VENV_PY% scripts\instalar_helper.py --check gpu
-for /f "delims=" %%R in ('%VENV_PY% -c "from scripts.instalar_helper import tem_gpu_nvidia; print(\"cuda\" if tem_gpu_nvidia() else \"cpu\")"') do set "ROTA=%%R"
-%VENV_PY% scripts\instalar_helper.py --check deps --rota %ROTA%
+python scripts\instalar_helper.py --check deps --rota %ROTA%
 if errorlevel 1 (
   echo [ERRO] Combinacao de dependencias invalida para a rota %ROTA%.
   pause
   exit /b 1
 )
-%VENV_PY% -m pip install -r requirements.txt -c requirements\constraints-%ROTA%.txt
+"%VENV_PY%" scripts\instalar_helper.py --check installed-route --rota %ROTA%
 if errorlevel 1 (
-  echo [ERRO] Falha ao instalar requirements.txt (rota %ROTA%)
+  echo [ERRO] Ambiente existente usa outra rota. Preserve a venv e instale em uma pasta nova.
+  pause
+  exit /b 1
+)
+
+echo [4/5] Instalando dependencias fixadas da rota %ROTA%...
+"%VENV_PY%" -m pip install --require-hashes -r "requirements\requirements-%ROTA%.lock"
+if errorlevel 1 (
+  echo [ERRO] Falha ao instalar lock da rota %ROTA%.
+  pause
+  exit /b 1
+)
+"%VENV_PY%" -m pip check
+if errorlevel 1 (
+  echo [ERRO] Dependencias incompatíveis na rota %ROTA%.
+  pause
+  exit /b 1
+)
+"%VENV_PY%" scripts\instalar_helper.py --check installed-route --rota %ROTA% --require-installed
+if errorlevel 1 (
+  echo [ERRO] Pacotes torch/torchaudio nao correspondem a rota %ROTA%.
   pause
   exit /b 1
 )
@@ -56,12 +74,12 @@ echo.
 echo Deseja baixar modelos Whisper/voz agora? (S/N)
 set /p WARMUP=
 if /I "%WARMUP%"=="S" (
-  %VENV_PY% scripts\warmup_modelos.py
+  "%VENV_PY%" scripts\warmup_modelos.py
 )
 python scripts\instalar_helper.py --check ollama
 
 echo [5/5] Criando atalho...
-for /f "delims=" %%P in ('%VENV_PY% scripts\resolver_pythonw.py') do set "PYTHONW=%%P"
+for /f "delims=" %%P in ('""%VENV_PY%" scripts\resolver_pythonw.py"') do set "PYTHONW=%%P"
 if not defined PYTHONW (
   echo [ERRO] pythonw.exe nao encontrado.
   pause
@@ -77,10 +95,21 @@ if errorlevel 1 (
   exit /b 1
 )
 
-for /f "delims=" %%V in ('%VENV_PY% -c "from config import VERSAO; print(VERSAO)"') do set "VERSAO=%%V"
+set "VERSAO="
+for /f "delims=" %%V in ('""%VENV_PY%" scripts\instalar_helper.py --version"') do set "VERSAO=%%V"
+if not defined VERSAO (
+  echo [ERRO] Nao foi possivel ler a versao do produto.
+  pause
+  exit /b 1
+)
 echo.
 echo ============================================
 echo   Instalacao Transkriptor %VERSAO% concluida!
 echo   Use o atalho "Transkriptor" ou iniciar_bandeja.bat
 echo ============================================
 pause
+exit /b 0
+
+:instalar_isolado
+python scripts\instalar_helper.py --isolated-install %*
+exit /b %ERRORLEVEL%

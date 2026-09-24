@@ -1,6 +1,12 @@
 # Tasks — confiabilidade e identificação de participantes
 
-**28 tarefas propostas; 23 DONE, 2 BLOCKED (T-13.D2 demo, T-13.G3 gates) e 3 pendentes (T-13.H1–H3 opcionais).** Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
+**Estado auditado em 22/09/2026: 13 DONE, 11 REOPENED, 1 BLOCKED (T-13.G3) e 3 pendentes (T-13.H1–H3 opcionais).** Os estados REOPENED só voltam a DONE após as tarefas sequenciais do plano de remediação, com RED→GREEN, regressão, evidência e SHA real. Ordem, checkpoint e gates: `plan.md`. Contratos: `spec.md`. Prefixo de todos os IDs: `T-13`. Cada item inclui também o ciclo de teste/commit obrigatório de `plan.md`.
+
+**Checkpoint corrente em 24/09/2026:** Tasks 1–11 do plano de remediação têm commits e evidência de automação; o complemento da Task 8 está no SHA `8527b1ddaf5bda27b97d7857f3478ba1ef8b7111`. Task 12 está em execução. A suíte Python (804 passed), o verificador de fase (238 passed), JS (22 passed), E2E (21 passed), compilação, `pip check` e diff passaram no código atualizado. Os checkboxes `REOPENED`/`BLOCKED` abaixo continuam abertos até os gates reais e CI do mesmo SHA; o usuário agendará depois a janela de ociosidade e os três participantes consentidos. Não houve bump nem release.
+
+**Atualização operacional em 24/09/2026:** O usuário dispensou os testes reais e autorizou reiniciar a bandeja e publicar a branch. A nova instância registrou prontidão; o workflow Windows CPU foi acionado. A dispensa é registrada como **não executado**, sem marcar gate humano como PASS ou fechar os checkboxes de D2/G1/G2/G3. O uso local segue na versão 1.7.0 e Task 12 permanece aberta para release formal. Detalhes em `evidencias/REMEDIACAO-2026-09-22.md`.
+
+**CI e publicação verificados em 24/09/2026:** SHA candidato `4128cd6253ab94a0e83c4234b737f5ec4bf1291a`, workflow dispatch `36003594423` e check da PR #1 `36004713892` verdes; PR aberta sem merge. A suíte local teve 806 passed; CI Windows CPU teve 804 passed e 2 skipped exclusivamente por ausência comprovada de alto-falantes no runner. A falta de gates reais e de aceite das exceções mantém Task 12/G3 abertos. O índice de evidência contém os comandos e limites.
 
 Para execução por outra LLM, `interfaces.md` e `executor-llm.md` são leitura obrigatória. Os blocos **Arquivos**, **Implementação**, **RED**, **Teste final** e **Aceite** de cada task são cumulativos, não alternativas. O agente não pode trocar nomes de interfaces, tecnologia decidida, ordem, thresholds ou comportamento de falha sem primeiro emendar os documentos e obter revisão.
 
@@ -90,16 +96,16 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.D1 — sessão e relógio verificáveis
 
-- [x] **Requisito:** FR-13.D1. **Depende de:** C3. **Estado:** `DONE`; evidência: `evidencias/T-13.D1.md`.
+- [ ] **Requisito:** FR-13.D1. **Depende de:** C3. **Estado:** `REOPENED`; evidência histórica: `evidencias/T-13.D1.md`; remediação: Task 3.
 - **Arquivos:** criar `sessao_reuniao.py`, `tests/test_sessao_meet.py`; modificar `meet_bridge.py`, `app_ciclo_reuniao.py`, `deteccao_reuniao.py`.
-- **Implementação:** contratos `SessaoReuniao` e envelope da spec; um estado por conexão/aba/conferência. Selecionar a sessão consentida e não confundir recusa/reconexão. Capturar primeira amostra monotônica e âncora UTC; estimar offset/RTT no handshake; marcar tempo incerto em vez de aplicar nomes pelo relógio errado.
+- **Implementação:** contratos `SessaoReuniao` e envelope da spec; um estado por conexão/aba/conferência. Na remediação, `hello` mantém código/estado ativo só em memória; vincular a sessão consentida apenas ao código ativo único e recusar ambiguidade. Selecionar a sessão consentida e não confundir recusa/reconexão. Capturar primeira amostra monotônica e âncora UTC; estimar offset/RTT no handshake; marcar tempo incerto em vez de aplicar nomes pelo relógio errado.
 - **RED:** `test_duas_abas_nao_se_encerram`, `test_evento_antigo_nao_entra_sessao`, `test_mudanca_relogio_nao_desloca_audio`, `test_evento_antes_do_consentimento_descartado`.
 - **Teste final:** `python -m pytest tests/test_sessao_meet.py tests/test_deteccao_multi_fonte.py tests/test_portao_consentimento.py -v`.
 - **Aceite:** sequências fora de ordem/repetidas são rejeitadas/deduplicadas; uma conferência não recebe título ou nome da outra.
 
 ### T-13.D2 — transporte autenticado da extensão
 
-- [ ] **Requisito:** SEC-13.D2. **Depende de:** D1.
+- [ ] **Requisito:** SEC-13.D2. **Depende de:** D1 e pareamento da Task 2. **Estado:** `REOPENED`; evidência histórica: `evidencias/T-13.D2.md`; gate Chrome/Edge continua pendente na Task 12.
 - **Arquivos:** criar `extension/meet/background.js`, `extension/meet/pairing.html`, `extension/meet/pairing.js`, `tests/e2e/meet-transport.spec.js`; modificar manifest, content script, `meet_bridge.py`, configuração da ponte e testes de segurança existentes.
 - **Implementação:** content script→service worker→WS; validar sender URL/origin/tab e top-frame. Pairing local de uso único iniciado no app provisiona credencial do worker; não embutir segredo em `config.js`. Rotação/revogação e expiração por sessão; origin exato de extensão autorizada, rejeitar ausência no listener de produção. Limites da spec no WebSocket (`max_size` no servidor) e no parser; estados tipados, reconnect com backoff/jitter e prontidão confirmada.
 - **RED:** testes de prefixo enganoso, token antigo, sender de outro site, ausência de Origin, oversized frame, aba recarregada, worker suspenso e porta ocupada.
@@ -117,7 +123,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.D4 — persistir eventos privados continuamente
 
-- [x] **Requisito:** SEC-13.D4. **Depende de:** D1–D3 (implementação; D2 BLOCKED pela demo). **Estado:** `DONE`; evidência: `evidencias/T-13.D4.md`.
+- [ ] **Requisito:** SEC-13.D4. **Depende de:** D1–D3 e integração das Tasks 2–3. **Estado:** `REOPENED`; evidência histórica: `evidencias/T-13.D4.md`; remediação: Tasks 3–4.
 - **Arquivos:** criar `eventos_meet_store.py`, `tests/test_eventos_meet_store.py`; modificar `meet_bridge.py`, `app_ciclo_reuniao.py`, `config.py`.
 - **Implementação:** `EventStore` usa `ArtifactRef`/`ArtifactCipher` de `artefatos.py`; drenar a fila ao menos a cada segundo; journal cifrado e ACK durável. O adaptador inicial encapsula `crypto_storage.salvar_bytes_arquivo`/`ler_bytes_arquivo`, sem duplicar AES-GCM. Guardar evento por sessão/seq, recuperar último registro íntegro após crash, contar descartes e bloquear nova coleta de conteúdo se cifra indisponível. Consentimento/revogação filtra antes de persistir; heartbeat mínimo continua independente. Evento bruto só fica elegível para exclusão sete dias após `ResultManifest` válido; antes disso e durante reprocessamento é preservado.
 - **RED:** `test_mil_eventos_preserva_o_final`, `test_ack_exige_durabilidade`, `test_crash_recupera_prefixo_integro`, `test_sem_chave_nao_grava_legenda`, `test_revogacao_interrompe_conteudo`, `test_eventos_expiram_so_sete_dias_apos_resultado_valido`.
@@ -126,7 +132,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.D5 — entregar os eventos ao worker
 
-- [x] **Requisito:** FR-13.D5. **Depende de:** B1, D4. **Estado:** `DONE`; evidência: `evidencias/T-13.D5.md`.
+- [ ] **Requisito:** FR-13.D5. **Depende de:** B1, D4 e refs selados na Task 4. **Estado:** `REOPENED`; evidência histórica: `evidencias/T-13.D5.md`; remediação: Tasks 4–5.
 - **Arquivos:** modificar `app_processamento.py`, `fila_processamento.py`, `processador_reuniao.py`, `retranscritor.py`, `diarizacao_final.py`; criar `tests/test_nomes_meet_worker.py`.
 - **Implementação:** selar eventos e passar `ArtifactRef`, relógios e preferências da sessão no job v2. Novo worker carrega/valida/decifra o artefato e fornece eventos à diarização. Jobs v1 sem evento resultam em identificação indisponível; não recuperam nomes fictícios. Snapshot inclui rótulo do usuário e opção de vozes conhecidas, sem depender de alteração de configuração posterior.
 - **RED:** `test_nome_atravessa_job_e_worker_novo`, `test_restart_preserva_eventos`, `test_hash_incorreto_recusa_eventos`, `test_job_v1_sem_nome_nao_fabrica_participante`.
@@ -135,7 +141,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.D6 — atribuição conservadora e calibrada
 
-- [x] **Requisito:** FR-13.D6. **Depende de:** D5. **Estado:** `DONE`; evidência: `evidencias/T-13.D6.md`.
+- [ ] **Requisito:** FR-13.D6. **Depende de:** D5 e resultado estruturado da Task 5. **Estado:** `REOPENED`; evidência histórica: `evidencias/T-13.D6.md`; remediação: Task 6.
 - **Arquivos:** criar `identidade_reuniao.py`, `tests/test_identidade_reuniao.py`; modificar `correlacionador.py`, `diarizador.py`, `config.py`.
 - **Implementação:** retornar `Atribuicao`, não string arbitrária. Considerar janela/offset, texto, duração de atividade, origem e conflitos; restringir fallback de atividade a evento do tipo correto. Legenda lexicalmente incompatível não vira prova temporal. Confirmado manual prevalece; conflito com mic/voz produz pendência. Calibrar limiares em conjunto separado e gravar versão de calibração. Só emitir nome automático com precisão seletiva ≥98% e cobertura elegível ≥80%; abaixo disso retornar `suggested`/`unknown`, exibido como `Identificação pendente`.
 - **RED:** `test_legenda_sem_match_nao_substitui_voce`, `test_empate_produz_unknown`, `test_homonimos_exigem_id`, `test_sobreposicao_nao_forca_um_nome`, `test_evidencia_suficiente_nomeia`.
@@ -144,7 +150,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.D7 — resultado nomeado e correção por reunião
 
-- [x] **Requisito:** FR-13.D7. **Depende de:** D6, B2. **Estado:** `DONE` (automatizado); evidência: `evidencias/T-13.D7.md`. Gate F13.D com participantes pendente.
+- [ ] **Requisito:** FR-13.D7. **Depende de:** D6, B2 e resultado estruturado das Tasks 5–6. **Estado:** `REOPENED`; evidência histórica: `evidencias/T-13.D7.md`; gate F13.D com participantes pendente na Task 12.
 - **Arquivos:** ampliar `resultado_reuniao.py`; modificar `renomear_falante_flow.py`, `transkriptor_menu_flows.py`, `assistente.py`, `templates/assistente.html`, `static/assistente.js`; criar `tests/test_resultado_reuniao.py`, `tests/e2e/participants.spec.js`.
 - **Implementação:** manifesto/segmentos/participantes persistidos; JSON estruturado é canônico e TXT derivado usa exatamente `[HH:MM:SS] Nome: texto`, uma linha por segmento. Sem atribuição qualificada, usar literalmente `Identificação pendente`. UI escolhe reunião, mostra nome/origem/incerteza e permite editar mapeamento com revisão/hash esperado, undo e reexportação. Centroides não dependem de `app.transcritor` vivo; biometria persistente só em ação separada. Falha parcial de diarização preserva STT e é visível, nunca resultado globalmente completo.
 - **RED:** correção após restart, duas reuniões com FALANTE_00, edição concorrente, desfazer, falha de diarização, formato exato do TXT e exportação com `Identificação pendente` sem nome inventado.
@@ -155,7 +161,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.E1 — política única de proteção e falha explícita
 
-- [x] **Requisito:** SEC-13.E1. **Depende de:** D7. **Estado:** `DONE`; evidência: `evidencias/T-13.E1.md`.
+- [ ] **Requisito:** SEC-13.E1. **Depende de:** D7. **Estado:** `REOPENED`; evidência histórica: `evidencias/T-13.E1.md`; remediação: Tasks 7–8.
 - **Arquivos:** criar `politica_privacidade.py`, `crypto_stream.py`, `tests/test_politica_privacidade.py`, `tests/test_crypto_stream.py`; modificar `requirements.txt`, `crypto_storage.py`, `identificador_voz.py`, `perfil_voz_flow.py`, `audio_reader.py`, `retranscritor.py`, `app_bandeja_menu.py`.
 - **Implementação:** modo compatível/protegido e estado efetivo por artefato. Configuração existente sem campo de política migra semanticamente para `compatible`; ausência de configuração (instalação nova) inicia `protected`. `ProtectionUnavailable` impede cadastro novo em claro quando se exige cifra. Falha no áudio preserva material já gravado em área restrita e mostra pendência de proteção. Adicionar provisoriamente `PyNaCl>=1.6.2,<2` ao requisito da v1.8; G1 fixa versão/hash após a matriz. Implementar o formato TKAS/1 definido em `interfaces.md` com bindings SecretStream XChaCha20-Poly1305 do PyNaCl; não reimplementar a primitiva. Se PyNaCl/libsodium não carregar na matriz Windows, o modo protegido de áudio longo fica bloqueado com erro explícito — não criar cifra alternativa. Não gerar nova chave sobre blob existente ilegível. Migração sempre começa em dry-run; remoção real exige lista exata confirmada. Cópias divergentes são preservadas.
 - **RED:** instalação nova protegida, instalação existente sem campo compatível, DPAPI indisponível, gravação de cifra falhando, preferências trocadas durante captura, `.enc` antigo e plaintext novo, chave corrompida; TKAS truncado, chunk alterado/reordenado/duplicado e ausência de tag final; dry-run não remove alvo.
@@ -182,7 +188,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.E4 — eventos de log e ciclo de biometria
 
-- [x] **Requisito:** SEC-13.E4. **Depende de:** E3. **Estado:** `DONE`; evidência: `evidencias/T-13.E4.md`.
+- [ ] **Requisito:** SEC-13.E4. **Depende de:** E3. **Estado:** `REOPENED`; evidência histórica: `evidencias/T-13.E4.md`; remediação: Task 9.
 - **Arquivos:** modificar `status_seguro.py`, `transkriptor.pyw`, `perfil_voz_flow.py`, `renomear_falante_flow.py`, `diagnostico.py`, manual; criar `tests/test_privacidade_eventos.py`.
 - **Implementação:** log recebe código de evento e campos operacionais permitidos; texto de fala não compartilha API de status. Exportação de diagnóstico remove nomes, títulos, tokens, paths pessoais e conteúdo. Perfil de voz começa desligado; cadastro persistente exige finalidade/consentimento próprios e ação de exclusão verificável; correção de nome na sessão permanece independente. Perfil permanece até revogação, eventos obedecem sete dias após resultado válido e resultados só saem por exclusão manual. Registrar política aplicada sem dados de fala.
 - **RED:** fala começando por “Erro”/“Reunião” ou contendo `.txt`; exceção com token; voz desligada por padrão; correção nominal sem cadastro; revogação remove apenas perfil selecionado e confirma ausência.
@@ -211,7 +217,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.F3 — índice e acessibilidade comportamental
 
-- [x] **Requisito:** UX-13.F3. **Depende de:** F2. **Estado:** `DONE`; evidência: `evidencias/T-13.F3.md`.
+- [ ] **Requisito:** UX-13.F3. **Depende de:** F2 e resultado persistido das Tasks 5–6. **Estado:** `REOPENED`; evidência histórica: `evidencias/T-13.F3.md`; remediação: Task 6.
 - **Arquivos:** criar `indice_transcricoes.py`, `tests/test_indice_transcricoes.py`, `tests/e2e/accessibility.spec.js`; modificar API, HTML/CSS/JS.
 - **Implementação:** índice de metadados sem preview de fala por padrão, paginação e invalidação por versão de manifesto; não decifrar todos os arquivos para listar. Drawer com foco inicial/restaurado, navegação por teclado, estados de carregamento/erro, versão da reunião explícita e clipboard com erro visível. Substituir testes frágeis de string por interação real, mantendo verificações estáticas úteis.
 - **RED:** 1.000 reuniões sem leitura de texto integral, índice desatualizado após job, teclado preso/fora do drawer, seleção perdida ao filtrar, clipboard negado.
@@ -222,7 +228,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.G1 — dependências reproduzíveis e CI
 
-- [x] **Requisito:** NFR-13.G1. **Depende de:** F3. **Estado:** `DONE`; evidência: `evidencias/T-13.G1.md`.
+- [ ] **Requisito:** NFR-13.G1. **Depende de:** F3. **Estado:** `REOPENED`; evidência histórica: `evidencias/T-13.G1.md`; remediação: Task 10.
 - **Arquivos:** modificar requisitos/pyproject; criar constraints/locks CPU e CUDA, `.github/workflows/tests.yml`, `docs/DEPENDENCIAS.md`; atualizar instalador para consumir a seleção validada.
 - **Implementação:** ambiente virtual limpo com matrizes CPU e CUDA suportadas; fixar API websockets compatível, casal torch/torchaudio e wheel PyNaCl/libsodium para Python 3.12/Windows. Executar auditoria de dependências transitivas e gerar SBOM sem credenciais. CI Windows roda pytest, JS, contratos e artefatos de falha nas rotas possíveis; gate físico é separado e não é falsamente simulado pelo CI. Não corrigir pacotes globais não pertencentes ao produto.
 - **RED:** instalar conjunto não compatível deve falhar na pré-checagem com mensagem clara; resolver locks reproduz exatamente a árvore aprovada.
@@ -231,7 +237,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.G2 — entrada, instalação e versão coerentes
 
-- [x] **Requisito:** NFR-13.G2. **Depende de:** G1. **Estado:** `DONE`; evidência: `evidencias/T-13.G2.md`.
+- [ ] **Requisito:** NFR-13.G2. **Depende de:** G1. **Estado:** `REOPENED`; evidência histórica: `evidencias/T-13.G2.md`; remediação: Task 11.
 - **Arquivos:** modificar `instalar.bat`, `iniciar.bat`, `iniciar_bandeja.bat`, `desinstalar.bat`, `scripts/resolver_pythonw.py`, `scripts/instalar_helper.py`, `assistente.py`, `transcrever_meet.py`; criar `tests/test_instalacao_caminhos.py`.
 - **Implementação:** argumentos corretamente citados, cwd explícito e uso do mesmo venv em todos os caminhos; CLI aceita auto de forma coerente; standalone faz bootstrap de autenticação antes de abrir navegador. Desinstalador detecta processo/gravação e apresenta alvos exatos, preservando dados por padrão. Versão de manifesto/extensão pode ser independente, mas sua relação com release é documentada e gerada.
 - **RED:** diretório com espaço/acentos, ausência de Python, venv incompleto, porta ocupada, atalho existente e desinstalação cancelada.
@@ -240,7 +246,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.G3 — corpus, avaliação física e fechamento
 
-- [ ] **Requisito:** NFR-13.G3. **Depende de:** todas A–G2.
+- [ ] **Requisito:** NFR-13.G3. **Depende de:** todas A–G2 e gates da Task 12. **Estado:** `BLOCKED`; CI do candidato `4128cd6` verde, mas faltam gates reais, aceite das exceções de dependências e fechamento formal do release.
 - **Arquivos:** criar `scripts/avaliar_qualidade_reuniao.py`, `tests/test_metricas_qualidade.py`, protocolo `docs/QUALIDADE-REUNIOES.md`; atualizar manual, releases, evidências e versão só depois dos gates.
 - **Implementação:** calcular WER/DER, precisão nominal, cobertura total/elegível, abstinências, erros de eco e IC 95%; versionar referência por hashes sem commitar gravações pessoais. Separar conjunto de calibração e teste. Verificar todos os passos físicos de `plan.md`, recursos e recuperação. Conferir correspondência requisito→teste→resultado→commit.
 - **RED:** calculador de métricas deve penalizar nome incorreto, reconhecer abstinência e não confundir roster com fala; fixture com erro conhecido produz o valor esperado.

@@ -220,6 +220,38 @@ class MenuBandejaMixin:
         self._status(f"Cópia criptografada {estado}.")
         self._atualizar_tooltip()
 
+    def _confirmar_modo_protegido(self):
+        try:
+            import ctypes
+
+            return ctypes.windll.user32.MessageBoxW(
+                0,
+                "Ativar modo protegido para novas reuniões? Arquivos existentes não serão migrados ou apagados.",
+                "Transkriptor",
+                0x00000004 | 0x00000030,
+            ) == 6
+        except Exception:
+            return False
+
+    def ativar_modo_protegido(self, _icone=None, _item=None):
+        import config_user
+        from politica_privacidade import ProtectionMode, modo_efetivo
+
+        if modo_efetivo() == ProtectionMode.PROTECTED:
+            self._status("Modo protegido já está ativo.")
+            return
+        if self._gravando() or self._processamento_em_execucao():
+            self._status("Aguarde o fim da gravação e do processamento para mudar a proteção.")
+            return
+        if not chave_disponivel():
+            self._status("Chave de proteção indisponível. Modo não alterado.")
+            return
+        if not self._confirmar_modo_protegido():
+            return
+        config_user.atualizar(protection_mode=ProtectionMode.PROTECTED.value)
+        self._status("Modo protegido ativado para novas reuniões. Arquivos existentes preservados.")
+        self._atualizar_tooltip()
+
     def alternar_startup(self, _icone=None, _item=None):
         import config_user
 
@@ -417,6 +449,7 @@ class MenuBandejaMixin:
             ),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem(self._texto_criptografia, self.alternar_criptografia),
+            pystray.MenuItem("Ativar modo protegido para novas reuniões…", self.ativar_modo_protegido),
             pystray.MenuItem("Modelo Whisper", self._submenu_modelo_whisper()),
             pystray.MenuItem(self._texto_startup, self.alternar_startup),
             pystray.Menu.SEPARATOR,

@@ -27,6 +27,7 @@ class SegmentoResultado:
     text: str
     speaker_cluster_id: str
     overlap: bool = False
+    assignment: Mapping[str, object] | None = None
 
 
 def _hora_curta(ms: int) -> str:
@@ -82,6 +83,16 @@ def salvar_segmentos(
     mapeamento: Mapping | None = None,
 ) -> str:
     """Persiste segmentos + mapeamento cluster→participante. Devolve `rev-1`."""
+    dados = montar_payload(segmentos, mapeamento)
+    _escrever_json_atomico(Path(path), dados)
+    return "rev-1"
+
+
+def montar_payload(
+    segmentos: Sequence[SegmentoResultado | Mapping],
+    mapeamento: Mapping | None = None,
+) -> dict:
+    """Monta o canônico em memória para persistência aberta ou cifrada."""
     serializados = []
     for seg in segmentos:
         if isinstance(seg, SegmentoResultado):
@@ -94,6 +105,7 @@ def salvar_segmentos(
                     "text": str(seg.text),
                     "speaker_cluster_id": str(seg.speaker_cluster_id),
                     "overlap": bool(seg.overlap),
+                    "assignment": dict(seg.assignment) if seg.assignment is not None else None,
                 }
             )
         else:
@@ -106,6 +118,7 @@ def salvar_segmentos(
                     "text": str(seg.get("text", "")),
                     "speaker_cluster_id": str(seg.get("speaker_cluster_id", "")),
                     "overlap": bool(seg.get("overlap", False)),
+                    "assignment": dict(seg["assignment"]) if seg.get("assignment") is not None else None,
                 }
             )
     dados = {
@@ -115,18 +128,39 @@ def salvar_segmentos(
         "mapeamento": dict(mapeamento or {}),
         "historico": [],
     }
-    _escrever_json_atomico(Path(path), dados)
-    return "rev-1"
+    return dados
 
 
 def carregar_segmentos(path: Path) -> dict:
     dados = json.loads(Path(path).read_text(encoding="utf-8"))
+    return validar_dados_segmentos(dados)
+
+
+def validar_dados_segmentos(dados: object) -> dict:
+    """Valida o mesmo schema após leitura aberta ou decifragem em memória."""
     if not isinstance(dados, dict) or dados.get("schema_version") != VERSAO_SEGMENTOS:
         raise ValueError("resultado estruturado inválido")
     if not isinstance(dados.get("segmentos"), list) or not isinstance(
         dados.get("revision"), str
     ):
         raise ValueError("resultado estruturado inválido")
+    for seg in dados["segmentos"]:
+        if not isinstance(seg, dict) or not all(
+            chave in seg for chave in (
+                "segment_id", "start_ms", "end_ms", "audio_source", "text", "speaker_cluster_id"
+            )
+        ):
+            raise ValueError("segmento estruturado inválido")
+        if (
+            not isinstance(seg["segment_id"], str) or not seg["segment_id"]
+            or type(seg["start_ms"]) is not int or type(seg["end_ms"]) is not int
+            or seg["start_ms"] < 0 or seg["end_ms"] <= seg["start_ms"]
+            or seg["audio_source"] not in ("loopback", "microphone")
+            or not isinstance(seg["text"], str)
+            or not isinstance(seg["speaker_cluster_id"], str)
+            or (seg.get("assignment") is not None and not isinstance(seg["assignment"], dict))
+        ):
+            raise ValueError("segmento estruturado inválido")
     dados.setdefault("mapeamento", {})
     dados.setdefault("historico", [])
     return dados
@@ -168,6 +202,26 @@ def aplicar_correcao(
     biometria. Devolve a nova revisão.
     """
     dados = carregar_segmentos(path)
+    nova_revisao = corrigir_payload(
+        dados, expected_revision=expected_revision,
+        speaker_cluster_id=speaker_cluster_id, participant_id=participant_id,
+        display_name=display_name, autor=autor,
+    )
+    from resultado_reuniao import validar_exportacao_antes_edicao
+
+    validar_exportacao_antes_edicao(Path(path))
+    _escrever_json_atomico(Path(path), dados)
+    from resultado_reuniao import atualizar_exportacao_apos_edicao
+
+    atualizar_exportacao_apos_edicao(Path(path))
+    return nova_revisao
+
+
+def corrigir_payload(
+    dados: dict, *, expected_revision: str, speaker_cluster_id: str,
+    participant_id: str | None, display_name: str, autor: str = "local",
+) -> str:
+    """Aplica revisão em memória, inclusive para storage cifrado."""
     if dados["revision"] != expected_revision:
         raise ValueError("revisão esperada divergente; recarregue a reunião")
     cluster = str(speaker_cluster_id)
@@ -193,13 +247,25 @@ def aplicar_correcao(
         }
     )
     dados["revision"] = nova_revisao
-    _escrever_json_atomico(Path(path), dados)
     return nova_revisao
 
 
 def desfazer_correcao(path: Path, *, expected_revision: str) -> str:
     """Desfaz a última correção como nova revisão (nunca reescreve história)."""
     dados = carregar_segmentos(path)
+    nova_revisao = desfazer_payload(dados, expected_revision=expected_revision)
+    from resultado_reuniao import validar_exportacao_antes_edicao
+
+    validar_exportacao_antes_edicao(Path(path))
+    _escrever_json_atomico(Path(path), dados)
+    from resultado_reuniao import atualizar_exportacao_apos_edicao
+
+    atualizar_exportacao_apos_edicao(Path(path))
+    return nova_revisao
+
+
+def desfazer_payload(dados: dict, *, expected_revision: str) -> str:
+    """Desfaz em memória mantendo o histórico append-only."""
     if dados["revision"] != expected_revision:
         raise ValueError("revisão esperada divergente; recarregue a reunião")
     if not dados["historico"]:
@@ -217,5 +283,4 @@ def desfazer_correcao(path: Path, *, expected_revision: str) -> str:
         {"revision": nova_revisao, "acao": "desfazer", "cluster": cluster}
     )
     dados["revision"] = nova_revisao
-    _escrever_json_atomico(Path(path), dados)
     return nova_revisao

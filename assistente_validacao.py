@@ -80,20 +80,51 @@ def hosts_locais_aceitos(host: str | None) -> bool:
         partes = urlparse(f"http://{host}")
     except Exception:  # noqa: BLE001
         return False
-    return partes.hostname in ("127.0.0.1", "localhost")
-
-
-def origem_permitida_chat(origin: str | None) -> bool:
-    """Ausência (navegação direta/curl local) ou mesma origem; externa reprova."""
-    if origin is None or origin == "":
-        return True
     try:
-        partes = urlparse(str(origin))
-    except Exception:  # noqa: BLE001
+        return (
+            partes.hostname in ("127.0.0.1", "localhost")
+            and partes.username is None and partes.password is None
+            and (partes.port is None or 1 <= partes.port <= 65535)
+            and not partes.path and not partes.query and not partes.fragment
+        )
+    except ValueError:
         return False
-    if partes.scheme != "http":
+
+
+def origem_exata_assistente(origin: str | None, host_url: str) -> bool:
+    """Confere esquema, host e porta do Origin com a própria requisição."""
+    if not origin or not isinstance(origin, str):
         return False
-    return partes.hostname in ("127.0.0.1", "localhost")
+    try:
+        origem = urlparse(origin)
+        local = urlparse(host_url)
+        return (
+            origem.scheme == local.scheme == "http"
+            and origem.hostname == local.hostname
+            and origem.port == local.port
+            and origem.username is None and origem.password is None
+            and origem.path in ("", "/")
+            and not origem.query and not origem.fragment
+        )
+    except ValueError:
+        return False
+
+
+def validar_mutacao_local(requisicao, *, header_secreto_valido: bool):
+    """Valida o transporte de qualquer mutação antes de tocar dados locais."""
+    from flask import jsonify
+
+    if not hosts_locais_aceitos(requisicao.host):
+        return None, (jsonify({"erro": "Host não permitido"}), 403)
+    origem = requisicao.headers.get("Origin")
+    if origem:
+        if not origem_exata_assistente(origem, requisicao.host_url):
+            return None, (jsonify({"erro": "Origem não permitida"}), 403)
+    elif not header_secreto_valido:
+        return None, (jsonify({"erro": "Origem não permitida"}), 403)
+    if requisicao.mimetype != "application/json":
+        return None, (jsonify({"erro": "Content-Type inválido"}), 415)
+    return requisicao.get_json(silent=True), None
 
 
 def _id_reuniao(valor: object, campo: str) -> str:

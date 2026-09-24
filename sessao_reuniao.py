@@ -67,6 +67,8 @@ def validar_envelope(evento: Mapping, sessao: SessaoReuniao) -> dict:
     """Valida envelope `schema_version=1` contra a sessão; recusa sem adivinhar."""
     if not isinstance(evento, Mapping):
         raise EnvelopeRejeitado("envelope não é objeto")
+    if type(evento.get("schema_version")) is not int or evento["schema_version"] != 1:
+        raise EnvelopeRejeitado("schema_version desconhecida")
     try:
         serializado = json.dumps(dict(evento), ensure_ascii=False)
     except (TypeError, ValueError) as exc:
@@ -142,6 +144,21 @@ class SessoesAtivas:
     def __init__(self) -> None:
         self._por_conexao: dict[str, dict] = {}
 
+    def vincular(self, connection_id: str, tab_id: str, sessao: SessaoReuniao) -> None:
+        if not isinstance(connection_id, str) or not connection_id or not isinstance(tab_id, str) or not tab_id:
+            raise EnvelopeRejeitado("conexão/aba vazia")
+        existente = self._por_conexao.get(connection_id)
+        if existente is not None:
+            if existente["tab_id"] != tab_id or existente["sessao"].session_id != sessao.session_id:
+                raise EnvelopeRejeitado("conexão já vinculada a outra aba/sessão")
+            return
+        self._por_conexao[connection_id] = {
+            "sessao": sessao,
+            "tab_id": tab_id,
+            "last_seq": -1,
+            "event_ids": set(),
+        }
+
     def obter_ou_criar(
         self,
         connection_id: str,
@@ -171,17 +188,20 @@ class SessoesAtivas:
     def sessao_de(self, connection_id: str) -> SessaoReuniao:
         return self._por_conexao[connection_id]["sessao"]
 
-    def aceitar_evento(self, connection_id: str, evento: Mapping) -> dict:
+    def aceitar_evento(self, connection_id: str, evento: Mapping, *, confirmar: bool = True) -> dict:
         registro = self._por_conexao.get(connection_id)
         if registro is None:
             raise EnvelopeRejeitado("conexão sem sessão")
         valido = validar_envelope(evento, registro["sessao"])
         if valido["connection_id"] != connection_id:
             raise EnvelopeRejeitado("evento de outra conexão")
+        if valido["tab_id"] != registro["tab_id"]:
+            raise EnvelopeRejeitado("evento de outra aba")
         if valido["event_id"] in registro["event_ids"]:
             raise EnvelopeRejeitado("event_id duplicado")
         if int(valido["seq"]) <= int(registro["last_seq"]):
             raise EnvelopeRejeitado("seq antiga ou repetida")
-        registro["event_ids"].add(valido["event_id"])
-        registro["last_seq"] = int(valido["seq"])
+        if confirmar:
+            registro["event_ids"].add(valido["event_id"])
+            registro["last_seq"] = int(valido["seq"])
         return valido

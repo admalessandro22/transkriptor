@@ -105,7 +105,7 @@
       <div id="reuniao-revisao" aria-live="polite"></div>
       <label class="field-label" for="reuniao-participantes" id="lbl-reuniao">Reunião</label>
       <div class="select-wrap"><select id="reuniao-participantes" aria-labelledby="lbl-reuniao" title="Reunião"></select></div>
-      <div id="lista-participantes" aria-live="polite"></div>
+      <div id="lista-participantes" aria-live="polite" aria-label="Participantes e sugestões para revisão"></div>
       <form id="form-correcao">
         <label class="field-label" for="correcao-cluster">Falante</label>
         <div class="select-wrap"><select id="correcao-cluster" title="Falante"></select></div>
@@ -115,9 +115,11 @@
         <div>
           <button type="submit" id="salvar-correcao">Salvar correção</button>
           <button type="button" id="desfazer-correcao">Desfazer</button>
+          <button type="button" id="exportar-txt">Exportar TXT</button>
           <button type="button" id="fechar-participantes">Fechar</button>
         </div>
       </form>
+      <p>O TXT exportado é legível e contém dados sensíveis da reunião.</p>
       <div id="participantes-estado" role="status" aria-live="polite"></div>
     </section>
 

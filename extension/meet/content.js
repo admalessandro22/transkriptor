@@ -9,8 +9,7 @@
  *   2. atributos data-* (data-self-name, data-speaker-name)
  *   3. classes ofuscadas do Meet (.NWpY1d, .zs7s8d, .ygicle) — último recurso
  *
- * Espelho Python dos fixtures: tests/test_extensao_parsing.py → extrair_legendas_html
- * (sem runner JS no projeto).
+ * O parser versionado fornece IDs e revisões preservados no transporte.
  */
 (function () {
   const DEBOUNCE_MS = 400;
@@ -53,11 +52,11 @@
   /** FR-9.3: heartbeat de estado — a fonte mais confiável de detecção. */
   function enviarEstado() {
     try {
-      canalEnviar({ tipo: "reuniao", ativa: emChamada(), ts_ms: Date.now(), titulo: (document.title || "").slice(0, 120) });
+      canalEnviar({ tipo: "reuniao", ativa: emChamada(), ts_ms: Date.now() });
     } catch (_e) {}
   }
 
-  function enviar(nome, tipo, texto) {
+  function enviar(nome, tipo, texto, metadados) {
     if (!nome) return;
     const agora = Date.now();
     const txt = (texto || "").trim().slice(0, MAX_TEXTO);
@@ -79,6 +78,12 @@
     if (txt) {
       payload.texto = txt;
     }
+    if (metadados) {
+      if (metadados.id) payload.caption_id = metadados.id;
+      if (Number.isInteger(metadados.revisao)) payload.caption_revision = metadados.revisao;
+      if (metadados.participant_id) payload.participant_id = metadados.participant_id;
+      payload.confidence_source = tipo === "legenda" ? "caption" : "speaker_activity";
+    }
     canalEnviar(payload);
   }
 
@@ -95,15 +100,15 @@
     const lib = biblioteca();
     if (!lib) return [];
     return lib.consolidarRevisoes(lib.extrairLegendas(document)).map(function (f) {
-      return { nome: f.nome, texto: f.texto };
+      return { nome: f.nome, texto: f.texto, id: f.id, revisao: f.revisao, participant_id: f.participant_id };
     });
   }
 
-  function nomeDoTileAtivo() {
+  function tileAtivo() {
     const lib = biblioteca();
-    if (!lib) return "";
+    if (!lib) return null;
     const sinais = lib.extrairAtividade(document);
-    return sinais.length ? sinais[0].nome : "";
+    return sinais.length ? sinais[0] : null;
   }
 
   function detectar() {
@@ -111,12 +116,12 @@
     if (legendas.length) {
       // envia a legenda mais recente (última do DOM)
       const ult = legendas[legendas.length - 1];
-      enviar(ult.nome, "legenda", ult.texto);
+      enviar(ult.nome, "legenda", ult.texto, ult);
       return;
     }
-    const ativo = nomeDoTileAtivo();
+    const ativo = tileAtivo();
     if (ativo) {
-      enviar(ativo, "ativo");
+      enviar(ativo.nome, "ativo", "", { participant_id: ativo.id });
     }
   }
 
