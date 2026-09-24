@@ -20,6 +20,7 @@ bp = Blueprint("central_resumos", __name__)
 _servico = None
 _servico_lock = threading.Lock()
 _OCUPADO = ("gravando", "processando", "separando_vozes")
+_PROCESSANDO = ("Processando", "Em fila")
 TIMEOUT_RESUMO_SEG = 300
 
 
@@ -44,7 +45,8 @@ def _app_ocupado() -> bool:
         snap = provedor()
     except Exception:  # noqa: BLE001
         return False
-    return snap.estado in _OCUPADO or bool(snap.processamento)
+    # "Pronta"/"Falhou"/"Cancelada" ficam no campo depois de terminar: não é ocupado.
+    return snap.estado in _OCUPADO or snap.processamento in _PROCESSANDO
 
 
 def _contexto(modelo: str) -> int:

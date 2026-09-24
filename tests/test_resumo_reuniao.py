@@ -195,3 +195,23 @@ def test_chamada_do_resumo_desliga_raciocinio_e_fixa_contexto(monkeypatch):
     corpo, timeout = enviados[0]
     assert corpo["think"] is False and corpo["options"]["num_ctx"] == 8192
     assert timeout == central_resumos.TIMEOUT_RESUMO_SEG
+
+
+@pytest.mark.parametrize("estado,processamento,ocupado", [
+    ("aguardando", None, False),
+    ("aguardando", "Pronta", False),      # regressão: "Pronta" fica no campo após processar
+    ("aguardando", "Falhou", False),
+    ("aguardando", "Cancelada", False),
+    ("aguardando", "Processando", True),
+    ("aguardando", "Em fila", True),
+    ("gravando", None, True),
+    ("separando_vozes", None, True),
+])
+def test_app_ocupado_so_quando_grava_ou_processa(monkeypatch, estado, processamento, ocupado):
+    from types import SimpleNamespace
+
+    import app_estado_ui
+    import central_resumos
+
+    monkeypatch.setattr(app_estado_ui, "provedor_atual", lambda: (lambda: SimpleNamespace(estado=estado, processamento=processamento)))
+    assert central_resumos._app_ocupado() is ocupado
