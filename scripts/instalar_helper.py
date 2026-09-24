@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import os
+import argparse
+import json
 import shutil
 import subprocess
 import sys
+import tempfile
 from importlib import metadata
+from pathlib import Path
 from collections.abc import Callable
 
 
@@ -96,14 +100,19 @@ def rota_instalada_valida(rota: str, *, exige_instalada: bool = False) -> tuple[
 
 
 def processo_ativo(runner: Runner | None = None) -> bool:
-    """Detecta app/gravação em curso via tasklist (desinstalador aborta)."""
+    """Detecta app/worker pela linha de comando; consulta incerta bloqueia remoção."""
     runner = runner or (lambda cmd: subprocess.run(cmd, capture_output=True, text=True))
     try:
-        r = runner(["tasklist", "/FO", "CSV", "/NH"])
+        r = runner([
+            "powershell", "-NoProfile", "-Command",
+            "$ErrorActionPreference='Stop'; "
+            "Get-CimInstance Win32_Process -Filter \"Name='python.exe' OR Name='pythonw.exe'\" "
+            "| ForEach-Object { $_.CommandLine }",
+        ])
     except Exception:
-        return False
+        return True
     if r.returncode != 0:
-        return False
+        return True
     texto = ((r.stdout or "") + "\n" + (r.stderr or "")).lower()
     return ("transkriptor.pyw" in texto) or ("processador_reuniao" in texto)
 
@@ -127,8 +136,188 @@ def alvos_desinstalacao() -> dict:
     }
 
 
+def atalho_deste_checkout(caminho: Path, raiz: Path) -> bool:
+    """Só reconhece o atalho criado para esta cópia do aplicativo."""
+    try:
+        script = (
+            "$ErrorActionPreference='Stop'; "
+            "$s=(New-Object -ComObject WScript.Shell).CreateShortcut($env:TRANSKRIPTOR_ATALHO_INSPECAO); "
+            "[Console]::WriteLine($s.TargetPath); [Console]::WriteLine($s.Arguments)"
+        )
+        ambiente = os.environ.copy()
+        ambiente["TRANSKRIPTOR_ATALHO_INSPECAO"] = str(caminho)
+        resultado = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", script],
+            capture_output=True, text=True, timeout=10, env=ambiente,
+        )
+        if resultado.returncode:
+            return False
+        linhas = resultado.stdout.splitlines()
+        if len(linhas) != 2:
+            return False
+        pythonw = (raiz / ".venv" / "Scripts" / "pythonw.exe").resolve()
+        aplicativo = (raiz / "transkriptor.pyw").resolve()
+        return (Path(linhas[0]).resolve() == pythonw
+                and linhas[1].strip().strip('"') == str(aplicativo))
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        return False
+
+
+def desinstalar_normal(raiz: str | Path, *, apagar_dados: bool = False) -> None:
+    """Remove apenas alvos conhecidos após conferir que o aplicativo parou."""
+    if processo_ativo():
+        raise RuntimeError("Transkriptor em execução ou consulta de processos indisponível")
+    raiz = Path(raiz).resolve(strict=True)
+
+    def dentro(alvo: Path, base: Path, nome: str) -> Path:
+        resolvido = alvo.resolve()
+        base = base.resolve()
+        if resolvido.name != nome or not resolvido.is_relative_to(base) or resolvido == base:
+            raise ValueError(f"alvo {nome} fora da raiz autorizada")
+        return resolvido
+
+    perfil = Path(os.environ["USERPROFILE"]).resolve()
+    appdata = Path(os.environ["APPDATA"]).resolve()
+    atalhos = (
+        dentro(perfil / "Desktop" / "Transkriptor.lnk", perfil, "Transkriptor.lnk"),
+        dentro(perfil / "OneDrive" / "Desktop" / "Transkriptor.lnk", perfil, "Transkriptor.lnk"),
+        dentro(appdata / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup" / "transkriptor.lnk", appdata, "transkriptor.lnk"),
+    )
+    venv = dentro(raiz / ".venv", raiz, ".venv")
+    dados = (
+        dentro(raiz / "transcricoes", raiz, "transcricoes"),
+        dentro(raiz / "audio", raiz, "audio"),
+        dentro(raiz / "_modelo_voz", raiz, "_modelo_voz"),
+        dentro(raiz / "config_user.json", raiz, "config_user.json"),
+    ) if apagar_dados else ()
+    for atalho in atalhos:
+        if atalho.is_file() and atalho_deste_checkout(atalho, raiz):
+            atalho.unlink()
+    if venv.is_dir():
+        shutil.rmtree(venv)
+    for alvo in dados:
+        if alvo.is_dir():
+            shutil.rmtree(alvo)
+        elif alvo.is_file():
+            alvo.unlink()
+
+
+def validar_raiz_gate(raiz: str | Path) -> Path:
+    """Aceita somente descendente resolvido do diretório temporário do sistema."""
+    alvo = Path(raiz).resolve()
+    temporario = Path(tempfile.gettempdir()).resolve()
+    if alvo == temporario or not alvo.is_relative_to(temporario):
+        raise ValueError("gate exige raiz temporária dentro do diretório temporário do sistema")
+    return alvo
+
+
+def exigir_marcador_gate(raiz: str | Path) -> Path:
+    """Vincula operações de aceite ao nonce efêmero criado pelo gate."""
+    raiz = validar_raiz_gate(raiz)
+    nonce = os.environ.get("TRANSKRIPTOR_GATE_NONCE", "")
+    marcador = raiz / ".transkriptor-gate.json"
+    if len(nonce) != 32 or not marcador.is_file():
+        raise ValueError("marcador do gate ausente")
+    try:
+        dados = json.loads(marcador.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as erro:
+        raise ValueError("marcador do gate inválido") from erro
+    if dados != {"root": str(raiz), "nonce": nonce}:
+        raise ValueError("marcador do gate não corresponde à raiz")
+    return raiz
+
+
+def _alvo_gate(raiz: Path, alvo: Path, nome: str) -> Path:
+    resolvido = alvo.resolve()
+    if resolvido.name != nome or not resolvido.is_relative_to(raiz):
+        raise ValueError(f"alvo {nome} fora da raiz temporária")
+    return resolvido
+
+
+def desinstalar_isolado(raiz: str | Path, shortcut_dir: str | Path) -> None:
+    """Remove só a venv e atalhos sintéticos sob a raiz de aceite."""
+    raiz = exigir_marcador_gate(raiz)
+    atalhos = Path(shortcut_dir).resolve()
+    if not atalhos.is_relative_to(raiz) or atalhos == raiz:
+        raise ValueError("atalhos fora da raiz temporária")
+    venv = _alvo_gate(raiz, raiz / ".venv", ".venv")
+    for nome in ("Transkriptor.lnk", "transkriptor.lnk"):
+        atalho = _alvo_gate(raiz, atalhos / nome, nome)
+        if atalho.is_file():
+            atalho.unlink()
+    if venv.is_dir():
+        shutil.rmtree(venv)
+
+
+def instalar_isolado(raiz: str | Path, rota: str, shortcut_dir: str | Path) -> None:
+    """Instala por lock em cópia temporária, com atalho somente simulado."""
+    raiz = exigir_marcador_gate(raiz)
+    if rota not in ("cpu", "cuda"):
+        raise ValueError("rota inválida")
+    if rota == "cuda" and not tem_gpu_nvidia():
+        raise ValueError("CUDA sem GPU NVIDIA")
+    atalhos = Path(shortcut_dir).resolve()
+    if not atalhos.is_relative_to(raiz) or atalhos == raiz:
+        raise ValueError("atalhos fora da raiz temporária")
+    venv = _alvo_gate(raiz, raiz / ".venv", ".venv")
+    if venv.exists():
+        raise ValueError("venv já existente na raiz temporária")
+    lock = raiz / "requirements" / f"requirements-{rota}.lock"
+    if not lock.is_file():
+        raise ValueError("lock da rota ausente")
+    subprocess.run([sys.executable, "-m", "venv", str(venv)], cwd=raiz, check=True)
+    python = venv / "Scripts" / "python.exe"
+    subprocess.run([str(python), "-m", "pip", "install", "--require-hashes", "-r", str(lock)], cwd=raiz, check=True)
+    subprocess.run([str(python), "-m", "pip", "check"], cwd=raiz, check=True)
+    subprocess.run(
+        [str(python), str(raiz / "scripts" / "instalar_helper.py"), "--check", "installed-route",
+         "--rota", rota, "--require-installed"],
+        cwd=raiz, check=True,
+    )
+    atalhos.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+         str(raiz / "scripts" / "criar_atalho_desktop.ps1"),
+         "-Pythonw", str(venv / "Scripts" / "pythonw.exe"),
+         "-Aplicativo", str(raiz / "transkriptor.pyw"),
+         "-Icone", str(raiz / "transkriptor.ico"),
+         "-Destino", str(atalhos / "Transkriptor.lnk")],
+        cwd=raiz, check=True,
+    )
+
+
+def _isolado_cli(argv: list[str]) -> int:
+    acao = argv[0]
+    parser = argparse.ArgumentParser(description="Instalação de aceite em raiz temporária")
+    parser.add_argument("--non-interactive", action="store_true", required=True)
+    parser.add_argument("--route", choices=("cpu", "cuda"))
+    parser.add_argument("--skip-warmup", action="store_true")
+    parser.add_argument("--preserve-data", action="store_true")
+    parser.add_argument("--shortcut-dir", type=Path, required=True)
+    args = parser.parse_args(argv[1:])
+    raiz = Path(__file__).resolve().parent.parent
+    if acao == "--isolated-install":
+        if not args.route or not args.skip_warmup:
+            parser.error("instalação isolada exige rota e --skip-warmup")
+        instalar_isolado(raiz, args.route, args.shortcut_dir)
+    else:
+        if not args.preserve_data:
+            parser.error("desinstalação isolada exige --preserve-data")
+        desinstalar_isolado(raiz, args.shortcut_dir)
+    return 0
+
+
 def main(argv=None):
     argv = list(argv or sys.argv[1:])
+    if argv and argv[0] == "--uninstall-normal":
+        if argv[1:] not in (["--preserve-data"], ["--delete-data"]):
+            print("ERRO: escolha --preserve-data ou --delete-data")
+            return 2
+        desinstalar_normal(Path(__file__).resolve().parent.parent,
+                           apagar_dados=argv[1] == "--delete-data")
+        return 0
+    if argv and argv[0] in ("--isolated-install", "--isolated-uninstall"):
+        return _isolado_cli(argv)
     if argv == ["--version"]:
         import runpy
         from pathlib import Path

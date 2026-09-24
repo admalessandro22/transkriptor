@@ -2,6 +2,8 @@
 chcp 65001 >nul
 cd /d "%~dp0"
 setlocal EnableExtensions
+REM --non-interactive --route cpu|cuda --skip-warmup --shortcut-dir <temporario>
+if /I "%~1"=="--non-interactive" goto instalar_isolado
 
 echo ============================================
 echo   Transkriptor — instalador
@@ -77,7 +79,7 @@ if /I "%WARMUP%"=="S" (
 python scripts\instalar_helper.py --check ollama
 
 echo [5/5] Criando atalho...
-for /f "delims=" %%P in ('"%VENV_PY%" scripts\resolver_pythonw.py') do set "PYTHONW=%%P"
+for /f "delims=" %%P in ('""%VENV_PY%" scripts\resolver_pythonw.py"') do set "PYTHONW=%%P"
 if not defined PYTHONW (
   echo [ERRO] pythonw.exe nao encontrado.
   pause
@@ -94,7 +96,7 @@ if errorlevel 1 (
 )
 
 set "VERSAO="
-for /f "delims=" %%V in ('"%VENV_PY%" scripts\instalar_helper.py --version') do set "VERSAO=%%V"
+for /f "delims=" %%V in ('""%VENV_PY%" scripts\instalar_helper.py --version"') do set "VERSAO=%%V"
 if not defined VERSAO (
   echo [ERRO] Nao foi possivel ler a versao do produto.
   pause
@@ -106,3 +108,8 @@ echo   Instalacao Transkriptor %VERSAO% concluida!
 echo   Use o atalho "Transkriptor" ou iniciar_bandeja.bat
 echo ============================================
 pause
+exit /b 0
+
+:instalar_isolado
+python scripts\instalar_helper.py --isolated-install %*
+exit /b %ERRORLEVEL%
