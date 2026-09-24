@@ -74,6 +74,7 @@
 /* ---- Badges ---- */
 .tk-badge { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 var(--tk-space-2); border-radius: var(--tk-radius-pill); font-size: var(--tk-type-xs-size); font-weight: 500; letter-spacing: 0.2px; border: 1px solid var(--tk-border); background: var(--tk-bg-2); color: var(--tk-text-2); white-space: nowrap; }
 .tk-badge .tk-icon { width: 14px; height: 14px; }
+.tk-badge:empty { display: none; }
 .tk-badge-state[data-estado="aguardando"] { color: var(--tk-state-idle-text); }
 .tk-badge-state[data-estado="gravando"] { color: var(--tk-state-recording-text); }
 .tk-badge-state[data-estado="processando"] { color: var(--tk-state-processing-text); }
