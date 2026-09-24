@@ -1,6 +1,6 @@
 # Tasks — plataforma visual e Central (SDD v1.9)
 
-**Estado em 24/09/2026: plano aprovado; 17 `DONE` (F14.A–D concluídas, E1–E4), 4 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.E5.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
+**Estado em 24/09/2026: plano aprovado; 18 `DONE` (F14.A–E concluídas), 3 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.F1.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
 
 Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, **Teste final** e **Aceite** são cumulativos. Os arquivos de teste novos são entregáveis da implementação; os seletores são planejados, não testes que já passaram. Nenhuma task usa dados reais; capturas usam `tests/e2e/fixtures/`.
 
@@ -186,7 +186,7 @@ Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, 
 
 ### T-14.E5 — pareamento da extensão com a mesma identidade
 
-- [ ] **Requisito:** UX-14.E5. **Depende de:** E4. **Estado:** `PENDING`.
+- [x] **Requisito:** UX-14.E5. **Depende de:** E4. **Estado:** `DONE`; commit `9e2418a`; evidência: `evidencias/T-14.E5.md` (gate da fase E verde).
 - **Arquivos:** modificar `extension/meet/pairing.html`, `extension/meet/pairing.js`, `extension/meet/README.md`, `scripts/gerar_tokens.py` (`--extensao`); criar `extension/meet/pairing.css`, `tests/js/pairing-ui.test.js`; atualizar `tests/e2e/meet-transport.spec.js`.
 - **Implementação:** passos numerados (abrir Diagnóstico → copiar código → colar → parear), campo com validação de prefixo, estados carregando/sucesso/erro com ícone, marca e tema pelo `prefers-color-scheme`; nenhuma requisição além do WebSocket local.
 - **RED:** `pairing-ui.test.js::sucesso mostra estado e desabilita campo`, `::erro mostra proximo passo`; `test_design_tokens.py::test_pairing_css_gerado_igual`.
