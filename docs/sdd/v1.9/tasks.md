@@ -1,6 +1,6 @@
 # Tasks — plataforma visual e Central (SDD v1.9)
 
-**Estado em 24/09/2026: plano aprovado; 6 `DONE` (F14.A concluída, B1–B3), 15 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.B4.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
+**Estado em 24/09/2026: plano aprovado; 7 `DONE` (F14.A e F14.B concluídas), 14 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.C1.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
 
 Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, **Teste final** e **Aceite** são cumulativos. Os arquivos de teste novos são entregáveis da implementação; os seletores são planejados, não testes que já passaram. Nenhuma task usa dados reais; capturas usam `tests/e2e/fixtures/`.
 
@@ -70,7 +70,7 @@ Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, 
 
 ### T-14.B4 — estados e feedback do assistente
 
-- [ ] **Requisito:** UX-14.B4. **Depende de:** B3. **Estado:** `PENDING`.
+- [x] **Requisito:** UX-14.B4. **Depende de:** B3. **Estado:** `DONE`; commit `fb873e7`; evidência: `evidencias/T-14.B4.md` (gate da fase B verde).
 - **Arquivos:** modificar `static/js/chat.js`, `static/js/reunioes.js`, `static/js/ui.js`, `templates/assistente.html`; criar `tests/e2e/estados.spec.js`.
 - **Implementação:** toasts tipados com título e próximo passo; skeleton na carga de lista e modelos; Ollama offline vira um cartão no lugar do composer ("Ollama não está em execução. Inicie o Ollama e clique em Tentar de novo") sem toast duplicado; transcrição longa vira aviso inline com estimativa; erro de rede vira cartão com "Tentar de novo"; nenhuma mensagem de erro dentro de `<select>`/listbox.
 - **RED:** `estados.spec.js::ollama offline mostra cartao e nao toast`, `::tentar de novo recarrega modelos`, `::erro de lista nao vira item`, `::skeleton some apos carga`, `::toast de erro persiste ate fechar`.
