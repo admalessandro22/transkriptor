@@ -233,6 +233,8 @@ class ServicoResumos:
             if modelo is None:
                 raise ResumoIndisponivel("IA local sem modelo instalado")
             resumo = gerar_resumo(dados, modelo, self._chamar, orcamento_chars=self._orcamento(modelo))
+            if not self._carregar(meeting_id):
+                return  # excluída enquanto o resumo era gerado: não recria dado
             self._gravar(meeting_id, str(dados.get("revision", "")), resumo, modelo)
         except ResumoIndisponivel as exc:
             motivo = str(exc)

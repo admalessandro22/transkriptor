@@ -99,3 +99,33 @@ def test_ordem_compara_utc_do_job_com_hora_local_do_nome(tmp_path, monkeypatch):
     _job(tmp_path, "2" * 32, inicio_iso="2026-09-22T15:00:00Z")  # 12:00 local
     pagina, _ = listar_reunioes(tmp_path / "indice.json", cursor=None, limit=10)
     assert [s.meeting_id for s in pagina] == ["1" * 32, "2" * 32]
+
+
+def test_titulo_editado_vence_o_do_job_e_sobrevive_a_reindexacao(tmp_path):
+    from indice_transcricoes import definir_titulo
+
+    caminho = _manifesto("7" * 32, tmp_path, "transcricao_2026-09-24_16h05")
+    _job(tmp_path, "7" * 32, titulo_reuniao="Meet – abc-defg-hij")
+    indice = tmp_path / "indice.json"
+    listar_reunioes(indice, cursor=None, limit=10)
+    definir_titulo(indice, "7" * 32, "  Alinhamento\tsemanal  ")
+    caminho.write_text(caminho.read_text(encoding="utf-8").replace("\n", "\n "), encoding="utf-8")  # novo sha
+    (s,), _ = listar_reunioes(indice, cursor=None, limit=10)
+    assert s.title == "Alinhamento semanal"
+    definir_titulo(indice, "7" * 32, "")
+    (s,), _ = listar_reunioes(indice, cursor=None, limit=10)
+    assert s.title == "Meet – abc-defg-hij"
+
+
+def test_titulo_editado_valida_tamanho_e_reuniao(tmp_path):
+    import pytest
+
+    from indice_transcricoes import definir_titulo
+
+    _manifesto("8" * 32, tmp_path, "transcricao_2026-09-24_16h05")
+    indice = tmp_path / "indice.json"
+    listar_reunioes(indice, cursor=None, limit=10)
+    with pytest.raises(ValueError):
+        definir_titulo(indice, "8" * 32, "x" * 81)
+    with pytest.raises(KeyError):
+        definir_titulo(indice, "nao-existe", "Título")

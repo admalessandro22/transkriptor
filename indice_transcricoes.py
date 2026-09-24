@@ -141,6 +141,8 @@ def _completar_resumo(resumo: dict, caminho: Path, meeting_id: str, anterior: di
     )
     if info.get("started_at") or anterior.get("inicio_real"):
         resumo["inicio_real"] = resumo["started_at"]
+    if anterior.get("titulo_usuario"):
+        resumo["titulo_usuario"] = anterior["titulo_usuario"]
     return resumo
 
 
@@ -149,6 +151,8 @@ def _varrer_manifestos(raiz: Path) -> dict[str, Path]:
     if not raiz.is_dir():
         return achados
     for caminho in sorted(raiz.rglob("*.resultado.json")):
+        if any(parte.startswith(".lixeira") for parte in caminho.relative_to(raiz).parts):
+            continue  # reunião em exclusão (exclusao_reuniao.LIXEIRA)
         try:
             dados = json.loads(caminho.read_text(encoding="utf-8"))
         except (OSError, ValueError):
@@ -187,6 +191,25 @@ def atualizar_indice(index_path: Path, manifesto) -> None:
         **resumo,
     }
     _salvar_indice(indice, reunioes)
+
+
+def definir_titulo(index_path: Path, meeting_id: str, titulo: str) -> str | None:
+    """Título escolhido pelo usuário (≤ 80); vazio volta ao título da gravação."""
+    limpo = re.sub(r"\s+", " ", str(titulo or "")).strip()
+    limpo = "".join(ch for ch in limpo if ch.isprintable())
+    if len(limpo) > 80:
+        raise ValueError("título acima de 80 caracteres")
+    indice = Path(index_path)
+    reunioes = _carregar_indice(indice)
+    entrada = reunioes.get(str(meeting_id))
+    if not isinstance(entrada, dict):
+        raise KeyError("reunião não encontrada no índice")
+    if limpo:
+        entrada["titulo_usuario"] = limpo
+    else:
+        entrada.pop("titulo_usuario", None)
+    _salvar_indice(indice, reunioes)
+    return limpo or None
 
 
 def _instante(iso: object) -> float:
@@ -275,7 +298,7 @@ def listar_reunioes(index_path: Path, *, cursor: str | None, limit: int):
         summaries.append(
             MeetingSummary(
                 meeting_id=mid,
-                title=entrada.get("title"),
+                title=entrada.get("titulo_usuario") or entrada.get("title"),
                 started_at=str(entrada.get("started_at", "")),
                 duration_ms=entrada.get("duration_ms"),
                 revision=f"v{entrada.get('schema_version', 1)}-{str(entrada.get('sha', ''))[:8]}",
