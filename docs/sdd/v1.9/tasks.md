@@ -1,6 +1,6 @@
 # Tasks — plataforma visual e Central (SDD v1.9)
 
-**Estado em 24/09/2026: plano aprovado; 8 `DONE` (F14.A e F14.B concluídas, C1), 13 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.C2.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
+**Estado em 24/09/2026: plano aprovado; 9 `DONE` (F14.A e F14.B concluídas, C1–C2), 12 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.C3.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
 
 Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, **Teste final** e **Aceite** são cumulativos. Os arquivos de teste novos são entregáveis da implementação; os seletores são planejados, não testes que já passaram. Nenhuma task usa dados reais; capturas usam `tests/e2e/fixtures/`.
 
@@ -92,7 +92,7 @@ Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, 
 
 ### T-14.C2 — linha do tempo, sugestões e correção com undo
 
-- [ ] **Requisito:** UX-14.C2. **Depende de:** C1. **Estado:** `PENDING`.
+- [x] **Requisito:** UX-14.C2. **Depende de:** C1. **Estado:** `DONE`; commit `93711da`; evidência: `evidencias/T-14.C2.md`.
 - **Arquivos:** modificar `static/js/participantes.js`, `static/css/participantes.css`, `templates/participantes.html`; atualizar `tests/e2e/participants.spec.js`.
 - **Implementação:** segmentos em linha do tempo com tempo `[HH:MM:SS]`, falante colorido, fonte de áudio como ícone, filtro por falante; sugestão como cartão inline com origem e confiança e ações "Confirmar Ana" / "Escolher outro"; formulário de correção com seleção de falante por nome amigável e campo de nome com validação; undo com texto do que será desfeito; 409 mostra aviso inline, recarrega e mantém o painel; conteúdo sempre escapado.
 - **RED:** `participants.spec.js::confirmar sugestao aplica ao cluster inteiro`, `::escolher outro foca campo e mantem cluster`, `::409 mantem painel e atualiza revisao`, `::undo mostra o que desfaz`, `::html em fala nao executa`.
