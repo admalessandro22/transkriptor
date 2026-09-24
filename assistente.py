@@ -12,6 +12,7 @@ import urllib.request
 
 from flask import Flask, jsonify, make_response, redirect, render_template, request
 
+from assistente_cabecalhos import aplicar_cabecalhos
 from assistente_ollama import (
     _cache_ctx,
     chamar_ollama_sync as _chamar_ollama_sync,
@@ -73,12 +74,7 @@ def verificar_token():
 
 @app.after_request
 def cabecalhos_privacidade(resposta):
-    resposta.headers["Cache-Control"] = "no-store"
-    resposta.headers["Referrer-Policy"] = "no-referrer"
-    resposta.headers["X-Content-Type-Options"] = "nosniff"
-    resposta.headers["X-Frame-Options"] = "DENY"
-    resposta.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'"
-    return resposta
+    return aplicar_cabecalhos(resposta)
 
 
 @app.errorhandler(413)

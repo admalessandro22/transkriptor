@@ -54,7 +54,9 @@ def test_html_progress_bar_durante_busy():
 
 
 def test_html_drawer_mobile_375px():
-    assert "☰" in HTML or "&#9776;" in HTML
+    # v1.9 (T-14.A2): o glifo "☰" de compatibilidade saiu junto com o estilo
+    # inline; o botão de menu é identificado por aria-label e id.
+    assert 'aria-label="Abrir menu' in HTML
     assert "375px" in HTML
     assert "drawer" in HTML.lower() or "menu-toggle" in HTML
 

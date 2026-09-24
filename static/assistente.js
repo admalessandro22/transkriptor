@@ -157,9 +157,9 @@ function showToast(msg, tone = 'info') {
   const el = document.createElement('div');
   el.className = 'toast';
   el.textContent = msg;
-  if (tone === 'error') el.style.borderColor = 'rgba(239,68,68,0.32)';
+  if (tone === 'error') el.classList.add('toast--error');
   toastRegion.appendChild(el);
-  setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateY(4px)'; el.style.transition = 'opacity 0.22s, transform 0.22s'; }, 2600);
+  setTimeout(() => { el.classList.add('is-leaving'); }, 2600);
   setTimeout(() => el.remove(), 3000);
 }
 
@@ -336,11 +336,7 @@ function addMsg(role, text, opts = {}) {
     });
     meta.appendChild(copy);
     const wrap = document.createElement('div');
-    wrap.style.display = 'flex';
-    wrap.style.flexDirection = 'column';
-    wrap.style.gap = '6px';
-    wrap.style.minWidth = '0';
-    wrap.style.flex = '1';
+    wrap.className = 'msg-body';
     wrap.appendChild(bub);
     wrap.appendChild(meta);
     row.appendChild(wrap);
@@ -363,10 +359,7 @@ function addTyping() {
   const bub = document.createElement('div'); bub.className = 'bubble';
   bub.innerHTML = '<div class="typing" aria-label="Gerando resposta"><span></span><span></span><span></span></div>';
   const wrap = document.createElement('div');
-  wrap.style.display = 'flex';
-  wrap.style.flexDirection = 'column';
-  wrap.style.gap = '4px';
-  wrap.style.flex = '1';
+  wrap.className = 'msg-body';
   wrap.appendChild(bub);
   row.appendChild(av); row.appendChild(wrap);
   chat.appendChild(row); chat.scrollTop = chat.scrollHeight;
@@ -375,7 +368,7 @@ function addTyping() {
 
 function iniciarTimer() {
   timerStart = Date.now();
-  timerEl.style.display = 'block';
+  timerEl.classList.remove('is-hidden');
   timerEl.classList.remove('longo');
   timerEl.textContent = 'Processando… 0s';
   timerInterval = setInterval(() => {
@@ -391,13 +384,13 @@ function iniciarTimer() {
 
 function pararTimer() {
   if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-  timerEl.style.display = 'none';
+  timerEl.classList.add('is-hidden');
   timerEl.classList.remove('longo');
 }
 
 function mostrarBotoes(ocupado) {
-  sendBtn.style.display = ocupado ? 'none' : 'flex';
-  stopBtn.style.display = ocupado ? 'flex' : 'none';
+  sendBtn.classList.toggle('is-hidden', ocupado);
+  stopBtn.classList.toggle('is-hidden', !ocupado);
   progressBar.classList.toggle('visible', ocupado);
   progressBar.setAttribute('aria-hidden', ocupado ? 'false' : 'true');
   if (ocupado) input.setAttribute('disabled','');
@@ -528,7 +521,7 @@ function mostrarToastInline(msg) {
   row.className = 'msg-row ai';
   const av = document.createElement('div'); av.className = 'avatar ai'; av.setAttribute('aria-hidden','true');
   av.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="1.7"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/></svg>';
-  const wrap = document.createElement('div'); wrap.style.flex = '1'; wrap.appendChild(el);
+  const wrap = document.createElement('div'); wrap.className = 'msg-body'; wrap.appendChild(el);
   row.appendChild(av); row.appendChild(wrap);
   chat.appendChild(row); chat.scrollTop = chat.scrollHeight;
 }
