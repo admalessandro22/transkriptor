@@ -1,6 +1,6 @@
 # Tasks — plataforma visual e Central (SDD v1.9)
 
-**Estado em 24/09/2026: plano aprovado; 13 `DONE` (F14.A–D concluídas), 8 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.E1.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
+**Estado em 24/09/2026: plano aprovado; 14 `DONE` (F14.A–D concluídas, E1), 7 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.E2.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
 
 Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, **Teste final** e **Aceite** são cumulativos. Os arquivos de teste novos são entregáveis da implementação; os seletores são planejados, não testes que já passaram. Nenhuma task usa dados reais; capturas usam `tests/e2e/fixtures/`.
 
@@ -146,7 +146,7 @@ Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, 
 
 ### T-14.E1 — ícone vetorial, estados por forma e favicon
 
-- [ ] **Requisito:** UX-14.E1. **Depende de:** D3 e DP-14-07. **Estado:** `PENDING`.
+- [x] **Requisito:** UX-14.E1. **Depende de:** D3 e DP-14-07. **Estado:** `DONE`; commit `4f3ca57`; evidência: `evidencias/T-14.E1.md`.
 - **Arquivos:** criar `design/icone/transkriptor.svg`, `scripts/gerar_icones.py`, `static/icones/bandeja/*.png`, `tests/test_icones.py`; modificar `bandeja_icone.py`, `transkriptor.ico`, `static/favicon.ico`, `extension/meet/manifest.json` (`icons`), `extension/meet/icons/*.png`.
 - **Implementação:** renderização do SVG por estado com cor do `design_tokens` e forma distinta; ICO com 16/20/24/32/48/256; variante de contorno para barra clara; `imagem_por_estado` carrega PNG e cai no desenho PIL.
 - **RED:** `test_icones.py::test_ico_tem_seis_tamanhos`, `::test_estados_diferem_por_forma_nao_so_cor` (hash de máscara), `::test_cores_iguais_aos_tokens`, `::test_fallback_pil_quando_png_falta`.
