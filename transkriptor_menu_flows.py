@@ -251,178 +251,26 @@ def iniciar_retranscricao_ui(app) -> None:
     threading.Thread(target=_ui, daemon=True).start()
 
 
-def _renomear_dialog(rotulos: list[str]) -> tuple[str | None, str | None]:
-    """Diálogo premium: Combobox + Entry validados, com dica."""
-    import tkinter as tk
-    from tkinter import ttk
-
-    resultado: dict = {"rotulo": None, "nome": None}
-    root = tk.Tk()
-    root.withdraw()
-    try:
-        style = ttk.Style(root)
-        style.theme_use("vista" if "vista" in style.theme_names() else "clam")
-    except Exception:
-        pass
-
-    dlg = tk.Toplevel(root)
-    dlg.title("Transkriptor — Renomear falante")
-    dlg.geometry("420x220")
-    dlg.minsize(400, 210)
-    dlg.attributes("-topmost", True)
-    dlg.transient(root)
-    dlg.grab_set()
-    try:
-        dlg.iconbitmap(default=os.path.join(os.path.dirname(__file__), "transkriptor.ico"))
-    except Exception:
-        pass
-    dlg.update_idletasks()
-    x = (dlg.winfo_screenwidth() - 420) // 2
-    y = (dlg.winfo_screenheight() - 220) // 2
-    dlg.geometry(f"420x220+{max(0,x)}+{max(0,y)}")
-
-    frm = ttk.Frame(dlg, padding=(16, 14, 16, 10))
-    frm.pack(fill="both", expand=True)
-
-    ttk.Label(frm, text="Renomear falante", font=("Segoe UI", 11, "bold")).pack(anchor="w")
-    ttk.Label(frm, text="O nome será usado para reconhecer esta voz nas próximas reuniões.", font=("Segoe UI", 8), foreground="#6b7280").pack(anchor="w", pady=(2, 10))
-
-    ttk.Label(frm, text="Falante detectado", font=("Segoe UI", 8, "bold")).pack(anchor="w")
-    rotulo_var = tk.StringVar(value=rotulos[0] if rotulos else "")
-    cb = ttk.Combobox(frm, textvariable=rotulo_var, values=rotulos, state="readonly", font=("Segoe UI", 9))
-    cb.pack(fill="x", pady=(4, 10))
-
-    ttk.Label(frm, text="Novo nome", font=("Segoe UI", 8, "bold")).pack(anchor="w")
-    nome_var = tk.StringVar()
-    entry = ttk.Entry(frm, textvariable=nome_var, font=("Segoe UI", 9))
-    entry.pack(fill="x", pady=(4, 0))
-    entry.focus_set()
-
-    hint = ttk.Label(frm, text="Ex.: Maria Silva, João — evite só iniciais.", font=("Segoe UI", 8), foreground="#6b7280")
-    hint.pack(anchor="w", pady=(4, 0))
-
-    erro_var = tk.StringVar(value="")
-    erro_lbl = ttk.Label(frm, textvariable=erro_var, font=("Segoe UI", 8), foreground="#ef4444")
-    erro_lbl.pack(anchor="w", pady=(4, 0))
-
-    btns = ttk.Frame(dlg, padding=(16, 0, 16, 14))
-    btns.pack(fill="x")
-
-    def _cancel():
-        dlg.grab_release()
-        dlg.destroy()
-        root.destroy()
-
-    def _ok():
-        nome = (nome_var.get() or "").strip()
-        if not nome:
-            erro_var.set("Digite um nome válido.")
-            entry.focus_set()
-            return
-        if len(nome) < 2:
-            erro_var.set("Nome muito curto.")
-            return
-        resultado["rotulo"] = rotulo_var.get().strip()
-        resultado["nome"] = nome
-        dlg.grab_release()
-        dlg.destroy()
-        root.destroy()
-
-    ttk.Button(btns, text="Cancelar", command=_cancel).pack(side="right")
-    ttk.Button(btns, text="Salvar", command=_ok, style="Accent.TButton").pack(side="right", padx=(0, 8))
-    try:
-        ttk.Style().configure("Accent.TButton", font=("Segoe UI", 9, "bold"))
-    except Exception:
-        pass
-
-    dlg.bind("<Escape>", lambda _e: _cancel())
-    dlg.bind("<Return>", lambda _e: _ok())
-    cb.bind("<Return>", lambda _e: entry.focus_set())
-    dlg.protocol("WM_DELETE_WINDOW", _cancel)
-    root.wait_window(dlg)
-    if resultado["rotulo"] and resultado["nome"]:
-        return resultado["rotulo"], resultado["nome"]
-    return None, None
+def abrir_central(app, pagina: str = "") -> None:
+    """UX-14.C3: abre uma página da Central (inicia o servidor se preciso)."""
+    threading.Thread(target=iniciar_assistente_ui, args=(app, pagina), daemon=True).start()
 
 
-def iniciar_renomear_falante_ui(app) -> None:
-    from renomear_falante_flow import (
-        persistir_renomeacao_falante,
-        rotulos_falante_disponiveis,
+def _registrar_provedores(app) -> None:
+    import central_api
+
+    central_api.registrar_provedor_centroides(
+        lambda: getattr(getattr(app, "transcritor", None), "_centroides_por_rotulo_ultima", None)
     )
-    from config import ARQUIVO_VOZES_CONHECIDAS
-
-    t = app.transcritor
-    centroides = getattr(t, "_centroides_por_rotulo_ultima", None) if t else None
-    if not centroides:
-        notificar(
-            "Transkriptor",
-            "Transcreva e diarize uma reunião antes de renomear um falante.",
-        )
-        return
-
-    rotulos = rotulos_falante_disponiveis(centroides)
-    if not rotulos:
-        notificar("Transkriptor", "Nenhum FALANTE_XX disponível na última diarização.")
-        return
-
-    try:
-        try:
-            rotulo, nome = _renomear_dialog(rotulos)
-        except Exception:
-            logger.exception("Falha no diálogo premium renomear, fallback simpledialog")
-            import tkinter as tk
-            from tkinter import simpledialog
-
-            root = tk.Tk()
-            root.withdraw()
-            root.attributes("-topmost", True)
-            rotulo = simpledialog.askstring(
-                "Renomear falante",
-                f"Rótulo a renomear:\n{', '.join(rotulos)}",
-                parent=root,
-            )
-            if not rotulo:
-                root.destroy()
-                return
-            nome = simpledialog.askstring(
-                "Renomear falante",
-                f"Novo nome para {rotulo.strip().upper()}:",
-                parent=root,
-            )
-            root.destroy()
-            if not nome:
-                return
-        if not rotulo or not nome:
-            return
-        salvo = persistir_renomeacao_falante(
-            rotulo, nome, centroides, ARQUIVO_VOZES_CONHECIDAS
-        )
-        notificar("Transkriptor", f"Voz salva como «{salvo}» para próximas reuniões.")
-        app._status(f"Voz conhecida salva: {salvo}")
-    except ValueError as e:
-        notificar("Transkriptor", str(e))
-        app._status(f"Erro ao renomear: {e}")
-    except Exception as e:
-        logger.exception("Erro ao renomear falante")
-        notificar("Transkriptor", f"Erro ao renomear: {e}")
-        app._status(f"Erro ao renomear: {e}")
 
 
-def iniciar_corrigir_nome_reuniao_ui(app) -> None:
-    """Corrige nome só nesta reunião (T-13.D7): sem cadastrar biometria."""
-    from renomear_falante_flow import corrigir_nome_reuniao_ui
-
-    corrigir_nome_reuniao_ui(app)
-
-
-def iniciar_assistente_ui(app) -> None:
+def iniciar_assistente_ui(app, pagina: str = "") -> None:
     """Inicia o servidor Flask do assistente em segundo plano e abre o navegador."""
     if getattr(app, "_assistente_rodando", False):
         url = getattr(app, "_assistente_url", None)
         token = getattr(app, "_assistente_token", None)
         if url and token:
-            _abrir_navegador(url, token)
+            _abrir_navegador(url, token, pagina)
             app._status(f"Assistente já aberto — reabrindo navegador em {url}")
         else:
             app._status("Assistente já está aberto.")
@@ -446,7 +294,8 @@ def iniciar_assistente_ui(app) -> None:
         token = assistente.obter_token_sessao()
         app._assistente_url = url
         app._assistente_token = token
-        _abrir_navegador(url, token)
+        _registrar_provedores(app)
+        _abrir_navegador(url, token, pagina)
         app._status(f"Assistente rodando em {url}")
         thread.join()
     except RuntimeError as e:

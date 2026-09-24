@@ -71,12 +71,13 @@ test("exportação TXT exige confirmação e aciona download explícito", async 
     window.__download = null;
     HTMLAnchorElement.prototype.click = function () { window.__download = { nome: this.download, url: this.href }; };
   });
-  page.once("dialog", (dialog) => dialog.dismiss());
   await page.click("#exportar-txt");
+  await expect(page.locator("#dialogo-exportar")).toBeVisible();
+  await page.locator('#dialogo-exportar [data-acao="cancelar"]').click();
   expect(ctx.chamadas().filter((c) => c.url.endsWith("/exportar-txt"))).toHaveLength(0);
 
-  page.once("dialog", (dialog) => dialog.accept());
   await page.click("#exportar-txt");
+  await page.click("#confirmar-exportar");
   await expect(page.locator("#participantes-estado")).toContainText("TXT exportado");
   expect(await page.evaluate(() => window.__download.nome)).toBe("reuniao-reuniao-x.txt");
   expect(ctx.chamadas().filter((c) => c.url.endsWith("/exportar-txt"))).toHaveLength(1);

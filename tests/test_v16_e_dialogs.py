@@ -23,14 +23,13 @@ def test_dialog_retranscrever_listbox():
 
 def test_dialog_renomear_combobox():
     # T-11.E2
-    assert "_renomear_dialog" in FLOWS
-    assert "Combobox" in FLOWS
-    assert "readonly" in FLOWS
-    assert "420x220" in FLOWS or "420" in FLOWS
-    assert "erro_var" in FLOWS or "Nome muito curto" in FLOWS
-    assert "FALANTE_XX" in FLOWS or "FALANTE" in FLOWS
-    # Validação <2
-    assert 'len(nome) < 2' in FLOWS
+    # v1.9 (T-14.C3): o diálogo Tk de renomear saiu; a correção e o aprendizado de voz vivem na Central
+    assert "_renomear_dialog" not in FLOWS
+    assert "def abrir_central(" in FLOWS
+    # a validação de nome (mínimo 2) vive agora em central_api.api_aprender_voz e no painel
+    from pathlib import Path
+    api = (Path(__file__).resolve().parent.parent / "central_api.py").read_text(encoding="utf-8")
+    assert "len(nome) < 2" in api
 
 
 def test_dialogs_sao_topmost_e_grab():
@@ -41,7 +40,7 @@ def test_dialogs_sao_topmost_e_grab():
 
 def test_dialogs_tem_fallback():
     # Ambos devem ter try/except fallback para simpledialog
-    assert FLOWS.count("simpledialog") >= 2
+    assert FLOWS.count("simpledialog") >= 1  # só o fallback de retranscrever, removido em D3
 
 
 def test_retranscrever_nao_usa_escolha_numerica_direta():

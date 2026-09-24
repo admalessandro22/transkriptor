@@ -2,7 +2,7 @@
 // estável e estado; falas com sugestões; correção com undo. Contrato D7 preservado:
 // resultado, correção (409 por revisão), desfazer, exportação explícita.
 import { escapeHtml } from './markdown.js';
-import { abrirPainel, fecharPainel, icone } from './ui.js';
+import { abrirPainel, fecharPainel, icone, confirmar, toast } from './ui.js';
 
 const $ = (id) => document.getElementById(id);
 const painel = $('participantes-drawer');
@@ -175,6 +175,16 @@ function renderFalantes() {
     est.textContent = info.rotulo + (info.estado === 'confirmado' ? ' · ' + info.origem : '');
     corpo.append(n, meta, est);
     li.append(avatarDe(c), corpo);
+    if (/^FALANTE_\d{2}$/.test(c)) {
+      const aprender = document.createElement('button');
+      aprender.type = 'button'; aprender.className = 'tk-btn tk-btn--quiet tk-btn--sm falante__aprender'; aprender.dataset.acao = 'aprender-voz';
+      aprender.title = 'Aprender esta voz para próximas reuniões';
+      aprender.setAttribute('aria-label', 'Aprender a voz de ' + nome + ' para próximas reuniões');
+      aprender.appendChild(icone('user', 'tk-icon tk-icon--sm'));
+      aprender.appendChild(document.createTextNode(' Aprender voz'));
+      aprender.addEventListener('click', (ev) => { ev.stopPropagation(); aprenderVoz(c); });
+      li.appendChild(aprender);
+    }
     li.addEventListener('click', () => { if (selCluster) selCluster.value = c; alternarFiltro(c); });
     listaFalantes.appendChild(li);
   }
@@ -348,7 +358,14 @@ export async function desfazerCorrecao() {
 
 export async function exportarTxt() {
   if (!selReuniao || !selReuniao.value) return;
-  if (!window.confirm('Exportar TXT legível desta reunião? O arquivo contém dados sensíveis.')) return;
+  // UX-14.C3: diálogo próprio com a consequência; nada é exportado sem confirmação.
+  const ok = await confirmar({
+    id: 'dialogo-exportar', confirmarId: 'confirmar-exportar',
+    titulo: 'Exportar o texto legível desta reunião?',
+    consequencia: 'O arquivo conterá o texto legível da reunião, com nomes e falas, fora da proteção do aplicativo. Guarde-o com cuidado.',
+    confirmarRotulo: 'Exportar', perigo: true,
+  });
+  if (!ok) return;
   const id = selReuniao.value;
   const r = await fetch('/api/reunioes/' + encodeURIComponent(id) + '/exportar-txt', { ...fetchOpts, method: 'POST', headers: apiHeaders({ 'Content-Type': 'application/json' }), body: '{}' });
   if (!r.ok) { dizer('Não foi possível exportar o TXT.', 'erro'); return; }
@@ -358,6 +375,31 @@ export async function exportarTxt() {
     document.body.appendChild(link); link.click(); link.remove();
     dizer('TXT exportado. Guarde o arquivo com cuidado.', 'ok');
   } finally { setTimeout(() => URL.revokeObjectURL(url), 1000); }
+}
+
+/** UX-14.C3 (DU-07): ação separada da correção; cadastra a voz só com confirmação própria. */
+export async function aprenderVoz(cluster) {
+  const info = estadoDoFalante(cluster, dados.mapeamento, dados.segmentos || []);
+  const nome = info.estado === 'confirmado' ? nomeAmigavel(cluster, dados.mapeamento, clusters) : (info.sugestao || '');
+  if (!nome || /^Falante \d+$/.test(nome)) {
+    toast('warning', 'Dê um nome ao falante antes', 'Corrija o nome nesta reunião (ou confirme a sugestão) e depois aprenda a voz.');
+    return;
+  }
+  const ok = await confirmar({
+    id: 'dialogo-aprender-voz', confirmarId: 'confirmar-aprender-voz',
+    titulo: `Aprender a voz de ${nome}?`,
+    consequencia: `A voz deste falante passa a ser reconhecida como "${nome}" nas próximas reuniões. É uma ação separada da correção desta reunião e pode ser revogada apagando as vozes conhecidas.`,
+    confirmarRotulo: 'Aprender voz',
+  });
+  if (!ok) return;
+  try {
+    const r = await fetch('/api/acoes/aprender-voz', { ...fetchOpts, method: 'POST', headers: apiHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ rotulo: cluster, nome }) });
+    const resp = await r.json().catch(() => ({}));
+    if (!r.ok) { toast('error', 'Não foi possível aprender a voz', resp.erro || 'Tente de novo.'); return; }
+    toast('success', 'Voz aprendida', `${resp.salvo || nome} será reconhecido nas próximas reuniões.`);
+  } catch (_) {
+    toast('error', 'Não foi possível aprender a voz', 'Verifique se o aplicativo da bandeja está aberto.');
+  }
 }
 
 function abrirParticipantes(aberto) {

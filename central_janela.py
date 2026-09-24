@@ -35,9 +35,9 @@ def _executavel_navegador_app() -> str | None:
     return None
 
 
-def _abrir_navegador(url: str, token: str) -> None:
+def _abrir_navegador(url: str, token: str, pagina: str = "") -> None:
     """Abre a Central em janela de app quando há Edge/Chrome; senão, na aba padrão."""
-    destino = f"{url}?token={token}"
+    destino = f"{url}?token={token}" + (f"&next={pagina}" if pagina else "")
     executavel = _executavel_navegador_app()
     if executavel:
         try:

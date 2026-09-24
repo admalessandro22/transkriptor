@@ -43,8 +43,8 @@ from transkriptor_acoes import (
 )
 from transkriptor_lock import liberar_lock
 from transkriptor_menu_flows import (
+    abrir_central,
     iniciar_assistente_ui,
-    iniciar_renomear_falante_ui,
     iniciar_retranscricao_ui,
     rodar_diagnostico_ui,
 )
@@ -398,9 +398,8 @@ class MenuBandejaMixin:
         os.startfile(pasta)
 
     def renomear_falante_menu(self, _icone=None, _item=None):
-        threading.Thread(
-            target=iniciar_renomear_falante_ui, args=(self,), daemon=True
-        ).start()
+        """UX-14.C3: correção por reunião e aprendizado de voz vivem na Central."""
+        abrir_central(self, "participantes")
 
     def abrir_vozes_conhecidas(self, _icone=None, _item=None):
         pasta = os.path.dirname(ARQUIVO_VOZES_CONHECIDAS)
@@ -444,7 +443,7 @@ class MenuBandejaMixin:
                     pystray.MenuItem(self._texto_nomes_meet, self.alternar_nomes_meet),
                     pystray.MenuItem(self._texto_legendas_meet, self.alternar_legendas_meet),
                     pystray.MenuItem("Instalar extensão Meet (pasta)", self.abrir_extensao_meet),
-                    pystray.MenuItem("Renomear falante (última diarização)", self.renomear_falante_menu),
+                    pystray.MenuItem("Renomear falante e participantes (Central)", self.renomear_falante_menu),
                 ),
             ),
             pystray.Menu.SEPARATOR,

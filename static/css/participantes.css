@@ -30,6 +30,7 @@
 .falante__estado[data-estado="sugerido"] { color: var(--tk-accent); }
 .falante__estado[data-estado="divergente"] { color: var(--tk-warn); }
 .falante__estado[data-estado="pendente"] { color: var(--tk-text-3); }
+.falante__aprender { align-self: center; flex-shrink: 0; }
 .falante__ponto { width: 8px; height: 8px; border-radius: 50%; background: var(--cor-falante, var(--tk-text-3)); display: inline-block; flex-shrink: 0; }
 
 /* Falas */

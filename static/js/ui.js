@@ -51,21 +51,22 @@ export function toast(tipo, titulo, texto = '', opcoes = {}) {
   return el;
 }
 
-function garantirDialogo() {
-  let dlg = document.getElementById('dialogo-confirmacao');
+function garantirDialogo(id = 'dialogo-confirmacao', confirmarId = '') {
+  let dlg = document.getElementById(id);
   if (dlg) return dlg;
   dlg = document.createElement('dialog');
-  dlg.id = 'dialogo-confirmacao';
+  dlg.id = id;
   dlg.className = 'tk-dialog';
-  dlg.setAttribute('aria-labelledby', 'dialogo-confirmacao-titulo');
-  dlg.setAttribute('aria-describedby', 'dialogo-confirmacao-consequencia');
+  dlg.setAttribute('aria-labelledby', id + '-titulo');
+  dlg.setAttribute('aria-describedby', id + '-consequencia');
   const corpo = document.createElement('div'); corpo.className = 'tk-dialog__corpo';
-  const titulo = document.createElement('h2'); titulo.className = 'tk-dialog__titulo'; titulo.id = 'dialogo-confirmacao-titulo';
-  const cons = document.createElement('p'); cons.className = 'tk-dialog__consequencia'; cons.id = 'dialogo-confirmacao-consequencia';
+  const titulo = document.createElement('h2'); titulo.className = 'tk-dialog__titulo'; titulo.id = id + '-titulo';
+  const cons = document.createElement('p'); cons.className = 'tk-dialog__consequencia'; cons.id = id + '-consequencia';
   corpo.append(titulo, cons);
   const acoes = document.createElement('div'); acoes.className = 'tk-dialog__acoes';
   const cancelar = document.createElement('button'); cancelar.type = 'button'; cancelar.className = 'tk-btn tk-btn--secondary'; cancelar.dataset.acao = 'cancelar';
   const confirmar = document.createElement('button'); confirmar.type = 'button'; confirmar.className = 'tk-btn tk-btn--primary'; confirmar.dataset.acao = 'confirmar';
+  if (confirmarId) confirmar.id = confirmarId;
   acoes.append(cancelar, confirmar);
   dlg.append(corpo, acoes);
   document.body.appendChild(dlg);
@@ -76,8 +77,8 @@ function garantirDialogo() {
  * Confirmação com texto de consequência. Resolve `true` só no botão confirmar.
  * Foco inicial fica no botão seguro (cancelar); Esc e clique fora cancelam.
  */
-export function confirmar({ titulo, consequencia = '', confirmarRotulo = 'Confirmar', cancelarRotulo = 'Cancelar', perigo = false }) {
-  const dlg = garantirDialogo();
+export function confirmar({ titulo, consequencia = '', confirmarRotulo = 'Confirmar', cancelarRotulo = 'Cancelar', perigo = false, id = 'dialogo-confirmacao', confirmarId = '' }) {
+  const dlg = garantirDialogo(id, confirmarId);
   dlg.classList.toggle('tk-dialog--perigo', !!perigo);
   dlg.querySelector('.tk-dialog__titulo').textContent = titulo;
   dlg.querySelector('.tk-dialog__consequencia').textContent = consequencia;
