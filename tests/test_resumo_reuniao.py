@@ -1,0 +1,197 @@
+# -*- coding: utf-8 -*-
+"""Resumo curto por reunião com a IA local (pedido do usuário, 24/09/2026)."""
+from __future__ import annotations
+
+import threading
+import time
+
+import pytest
+
+import resumo_reuniao as rr
+
+
+def _dados(revision="rev-1"):
+    return {
+        "revision": revision,
+        "segmentos": [
+            {"speaker_cluster_id": "FALANTE_00", "start_ms": 0, "text": "Vamos fechar o cronograma.",
+             "assignment": {"status": "confirmed", "display_name": "Ana Fictícia"}},
+            {"speaker_cluster_id": "FALANTE_01", "start_ms": 65000, "text": "Entrego o relatório na sexta."},
+        ],
+        "mapeamento": {"FALANTE_01": {"display_name": "Bruno Fictício"}},
+    }
+
+
+def test_texto_da_reuniao_tem_nome_e_horario():
+    texto = rr.texto_da_reuniao(_dados())
+    assert "[00:00] Ana Fictícia: Vamos fechar o cronograma." in texto
+    assert "[01:05] Bruno Fictício: Entrego o relatório na sexta." in texto
+
+
+def test_limite_de_500_caracteres_corta_em_frase():
+    longo = ("Frase completa número um. " * 40).strip()
+    curto = rr.limitar_resumo(longo)
+    assert len(curto) <= 500
+    assert curto.endswith(".")
+    assert rr.limitar_resumo("  Resumo\n com   espaços.  ") == "Resumo com espaços."
+    sem_ponto = "palavra " * 100
+    assert len(rr.limitar_resumo(sem_ponto)) <= 500 and rr.limitar_resumo(sem_ponto).endswith("…")
+
+
+def test_gerar_resumo_pede_ate_500_caracteres_em_portugues():
+    pedidos = []
+
+    def chamar(modelo, mensagens):
+        pedidos.append((modelo, mensagens))
+        return "Ana e Bruno fecharam o cronograma; relatório sai sexta."
+
+    resumo = rr.gerar_resumo(_dados(), "modelo-x", chamar, orcamento_chars=10000)
+    assert resumo == "Ana e Bruno fecharam o cronograma; relatório sai sexta."
+    sistema = pedidos[0][1][0]["content"]
+    assert "500 caracteres" in sistema and "português" in sistema
+
+
+def test_erro_do_ollama_nao_vira_resumo():
+    with pytest.raises(rr.ResumoIndisponivel):
+        rr.gerar_resumo(_dados(), "m", lambda m, msgs: "[Erro ao contatar o Ollama: recusado]", orcamento_chars=10000)
+    with pytest.raises(rr.ResumoIndisponivel):
+        rr.gerar_resumo({"segmentos": []}, "m", lambda m, msgs: "x", orcamento_chars=10000)
+
+
+def test_escolhe_modelo_preferido_instalado():
+    assert rr.escolher_modelo(["ornith:latest", "granite4.1:3b", "gemma4:latest"]) == "gemma4:latest"
+    assert rr.escolher_modelo(["ornith:latest"]) == "ornith:latest"
+    assert rr.escolher_modelo([]) is None
+
+
+class _Servico:
+    def __init__(self, tmp_path, *, ocupado=lambda: False, resposta="Resumo curto."):
+        self.chamadas = 0
+        self.dados = _dados()
+
+        def chamar(modelo, mensagens):
+            self.chamadas += 1
+            return resposta
+
+        self.servico = rr.ServicoResumos(
+            tmp_path / "resumos",
+            carregar=lambda mid: self.dados if mid == "reuniao-1" else None,
+            chamar=chamar,
+            modelos=lambda: ["gemma4:latest"],
+            ocupado=ocupado,
+            orcamento=lambda modelo: 10000,
+            espera_ocupado_seg=0.05,
+        )
+
+
+def _esperar(servico, mid, estado, limite=5.0):
+    fim = time.monotonic() + limite
+    while time.monotonic() < fim:
+        r = servico.obter(mid)
+        if r["estado"] == estado:
+            return r
+        time.sleep(0.02)
+    raise AssertionError(f"estado {estado!r} não alcançado: {servico.obter(mid)}")
+
+
+def test_servico_gera_uma_vez_guarda_cifrado_e_reaproveita(tmp_path, chave_teste):
+    s = _Servico(tmp_path)
+    assert s.servico.obter("reuniao-1")["estado"] == "gerando"
+    r = _esperar(s.servico, "reuniao-1", "pronto")
+    assert r["resumo"] == "Resumo curto."
+    arquivos = list((tmp_path / "resumos").iterdir())
+    assert len(arquivos) == 1 and b"Resumo curto" not in arquivos[0].read_bytes()
+    novo = _Servico(tmp_path)  # outro processo: lê do disco, não chama a IA
+    assert novo.servico.obter("reuniao-1") == {"estado": "pronto", "resumo": "Resumo curto."}
+    assert novo.chamadas == 0
+    s.servico.parar()
+
+
+def test_correcao_de_nome_refaz_o_resumo(tmp_path, chave_teste):
+    s = _Servico(tmp_path)
+    s.servico.obter("reuniao-1")
+    _esperar(s.servico, "reuniao-1", "pronto")
+    s.dados = _dados(revision="rev-2")
+    assert s.servico.obter("reuniao-1")["estado"] == "gerando"
+    _esperar(s.servico, "reuniao-1", "pronto")
+    assert s.chamadas == 2
+    s.servico.parar()
+
+
+def test_nao_gera_enquanto_o_app_grava(tmp_path, chave_teste):
+    gravando = threading.Event()
+    gravando.set()
+    s = _Servico(tmp_path, ocupado=gravando.is_set)
+    s.servico.obter("reuniao-1")
+    time.sleep(0.3)
+    assert s.chamadas == 0 and s.servico.obter("reuniao-1")["estado"] == "gerando"
+    gravando.clear()
+    _esperar(s.servico, "reuniao-1", "pronto")
+    s.servico.parar()
+
+
+def test_reuniao_inexistente_e_ia_fora_do_ar(tmp_path, chave_teste):
+    s = _Servico(tmp_path, resposta="[Erro ao contatar o Ollama: offline]")
+    assert s.servico.obter("nao-existe")["estado"] == "indisponivel"
+    s.servico.obter("reuniao-1")
+    r = _esperar(s.servico, "reuniao-1", "indisponivel")
+    assert "IA local" in r["motivo"]
+    s.servico.parar()
+
+
+def test_rota_da_central_devolve_estado_sem_expor_fala(tmp_path, monkeypatch, headers_token, chave_teste):
+    import central_resumos
+    from assistente import app
+    from resultado_edicao import SegmentoResultado, salvar_segmentos
+
+    monkeypatch.setattr("assistente.PASTA_TRANSCRICOES", str(tmp_path))
+    (tmp_path / "resultados").mkdir()
+    salvar_segmentos(tmp_path / "resultados" / "reuniao-x.json",
+                     [SegmentoResultado("s1", 0, 1000, "loopback", "fala sigilosa", "FALANTE_00")], {})
+    monkeypatch.setattr(central_resumos, "_servico", None)
+    monkeypatch.setattr(central_resumos, "_modelos_instalados", lambda: ["gemma4:latest"])
+    monkeypatch.setattr(central_resumos, "_orcamento", lambda m: 10000)
+    monkeypatch.setattr(central_resumos, "_chamar_resumo", lambda m, msgs: "Resumo sintético.")
+    cliente = app.test_client()
+    primeira = cliente.get("/api/reunioes/reuniao-x/resumo", headers=headers_token).get_json()
+    assert primeira["estado"] in ("gerando", "pronto")
+    fim = time.monotonic() + 5
+    while time.monotonic() < fim:
+        r = cliente.get("/api/reunioes/reuniao-x/resumo", headers=headers_token)
+        if r.get_json()["estado"] == "pronto":
+            break
+        time.sleep(0.05)
+    assert r.get_json() == {"estado": "pronto", "resumo": "Resumo sintético."}
+    assert "sigilosa" not in r.get_data(as_text=True)
+    assert cliente.get("/api/reunioes/nao-existe/resumo", headers=headers_token).get_json()["estado"] == "indisponivel"
+    central_resumos.servico().parar()
+    monkeypatch.setattr(central_resumos, "_servico", None)
+
+
+def test_chamada_do_resumo_desliga_raciocinio_e_fixa_contexto(monkeypatch):
+    import json as _json
+
+    import central_resumos
+
+    enviados = []
+
+    class _Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return _json.dumps({"message": {"content": "ok"}}).encode()
+
+    def abrir(req, timeout):
+        enviados.append((_json.loads(req.data), timeout))
+        return _Resp()
+
+    monkeypatch.setattr(central_resumos.urllib.request, "urlopen", abrir)
+    monkeypatch.setattr(central_resumos, "_contexto", lambda m: 8192)
+    assert central_resumos._chamar_resumo("gemma4:latest", [{"role": "user", "content": "x"}]) == "ok"
+    corpo, timeout = enviados[0]
+    assert corpo["think"] is False and corpo["options"]["num_ctx"] == 8192
+    assert timeout == central_resumos.TIMEOUT_RESUMO_SEG

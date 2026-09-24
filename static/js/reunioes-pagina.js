@@ -52,6 +52,35 @@ export async function preencherParticipantes(raiz, fetchFn = (u, o) => fetch(u, 
   await Promise.all([1, 2, 3].map(trabalhador));
 }
 
+const RESUMO_POLL_MS = 15000;
+let seqResumo = 0;
+let timerResumos = null;
+
+function aplicarResumo(el, dados) {
+  const estado = (dados && dados.estado) || 'indisponivel';
+  el.dataset.estado = estado;
+  if (estado === 'pronto') el.textContent = dados.resumo;
+  else if (estado === 'gerando') el.textContent = 'Gerando resumo com a IA local…';
+  else el.textContent = 'Resumo indisponível: ' + ((dados && dados.motivo) || 'IA local indisponível');
+}
+
+/** Resumo curto (≤ 500 caracteres) da IA local, pedido sob demanda; atualiza enquanto gera. */
+export async function preencherResumos(raiz, fetchFn = (u, o) => fetch(u, o)) {
+  const alvos = [...raiz.querySelectorAll('.tk-row[data-id] .tk-row__resumo:not([data-estado="pronto"]):not([data-estado="indisponivel"])')];
+  for (const el of alvos) {
+    const id = el.closest('.tk-row').dataset.id;
+    try {
+      const r = await fetchFn('/api/reunioes/' + encodeURIComponent(id) + '/resumo', { credentials: 'same-origin' });
+      aplicarResumo(el, r.ok ? await r.json() : null);
+    } catch (_) {
+      aplicarResumo(el, null);
+    }
+  }
+  const gerando = raiz.querySelector('.tk-row__resumo[data-estado="gerando"]');
+  if (timerResumos) { clearTimeout(timerResumos); timerResumos = null; }
+  if (gerando && raiz.isConnected) timerResumos = setTimeout(() => preencherResumos(raiz, fetchFn), RESUMO_POLL_MS);
+}
+
 export function linhaReuniao(r) {
   const div = document.createElement('div');
   div.className = 'tk-row tk-row--reuniao';
@@ -62,7 +91,12 @@ export function linhaReuniao(r) {
   abrir.className = 'tk-row__abrir';
   abrir.href = '/participantes?reuniao=' + encodeURIComponent(r.meeting_id);
   abrir.textContent = r.title || 'Reunião sem título';
-  abrir.title = 'Abrir a transcrição com nomes e horários';
+  const resumo = document.createElement('span');
+  resumo.className = 'tk-row__resumo';
+  resumo.id = 'resumo-reuniao-' + (++seqResumo);
+  resumo.setAttribute('role', 'tooltip');
+  resumo.textContent = 'Carregando resumo…';
+  abrir.setAttribute('aria-describedby', resumo.id);
   const meta = document.createElement('span');
   meta.className = 'tk-row__meta';
   meta.textContent = [formatarData(r.started_at), r.duration_ms != null ? formatarDuracao(r.duration_ms) : null].filter(Boolean).join(' · ');
@@ -71,7 +105,7 @@ export function linhaReuniao(r) {
   pessoas.className = 'tk-row__participantes';
   pessoas.dataset.pendente = '';
   pessoas.textContent = 'Carregando participantes…';
-  principal.append(abrir, meta, pessoas);
+  principal.append(abrir, resumo, meta, pessoas);
   const [rotulo, estado] = QUALIDADE[r.quality_state] || ['Parcial', 'separando_vozes'];
   const badge = document.createElement('span');
   badge.className = 'tk-badge tk-badge-state';
@@ -120,6 +154,7 @@ export function criarPaginaReunioes({ raiz, fetchFn = (u, o) => fetch(u, o) }) {
     estadoEl.hidden = true; lista.hidden = false;
     visiveis.forEach((r) => lista.appendChild(linhaReuniao(r)));
     preencherParticipantes(lista, fetchFn);
+    preencherResumos(lista, fetchFn);
   }
 
   async function carregar(reiniciar) {
@@ -150,6 +185,7 @@ export function criarPaginaReunioes({ raiz, fetchFn = (u, o) => fetch(u, o) }) {
   }
 
   maisBtn.addEventListener('click', () => carregar(false));
+  document.addEventListener('tk-resumos-atualizar', () => preencherResumos(lista, fetchFn));
   if (busca) busca.addEventListener('input', renderizar);
   carregar(true);
   return { carregar, get itens() { return itens.slice(); } };

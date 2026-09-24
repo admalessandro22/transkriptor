@@ -162,3 +162,35 @@ test("clicar na linha abre a transcrição daquela reunião com nomes e tempos",
   await expect(page.locator("#reuniao-participantes")).toHaveValue("reuniao-b");
   await expect(page.locator("#participantes-drawer")).toContainText("00:0");
 });
+
+
+test("passar o mouse no nome da reunião mostra o resumo da IA local", async ({ page }) => {
+  let pronto = false;
+  await carregarPagina(page, "reunioes", {
+    api: (url) => {
+      if (url.includes("/api/reunioes-indice")) return fixtures.indice(2);
+      if (url.includes("/resumo")) {
+        if (url.includes(encodeURIComponent(fixtures.indice(2).reunioes[1].meeting_id))) return { estado: "indisponivel", motivo: "IA local indisponível" };
+        return pronto ? { estado: "pronto", resumo: "Equipe fechou o cronograma; Ana entrega sexta." } : { estado: "gerando" };
+      }
+      return undefined;
+    },
+  });
+  const primeira = page.locator("#lista-reunioes .tk-row").first();
+  const titulo = primeira.locator("a.tk-row__abrir");
+  const dica = primeira.locator(".tk-row__resumo");
+  await expect(dica).toHaveText(/Gerando resumo/);
+  await expect(dica).toBeHidden();
+  await expect(page.locator("#lista-reunioes .tk-row").nth(1).locator(".tk-row__resumo")).toHaveText("Resumo indisponível: IA local indisponível");
+  pronto = true;
+  await page.evaluate(() => document.dispatchEvent(new Event("tk-resumos-atualizar")));
+  await expect(dica).toHaveText("Equipe fechou o cronograma; Ana entrega sexta.");
+  await expect(titulo).not.toHaveAttribute("title", /./);
+  expect(await titulo.getAttribute("aria-describedby")).toBe(await dica.getAttribute("id"));
+  await titulo.hover();
+  await expect(dica).toBeVisible();
+  await page.mouse.move(0, 0);
+  await expect(dica).toBeHidden();
+  await titulo.focus();
+  await expect(dica).toBeVisible();
+});

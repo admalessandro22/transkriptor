@@ -16,6 +16,7 @@ from assistente_cabecalhos import aplicar_cabecalhos
 from central_api import bp as central_api_bp
 from central_config import bp as central_config_bp
 from central_diagnostico import bp as central_diagnostico_bp
+from central_resumos import bp as central_resumos_bp
 from central_paginas import PAGINAS_CENTRAL, bp as central_paginas_bp
 from transcricoes_meta import (  # noqa: F401 — reexportados para compatibilidade
     detalhes_transcricao,
@@ -44,10 +45,8 @@ from config import (
 )
 
 app = Flask(__name__, root_path=str(BASE_DIR))
-app.register_blueprint(central_paginas_bp)
-app.register_blueprint(central_api_bp)
-app.register_blueprint(central_config_bp)
-app.register_blueprint(central_diagnostico_bp)
+for _bp in (central_paginas_bp, central_api_bp, central_config_bp, central_diagnostico_bp, central_resumos_bp):
+    app.register_blueprint(_bp)
 app.config["MAX_CONTENT_LENGTH"] = MAX_CORPO_CHAT_BYTES
 
 _semaforo_chat = threading.BoundedSemaphore(CHAT_MAX_CONCORRENTES)

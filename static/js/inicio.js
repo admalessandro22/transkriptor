@@ -1,5 +1,5 @@
 // Página Início (SDD v1.9, T-14.D1): estado ao vivo, última reunião, proteção e recentes.
-import { linhaReuniao, preencherParticipantes } from './reunioes-pagina.js';
+import { linhaReuniao, preencherParticipantes, preencherResumos } from './reunioes-pagina.js';
 
 const $ = (id) => document.getElementById(id);
 const DETALHES = {
@@ -61,6 +61,7 @@ async function carregarRecentes(fetchFn = (u, o) => fetch(u, o)) {
     itens.forEach((r) => lista.appendChild(linhaReuniao(r)));
     lista.hidden = false; estado.hidden = true;
     preencherParticipantes(lista, fetchFn);
+    preencherResumos(lista, fetchFn);
   } catch (_) {
     estado.hidden = false; lista.hidden = true;
     estado.innerHTML = '<h3 class="tk-empty__titulo">Não foi possível carregar</h3><p class="tk-empty__texto">A Central não conseguiu ler o índice de reuniões.</p>';
