@@ -1,6 +1,6 @@
 # Tasks — plataforma visual e Central (SDD v1.9)
 
-**Estado em 24/09/2026: plano aprovado; 10 `DONE` (F14.A, F14.B e F14.C concluídas), 11 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.D1.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
+**Estado em 24/09/2026: plano aprovado; 11 `DONE` (F14.A–C concluídas, D1), 10 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.D2.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
 
 Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, **Teste final** e **Aceite** são cumulativos. Os arquivos de teste novos são entregáveis da implementação; os seletores são planejados, não testes que já passaram. Nenhuma task usa dados reais; capturas usam `tests/e2e/fixtures/`.
 
@@ -114,7 +114,7 @@ Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, 
 
 ### T-14.D1 — estado ao vivo e página Início
 
-- [ ] **Requisito:** FR-14.D1. **Depende de:** C3. **Estado:** `PENDING`.
+- [x] **Requisito:** FR-14.D1. **Depende de:** C3. **Estado:** `DONE`; commit `ad30422`; evidência: `evidencias/T-14.D1.md`.
 - **Arquivos:** criar `app_estado_ui.py`, `templates/inicio.html`, `static/js/inicio.js`, `static/css/inicio.css`, `tests/test_app_estado_ui.py`, `tests/e2e/inicio.spec.js`; modificar `assistente.py` (`GET /api/estado`), `transkriptor_menu_flows.iniciar_assistente_ui` (registra provedor), `transkriptor.pyw` (nada além de expor atributos já existentes), `tests/test_lock_sem_callback.py` (cobre `app_estado_ui`).
 - **Implementação:** `snapshot(app)` lê `transcritor.rodando/diarizando`, `deteccao_ativa`, `_em_erro`, `_estado_processamento`, fontes do detector e `modo_efetivo()`; última reunião via `indice_transcricoes`; nunca lê `self._lock`; página Início com três cartões e cinco últimas reuniões; polling de 2 s pausado em `document.hidden`.
 - **RED:** `test_app_estado_ui.py::test_snapshot_nao_pede_lock` (AST), `::test_snapshot_sem_campos_sensiveis` (nenhuma chave fora do contrato; nenhum valor com caminho pessoal), `::test_estados_mapeiam_glossario`, `::test_503_sem_provedor`; `inicio.spec.js::polling para com aba oculta`, `::cartoes refletem estado`.
