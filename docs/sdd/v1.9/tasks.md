@@ -1,6 +1,6 @@
 # Tasks — plataforma visual e Central (SDD v1.9)
 
-**Estado em 24/09/2026: plano aprovado; 14 `DONE` (F14.A–D concluídas, E1), 7 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.E2.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
+**Estado em 24/09/2026: plano aprovado; 15 `DONE` (F14.A–D concluídas, E1–E2), 6 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.E3.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
 
 Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, **Teste final** e **Aceite** são cumulativos. Os arquivos de teste novos são entregáveis da implementação; os seletores são planejados, não testes que já passaram. Nenhuma task usa dados reais; capturas usam `tests/e2e/fixtures/`.
 
@@ -156,7 +156,7 @@ Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, 
 
 ### T-14.E2 — menu da bandeja reorganizado
 
-- [ ] **Requisito:** UX-14.E2. **Depende de:** E1. **Estado:** `PENDING`.
+- [x] **Requisito:** UX-14.E2. **Depende de:** E1. **Estado:** `DONE`; commit `030b57d`; evidência: `evidencias/T-14.E2.md`.
 - **Arquivos:** modificar `app_bandeja_menu.py`, `transkriptor_acoes.py` (`texto_deteccao_menu` com glossário), `tests/test_v16_d_bandeja.py`, `docs/MANUAL-USUARIO.md` (§2).
 - **Implementação:** ordem de `interfaces.md` §5; `checked=` nativo; rótulos curtos; primeira linha com o mesmo rótulo do `SnapshotEstado`; item informativo "Confirmar antes de gravar" migra para a página Configurações como texto fixo.
 - **RED:** `test_v16_d_bandeja.py::test_primeira_linha_usa_glossario`, `::test_sem_prefixo_check_textual`, `::test_abrir_transkriptor_e_o_primeiro_item_acionavel`.
