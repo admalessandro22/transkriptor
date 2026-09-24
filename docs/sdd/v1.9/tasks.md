@@ -1,6 +1,6 @@
 # Tasks — plataforma visual e Central (SDD v1.9)
 
-**Estado em 24/09/2026: plano aprovado; 19 `DONE` (F14.A–E concluídas, F1), 2 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.F2.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
+**Estado em 24/09/2026: plano aprovado; 20 `DONE` (F14.A–F concluídas), 1 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.G1.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
 
 Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, **Teste final** e **Aceite** são cumulativos. Os arquivos de teste novos são entregáveis da implementação; os seletores são planejados, não testes que já passaram. Nenhuma task usa dados reais; capturas usam `tests/e2e/fixtures/`.
 
@@ -208,7 +208,7 @@ Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, 
 
 ### T-14.F2 — orçamento de front e zero rede
 
-- [ ] **Requisito:** NFR-14.F2. **Depende de:** F1. **Estado:** `PENDING`.
+- [x] **Requisito:** NFR-14.F2. **Depende de:** F1. **Estado:** `DONE`; commit `1fa6829`; evidência: `evidencias/T-14.F2.md` (gate da fase F verde).
 - **Arquivos:** criar `tests/test_orcamento_front.py`; modificar `static/assistente.css` e `static/assistente.js` (removidos se nenhum teste legado restar; caso contrário mantidos como entradas mínimas), `tests/e2e/csp.spec.js` (todas as páginas).
 - **Implementação:** teste soma bytes de `static/css`, `static/js`, sprite e ICO; E2E garante zero requisições fora de `127.0.0.1` em todas as páginas; medição local de primeira renderização registrada na evidência.
 - **RED:** `test_orcamento_front.py::test_css_ate_80kb`, `::test_js_ate_150kb`, `::test_sprite_ate_40kb`; `csp.spec.js::nenhuma requisicao externa em todas as paginas`.
