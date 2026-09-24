@@ -66,7 +66,7 @@ def test_diagnostico_exportar_sem_pii(cliente, bandeja, monkeypatch):
     resposta = cliente.get("/api/diagnostico/exportar", headers=_h())
     assert resposta.status_code == 200
     texto = resposta.get_data(as_text=True)
-    assert "pessoa" not in texto and "<pasta-pessoal>" in texto
+    assert "Users" not in texto and "<pasta-pessoal>" in texto
     assert "attachment" in resposta.headers["Content-Disposition"]
 
 
