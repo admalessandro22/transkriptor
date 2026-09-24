@@ -282,11 +282,29 @@ function renderForm() {
     selCluster.appendChild(op);
   });
   if (atual && clusters.includes(atual)) selCluster.value = atual;
-  if (btnDesfazer) {
-    const historico = Array.isArray(dados.historico) ? dados.historico : [];
-    btnDesfazer.disabled = false;
-    btnDesfazer.title = historico.length ? 'Desfaz a última correção desta reunião' : 'Desfaz a última correção, se houver';
+  renderUndo();
+}
+
+/** UX-14.C2: o botão Desfazer diz o que vai desfazer, a partir do último item do histórico. */
+export function descricaoUndo(dados, ordem) {
+  const historico = Array.isArray(dados && dados.historico) ? dados.historico : [];
+  if (!historico.length) return '';
+  const ultimo = historico[historico.length - 1];
+  const cluster = String(ultimo.cluster || '');
+  const amigavel = nomeAmigavel(cluster, {}, ordem);
+  const atual = nomeAmigavel(cluster, dados.mapeamento, ordem);
+  if (ultimo.acao === 'corrigir') {
+    const anterior = ultimo.anterior && ultimo.anterior.display_name ? ultimo.anterior.display_name : 'Identificação pendente';
+    return `Desfazer: ${atual} volta a ${anterior} (${amigavel})`;
   }
+  return `Desfazer: última ação em ${amigavel} (revisão ${numeroRevisao(ultimo.revision)})`;
+}
+
+function renderUndo() {
+  const descricao = descricaoUndo(dados, clusters);
+  const el = $('desfazer-descricao');
+  if (el) el.textContent = descricao || 'Nada a desfazer.';
+  if (btnDesfazer) { btnDesfazer.disabled = !descricao; btnDesfazer.title = descricao || 'Nada a desfazer'; }
 }
 
 function render() {

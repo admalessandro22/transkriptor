@@ -36,6 +36,7 @@
     <button type="button" id="desfazer-correcao" class="tk-btn tk-btn--secondary"><svg class="tk-icon tk-icon--sm"><use href="{{ url_for('static', filename='icones.svg') }}#i-undo"/></svg>Desfazer</button>
     <button type="button" id="exportar-txt" class="tk-btn tk-btn--secondary"><svg class="tk-icon tk-icon--sm"><use href="{{ url_for('static', filename='icones.svg') }}#i-download"/></svg>Exportar TXT</button>
   </div>
+  <p class="tk-subtle tk-type-sm" id="desfazer-descricao" aria-live="polite">Nada a desfazer.</p>
   <p class="tk-subtle tk-type-sm">O TXT exportado é legível e contém dados sensíveis da reunião.</p>
 </form>
 <div id="participantes-estado" class="participantes__estado" role="status" aria-live="polite"></div>

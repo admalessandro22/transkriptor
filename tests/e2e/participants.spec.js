@@ -21,15 +21,16 @@ async function carregar(page, cenario) {
       const p = new URL(url).pathname;
       if (p === "/api/transcricoes" || p === "/api/modelos") return [];
       if (p === "/api/reunioes" && metodo === "GET") return ["reuniao-x"];
-      if (p.endsWith("/resultado") && metodo === "GET") return { ...e.base, revision: e.revisao, mapeamento: e.mapeamento };
+      if (p.endsWith("/resultado") && metodo === "GET") return { ...e.base, revision: e.revisao, mapeamento: e.mapeamento, historico: e.historico || [] };
       if (p.endsWith("/correcao") && metodo === "POST") {
         const corpo = JSON.parse(req.postData());
         if (corpo.expected_revision !== e.revisao) return { status: 409, body: JSON.stringify({ erro: "revisão esperada divergente" }) };
         e.revisao = "rev-2";
         e.mapeamento = { [corpo.speaker_cluster_id]: { display_name: corpo.display_name, origem: "manual" } };
+        e.historico = [{ revision: e.revisao, acao: "corrigir", cluster: corpo.speaker_cluster_id, anterior: null }];
         return { revision: e.revisao };
       }
-      if (p.endsWith("/desfazer") && metodo === "POST") { e.revisao = "rev-3"; e.mapeamento = {}; return { revision: e.revisao }; }
+      if (p.endsWith("/desfazer") && metodo === "POST") { e.revisao = "rev-3"; e.mapeamento = {}; e.historico = [...(e.historico || []), { revision: "rev-3", acao: "desfazer", cluster: "FALANTE_00" }]; return { revision: e.revisao }; }
       if (p.endsWith("/exportar-txt") && metodo === "POST") return { status: 200, body: "fala exportada\n", contentType: "text/plain; charset=utf-8" };
       return { status: 404, body: JSON.stringify({ erro: "x" }) };
     }
