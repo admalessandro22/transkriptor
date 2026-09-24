@@ -1,6 +1,6 @@
 # Tasks — plataforma visual e Central (SDD v1.9)
 
-**Estado em 24/09/2026: plano aprovado; 15 `DONE` (F14.A–D concluídas, E1–E2), 6 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.E3.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
+**Estado em 24/09/2026: plano aprovado; 16 `DONE` (F14.A–D concluídas, E1–E3), 5 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.E4.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
 
 Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, **Teste final** e **Aceite** são cumulativos. Os arquivos de teste novos são entregáveis da implementação; os seletores são planejados, não testes que já passaram. Nenhuma task usa dados reais; capturas usam `tests/e2e/fixtures/`.
 
@@ -166,7 +166,7 @@ Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, 
 
 ### T-14.E3 — consentimento com DPI, ícone e contagem visual
 
-- [ ] **Requisito:** UX-14.E3. **Depende de:** E2. **Estado:** `PENDING`.
+- [x] **Requisito:** UX-14.E3. **Depende de:** E2. **Estado:** `DONE`; commit `8064f2c`; evidência: `evidencias/T-14.E3.md`.
 - **Arquivos:** modificar `consentimento_gravacao.py` (`layout_consentimento(dpi)`, ícone, `msctls_progress32`, parâmetro `fontes`), `app_ciclo_reuniao.py` (passa fontes ativas), `config.py` (constantes de layout), `tests/test_aviso_gravacao.py`; criar `tests/test_consentimento_layout.py`.
 - **Implementação:** função pura de layout escalada por DPI; título "Gravar esta reunião?"; texto com fonte detectada ("Detectado: Google Meet"); botão primário "Gravar esta reunião" e secundário "Não gravar"; barra de progresso decrescente com texto; qualquer falha nos controles novos cai no layout atual; nenhuma mudança em `pedir_consentimento`, timeouts, IDs ou `WNDPROC`.
 - **RED:** `test_consentimento_layout.py::test_layout_escala_com_dpi`, `::test_botao_sim_altura_minima`, `::test_fontes_nunca_incluem_titulo_ou_nome`; `test_aviso_gravacao.py` inalterado e verde.
