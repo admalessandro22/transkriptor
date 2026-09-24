@@ -3,9 +3,7 @@
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-HTML = (REPO / "templates" / "assistente.html").read_text(encoding="utf-8")
-CSS = (REPO / "static" / "assistente.css").read_text(encoding="utf-8")
-JS = (REPO / "static" / "assistente.js").read_text(encoding="utf-8")
+from tests.front_assistente import CSS, HTML_TEMPLATE as HTML, JS  # v1.9: shell + módulos
 FRONT = HTML + "\n" + CSS + "\n" + JS
 
 
@@ -41,17 +39,13 @@ def test_html_markdown_e_copiar():
 
 
 def test_html_action_cards_hierarquia():
-    # UX-11.B1
-    assert 'is-primary' in HTML
-    assert 'Resumir reunião' in HTML
-    assert 'action-desc' in HTML
-    assert 'action-kbd' in HTML
-    assert 'action-icon' in HTML
-    # Empty tips
+    # UX-11.B1 → v1.9 (T-14.B3): ações rápidas viram chips de intenção montados a partir de intencoes.js
+    assert "primario: true" in JS
+    assert "Resumir reunião" in JS
+    assert 'id="chips"' in HTML and 'id="chips-editar"' in HTML
     assert 'empty-tips' in HTML
     assert 'empty-icon' in HTML
-    # 6 cards
-    assert HTML.count('class="action-card') == 6
+    assert JS.count("rotulo: '") == 6
 
 
 def test_html_tem_search_wrap_e_header_meta():
@@ -60,7 +54,7 @@ def test_html_tem_search_wrap_e_header_meta():
     assert 'header-meta' in HTML
     assert 'id="statusbar"' in (REPO / 'templates' / 'base.html').read_text(encoding='utf-8')
     assert 'context-bar' in CSS
-    assert '.toast-region' in CSS
+    assert '.tk-toast-region' in CSS  # v1.9: toasts tipados de ui.js
 
 
 def test_js_busca_preserva_selecao():

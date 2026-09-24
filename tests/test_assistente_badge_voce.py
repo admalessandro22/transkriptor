@@ -45,4 +45,4 @@ def test_html_dropdown_marca_com_sua_voz():
     assert "com sua voz" in HTML
     inicio = HTML.find("function buildSelectOptions")
     bloco = HTML[inicio : inicio + 900]
-    assert "com_sua_voz" in bloco
+    assert "com_sua_voz" in bloco  # v1.9: preenchido sob demanda (detalhes=1)

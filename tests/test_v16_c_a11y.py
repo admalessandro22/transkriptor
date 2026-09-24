@@ -3,9 +3,7 @@
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-HTML = (REPO / "templates" / "assistente.html").read_text(encoding="utf-8")
-CSS = (REPO / "static" / "assistente.css").read_text(encoding="utf-8")
-JS = (REPO / "static" / "assistente.js").read_text(encoding="utf-8")
+from tests.front_assistente import CSS, HTML_TEMPLATE as HTML, JS  # v1.9: shell + módulos
 FRONT = HTML + "\n" + CSS + "\n" + JS
 
 
@@ -19,8 +17,7 @@ def test_color_scheme_dark():
 def test_focus_visible_accent():
     """Migrado na v1.9 (T-14.A1): o anel de foco usa o acento dos tokens."""
     assert "focus-visible" in CSS
-    assert "outline: 2px solid var(--accent)" in CSS
-    assert "--accent: var(--tk-accent)" in CSS
+    assert ":focus-visible { outline: 2px solid var(--tk-accent)" in CSS  # base.css (v1.9, T-14.B3)
 
 
 def test_aria_labels_drawer():

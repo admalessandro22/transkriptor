@@ -69,6 +69,9 @@ async function carregarPagina(page, nome = "assistente", opc = {}) {
   });
   const csp = opc.csp === false ? null : CSP;
   await page.route(ORIGEM + "/**", async (route) => {
+    try { await responder(route); } catch (e) { /* requisição abortada pelo cliente (stop/troca de reunião) */ }
+  });
+  async function responder(route) {
     const req = route.request();
     const u = new URL(req.url());
     const headers = csp ? { "Content-Security-Policy": csp } : {};
@@ -80,7 +83,7 @@ async function carregarPagina(page, nome = "assistente", opc = {}) {
     if (u.pathname.startsWith("/api/")) {
       ctx.pedidos.push({ url: req.url(), metodo: req.method(), corpo: req.postData() });
       if (u.pathname === "/api/chat") {
-        const texto = typeof opc.chat === "function" ? opc.chat(req) : (opc.chat || fx.resposta());
+        const texto = await (typeof opc.chat === "function" ? opc.chat(req) : (opc.chat || fx.resposta()));
         return route.fulfill({ status: 200, body: texto, contentType: "text/plain; charset=utf-8", headers });
       }
       let dados = opc.api ? await opc.api(req.url(), req) : undefined;
@@ -95,7 +98,7 @@ async function carregarPagina(page, nome = "assistente", opc = {}) {
     const caminho = resolve(raiz, "templates", pagina + ".html");
     if (!existsSync(caminho)) return route.fulfill({ status: 404, body: "", headers });
     return route.fulfill({ status: 200, body: template(pagina), contentType: TIPOS[".html"], headers });
-  });
+  }
   await page.goto(ORIGEM + (nome === "assistente" ? "/" : "/" + nome));
   return ctx;
 }

@@ -65,10 +65,10 @@ def test_html_drawer_mobile_375px():
 def test_html_navegacao_teclado_action_cards():
     assert "ArrowDown" in HTML
     assert "ArrowUp" in HTML
-    inicio = HTML.find("function navegarActionCards")
+    inicio = HTML.find("function navegarChips")  # v1.9 (T-14.B3)
     assert inicio != -1
     bloco = HTML[inicio : inicio + 600]
-    assert "action-card" in bloco
+    assert "tk-chip" in bloco
     assert "TEXTAREA" in bloco
     assert "idx === -1" in bloco
     assert "cards[0].focus" not in bloco

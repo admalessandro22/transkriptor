@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block titulo %}Assistente{% endblock %}
-{% block estilos %}<link rel="stylesheet" href="{{ url_for('static', filename='assistente.css') }}">{% endblock %}
+{% block estilos %}<link rel="stylesheet" href="{{ url_for('static', filename='css/assistente.css') }}">{% endblock %}
 {% block conteudo %}
   <!-- Overlay for drawer (mobile) -->
   <div class="drawer-overlay" id="drawer-overlay" aria-hidden="true"></div>
@@ -13,39 +13,23 @@
     </div>
 
     <div class="sidebar-body">
-      <!-- Transcrição -->
       <section class="field">
         <div class="field-head">
-          <label class="field-label" for="transcricao" id="lbl-transcricao">Transcrição</label>
+          <label class="field-label" for="transcricao" id="lbl-transcricao">Reunião</label>
           <span class="field-count" id="transcricao-count" aria-live="polite"></span>
         </div>
         <div class="search-wrap">
           <svg class="tk-icon search-icon" aria-hidden="true"><use href="{{ url_for('static', filename='icones.svg') }}#i-search"/></svg>
-          <input id="busca-transcricao" type="search" placeholder="Filtrar transcrições…" aria-label="Filtrar transcrições" autocomplete="off" spellcheck="false">
+          <input id="busca-transcricao" type="search" placeholder="Filtrar reuniões" aria-label="Filtrar reuniões" autocomplete="off" spellcheck="false">
         </div>
         <ul id="transcricao" class="tk-listbox" role="listbox" aria-labelledby="lbl-transcricao" tabindex="0"></ul>
         <div class="transcricao-meta" id="tamanho-kb" aria-live="polite"></div>
         <div class="ctx-hint" id="ctx-hint" aria-live="polite"></div>
       </section>
 
-      <!-- Modelo -->
       <section class="field">
         <label class="field-label" for="modelo" id="lbl-modelo">Modelo IA</label>
         <div class="select-wrap"><select id="modelo" aria-labelledby="lbl-modelo" title="Modelo Ollama"></select></div>
-      </section>
-
-      <!-- Ações rápidas -->
-      <section class="field">
-        <div class="field-label actions-title">Ações rápidas</div>
-        <p class="actions-hint">Clique para enviar um prompt pronto. Edite a pergunta antes de enviar, se quiser.</p>
-        <div class="action-grid" role="group" aria-label="Ações rápidas de análise">
-          <button type="button" class="action-card is-primary" data-prompt="Atue como um analista de reuniões sênior. Elabore um resumo executivo estruturado desta reunião contendo: (1) um parágrafo de contexto sobre o propósito do encontro, (2) os temas centrais discutidos organizados por ordem de relevância, com uma breve descrição de cada um, e (3) uma conclusão com o desfecho geral. Use linguagem objetiva e profissional."><span class="action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg></span><span class="action-text"><span class="action-label">Resumir reunião</span><span class="action-desc">Contexto + temas + conclusão</span></span><span class="action-kbd" aria-hidden="true">↵</span></button>
-          <button type="button" class="action-card" data-prompt="Atue como um analista de reuniões sênior. Extraia e liste os pontos principais discutidos nesta reunião. Para cada ponto, apresente: (1) um título curto e descritivo, (2) um resumo do que foi dito sobre o tema e (3) os participantes envolvidos na discussão (se identificáveis). Organize por ordem de importância e impacto. Formate em lista numerada."><span class="action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg></span><span class="action-text"><span class="action-label">Pontos principais</span><span class="action-desc">Tópicos por relevância</span></span></button>
-          <button type="button" class="action-card" data-prompt="Atue como um project manager. Identifique todas as tarefas, ações e responsabilidades mencionadas nesta reunião. Para cada item, apresente uma tabela ou lista estruturada com: (1) a tarefa/ação a ser realizada, (2) o responsável atribuído (se mencionado), (3) o prazo ou data limite (se definido), (4) o nível de prioridade (Alta/Média/Baixa) inferido pelo contexto e (5) eventuais dependências de outras tarefas. Se uma informação não foi explicitada, marque como 'a definir'. Destaque as tarefas críticas em primeiro lugar."><span class="action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg></span><span class="action-text"><span class="action-label">Tarefas e ações</span><span class="action-desc">Responsável · prazo · prioridade</span></span></button>
-          <button type="button" class="action-card" data-prompt="Atue como um analista de negócios. Identifique e liste todas as decisões tomadas durante esta reunião. Para cada decisão, apresente: (1) a decisão em si de forma clara, (2) o contexto ou problema que motivou a decisão, (3) quem propôs ou defendeu a decisão (se identificável) e (4) o impacto esperado dessa decisão. Caso existam decisões que foram apenas parcialmente acordadas ou que ainda dependam de validação posterior, destaque-as separadamente como 'decisões pendentes de confirmação'."><span class="action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></span><span class="action-text"><span class="action-label">Decisões</span><span class="action-desc">O que foi decidido e por quê</span></span></button>
-          <button type="button" class="action-card" data-prompt="Atue como um project manager. Extraia e organize os próximos passos definidos nesta reunião em um plano de ação claro e acionável. Para cada item, inclua: (1) a ação concreta a ser executada, (2) o responsável (se mencionado), (3) o prazo (se definido), (4) o critério de conclusão esperado e (5) a prioridade (Alta/Média/Baixa). Agrupe as ações por prazo (curto prazo / médio prazo / longo prazo). Inclua também qualquer reunião de acompanhamento mencionada."><span class="action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span><span class="action-text"><span class="action-label">Próximos passos</span><span class="action-desc">Plano de ação agrupado</span></span></button>
-          <button type="button" class="action-card action-card--warn" data-prompt="Atue como um consultor de riscos. Identifique todos os itens que ficaram em aberto, pendentes ou sem resolução nesta reunião. Classifique cada item como: Dúvida (pergunta sem resposta), Risco (potencial problema identificado) ou Pendência (ação que depende de algo externo). Para cada um, apresente: (1) a descrição do item, (2) o tipo de classificação, (3) o nível de criticidade (Alto/Médio/Baixo), (4) quem precisa responder ou resolver (se aplicável) e (5) uma sugestão de mitigação ou próximo passo para encerrar o item."><span class="action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg></span><span class="action-text"><span class="action-label">Pendências e riscos</span><span class="action-desc">Dúvidas · riscos · pendências</span></span></button>
-        </div>
       </section>
     </div>
 
@@ -64,10 +48,9 @@
       <div class="header-meta" id="header-meta" aria-live="polite"></div>
     </header>
 
-    <!-- Context bar: which transcript is active -->
     <div class="context-bar" id="context-bar" aria-live="polite">
       <div class="context-bar-left">
-        <span class="context-label">Transcrição ativa</span>
+        <span class="context-label">Reunião ativa</span>
         <span class="context-file" id="context-file">Nenhuma selecionada</span>
       </div>
       <div class="context-bar-right">
@@ -102,18 +85,25 @@
     </section>
 
     <div id="chat" role="log" aria-live="polite" aria-label="Histórico da conversa">
-      <div class="empty-state" id="empty" role="status">
-        <div class="empty-icon" aria-hidden="true">
-          <svg class="tk-icon tk-icon--lg"><use href="{{ url_for('static', filename='icones.svg') }}#i-message"/></svg>
-        </div>
-        <div class="empty-title">Como posso ajudar?</div>
-        <div class="empty-desc">Selecione uma transcrição à esquerda e faça uma pergunta sobre a reunião — ou use uma das <em>ações rápidas</em>. Tudo roda localmente via Ollama; nada sai da sua máquina.</div>
+      <div class="empty-state tk-empty" id="empty" role="status">
+        <div class="empty-icon" aria-hidden="true"><svg class="tk-icon tk-icon--lg"><use href="{{ url_for('static', filename='icones.svg') }}#i-sparkles"/></svg></div>
+        <h2 class="empty-title tk-empty__titulo">Pergunte sobre uma reunião</h2>
+        <ol class="empty-passos">
+          <li><span class="empty-num">1</span>Escolha uma reunião na lista ao lado.</li>
+          <li><span class="empty-num">2</span>Use uma ação rápida ou escreva sua pergunta.</li>
+          <li><span class="empty-num">3</span>A resposta é gerada localmente pelo Ollama. Nada sai da sua máquina.</li>
+        </ol>
         <div class="empty-tips">
-          <span class="tip"><kbd>↵</kbd> enviar</span>
-          <span class="tip"><kbd>⇧</kbd>+<kbd>↵</kbd> nova linha</span>
+          <span class="tip"><kbd>Enter</kbd> enviar</span>
+          <span class="tip"><kbd>Shift</kbd>+<kbd>Enter</kbd> nova linha</span>
           <span class="tip"><kbd>Esc</kbd> cancelar</span>
         </div>
       </div>
+    </div>
+
+    <div class="chips-linha">
+      <div id="chips" class="tk-chips" role="group" aria-label="Ações rápidas de análise"></div>
+      <button type="button" id="chips-editar" class="tk-btn tk-btn--quiet tk-btn--sm" aria-pressed="false" title="Colocar o prompt no campo para editar antes de enviar">Editar prompt</button>
     </div>
 
     <div class="input-area">
@@ -140,4 +130,4 @@
     </div>
   </main>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='js/reunioes.js') }}"></script><script src="{{ url_for('static', filename='assistente.js') }}"></script>{% endblock %}
+{% block scripts %}<script type="module" src="{{ url_for('static', filename='js/app.js') }}"></script>{% endblock %}
