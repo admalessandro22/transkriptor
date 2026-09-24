@@ -1,6 +1,6 @@
 # Tasks — plataforma visual e Central (SDD v1.9)
 
-**Estado em 24/09/2026: plano aprovado; 16 `DONE` (F14.A–D concluídas, E1–E3), 5 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.E4.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
+**Estado em 24/09/2026: plano aprovado; 17 `DONE` (F14.A–D concluídas, E1–E4), 4 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.E5.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
 
 Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, **Teste final** e **Aceite** são cumulativos. Os arquivos de teste novos são entregáveis da implementação; os seletores são planejados, não testes que já passaram. Nenhuma task usa dados reais; capturas usam `tests/e2e/fixtures/`.
 
@@ -176,7 +176,7 @@ Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, 
 
 ### T-14.E4 — confirmações padronizadas
 
-- [ ] **Requisito:** UX-14.E4. **Depende de:** E3. **Estado:** `PENDING`.
+- [x] **Requisito:** UX-14.E4. **Depende de:** E3. **Estado:** `DONE`; commit `3b2b8a9`; evidência: `evidencias/T-14.E4.md`.
 - **Arquivos:** criar `confirmacoes.py` (textos de consequência únicos), `tests/test_confirmacoes.py`; modificar `app_bandeja_menu.py`, `assistente.py` (`consequencia` de `/api/config` vem de `confirmacoes`), `static/js/configuracoes.js`.
 - **Implementação:** um dicionário `CONSEQUENCIAS` por ação (pausar, sair gravando, modo protegido, apagar perfil, exportar legível) usado pelo `MessageBoxW` da bandeja e pelo diálogo da Central; `MessageBoxW` mantém título, ícone de aviso e botão padrão seguro.
 - **RED:** `test_confirmacoes.py::test_todas_as_acoes_tem_consequencia`, `::test_central_e_bandeja_usam_o_mesmo_texto`, `::test_botao_padrao_e_seguro`.
