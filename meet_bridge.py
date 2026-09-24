@@ -191,6 +191,8 @@ class MeetBridge:
             self._store = store
             self._meeting_hint_ativo = meeting_hint if sessao is not None else None
             self._sessoes_ativas = SessoesAtivas()
+        if sessao is not None and meeting_hint is None:
+            logger.info("Gravação iniciada sem sala do Meet vinculada; aguardando a extensão.")
 
     def iniciar_conexao_logica(
         self, connection_id: str, tab_id: str, client_wall_ms: float,
@@ -200,14 +202,25 @@ class MeetBridge:
         with self._sessao_lock:
             sessao = self._sessao_ativa
             observado = self._hints.get(connection_id)
+            # Vínculo tardio (spec: "até existir vínculo inequívoco"): a extensão
+            # pode chegar depois do início da gravação.
+            vinculou = (
+                sessao is not None and self._store is not None and self._meeting_hint_ativo is None
+                and meeting_hint is not None and meeting_hint == self.hint_ativo_unico()
+            )
+            if vinculou:
+                self._meeting_hint_ativo = meeting_hint
             if (sessao is None or self._store is None or self._meeting_hint_ativo is None or
                     meeting_hint != self._meeting_hint_ativo or observado is None or
                     observado["tab_id"] != tab_id or observado["hint"] != meeting_hint or
                     not observado["active"] or time.monotonic() - observado["seen"] > 20.0):
                 raise EnvelopeRejeitado("aba sem reunião consentida correspondente")
             self._sessoes_ativas.vincular(connection_id, tab_id, sessao)
-            return {"tipo": "sessao", "connection_id": connection_id, "tab_id": tab_id,
-                    "session_id": sessao.session_id, "meeting_key": sessao.meeting_key}
+            resposta = {"tipo": "sessao", "connection_id": connection_id, "tab_id": tab_id,
+                        "session_id": sessao.session_id, "meeting_key": sessao.meeting_key}
+        if vinculou:
+            logger.info("Sala do Meet vinculada à gravação; nomes da extensão liberados.")
+        return resposta
 
     def registrar_envelope(self, connection_id: str, evento: dict) -> int:
         with self._sessao_lock:
