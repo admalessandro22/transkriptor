@@ -1,6 +1,6 @@
 # Tasks — plataforma visual e Central (SDD v1.9)
 
-**Estado em 24/09/2026: plano aprovado; 1 `DONE` (T-14.A1), 20 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.A2.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
+**Estado em 24/09/2026: plano aprovado; 2 `DONE` (T-14.A1–A2), 19 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.A3.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
 
 Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, **Teste final** e **Aceite** são cumulativos. Os arquivos de teste novos são entregáveis da implementação; os seletores são planejados, não testes que já passaram. Nenhuma task usa dados reais; capturas usam `tests/e2e/fixtures/`.
 
@@ -18,7 +18,7 @@ Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, 
 
 ### T-14.A2 — CSP endurecida e fim do estilo inline
 
-- [ ] **Requisito:** SEC-14.A2. **Depende de:** A1. **Estado:** `PENDING`.
+- [x] **Requisito:** SEC-14.A2. **Depende de:** A1. **Estado:** `DONE`; commit `04baf8f`; evidência: `evidencias/T-14.A2.md`.
 - **Arquivos:** modificar `assistente.py` (CSP normativa), `templates/assistente.html` (remove `style=`, glifo "☰" e `<span>` de compatibilidade; adiciona `<link rel="icon">`), `static/assistente.css` (remove `data:` URIs em favor de sprite), `static/assistente.js` (classes `is-busy`/`is-hidden` em vez de `element.style`); criar `static/icones.svg` (mínimo: search, x, stop, send, menu), `static/favicon.ico` provisório (regenerado em E1), `tests/test_csp_front.py`, `tests/e2e/helpers.js`, `tests/e2e/csp.spec.js`.
 - **Implementação:** `cabecalhos_privacidade` envia a CSP de `spec.md`; `helpers.carregarPagina` serve templates e estáticos reais via `page.route` com a CSP e coleta violações em `window.__csp`; botão Parar oculto por classe; timer oculto por classe; remoção do `☰`.
 - **RED:** `csp.spec.js::carregar sem violações` (falha hoje com 5 violações); `csp.spec.js::botao parar oculto ao carregar`; `test_csp_front.py::test_html_sem_atributo_style`, `test_csp_sem_unsafe_inline`, `test_csp_mantem_frame_ancestors`.
