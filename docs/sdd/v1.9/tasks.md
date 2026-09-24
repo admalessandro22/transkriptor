@@ -1,6 +1,6 @@
 # Tasks — plataforma visual e Central (SDD v1.9)
 
-**Estado em 24/09/2026: plano aprovado; 3 `DONE` (F14.A concluída), 18 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.B1.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
+**Estado em 24/09/2026: plano aprovado; 4 `DONE` (F14.A concluída, B1), 17 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.B2.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
 
 Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, **Teste final** e **Aceite** são cumulativos. Os arquivos de teste novos são entregáveis da implementação; os seletores são planejados, não testes que já passaram. Nenhuma task usa dados reais; capturas usam `tests/e2e/fixtures/`.
 
@@ -40,7 +40,7 @@ Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, 
 
 ### T-14.B1 — app shell, estado espelhado e tema
 
-- [ ] **Requisito:** UX-14.B1. **Depende de:** A3 e DP-14-04/06. **Estado:** `PENDING`.
+- [x] **Requisito:** UX-14.B1. **Depende de:** A3 e DP-14-04/06. **Estado:** `DONE`; commit `a93be9c`; evidência: `evidencias/T-14.B1.md`.
 - **Arquivos:** criar `templates/base.html`, `static/css/layout.css`, `static/js/tema.js`, `static/js/estado.js`, `tests/e2e/shell.spec.js`; modificar `templates/assistente.html` (estende `base.html`), `transkriptor_menu_flows._abrir_navegador` (tenta `--app=` do Edge/Chrome; fallback `webbrowser`), `tests/test_assistente_startup.py`.
 - **Implementação:** nav lateral com seis destinos e `aria-current`; barra superior com `#statusbar` alimentada por `/api/estado` (503 → "Central sem bandeja" sem erro visual); `#tema-toggle` persistido; colapso em < 1200 px, drawer em < 900 px; marca única (some do header quando a nav está visível).
 - **RED:** `shell.spec.js::marca aparece uma vez em 375/900/1366/1920`, `::tema persiste apos recarregar`, `::statusbar mostra rotulo do glossario`, `::503 nao gera toast de erro`, `::Tab percorre nav → conteudo → composer`; `test_assistente_startup.py::test_abrir_navegador_prefere_janela_app_quando_disponivel` e `::test_fallback_para_webbrowser`.
