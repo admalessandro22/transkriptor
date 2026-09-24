@@ -27,8 +27,12 @@ function renderJinja(fonte, blocosFilho = {}) {
   return saida;
 }
 
+function resolverIncludes(fonte) {
+  return fonte.replace(/\{%\s*include\s+"([^"]+)"\s*%\}/g, (_, arq) => resolverIncludes(lerTemplate(arq.replace(/\.html$/, ""))));
+}
+
 function template(nome) {
-  return renderJinja(lerTemplate(nome))
+  return resolverIncludes(renderJinja(lerTemplate(nome)))
     .replace(/\{\{\s*url_for\('static',\s*filename='([^']+)'\)\s*\}\}/g, "/static/$1")
     .replace(/\{\{[^}]*\}\}/g, "")
     .replace(/\{%[^%]*%\}/g, "");

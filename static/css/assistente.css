@@ -163,15 +163,5 @@ kbd { background: var(--tk-bg-2); border: 1px solid var(--tk-border); border-bot
 @media (max-width: 420px) { .hint-left { display: none; } .empty-state { padding: var(--tk-space-5) var(--tk-space-3); } }
 @media (max-width: 375px) { .sidebar { width: 100vw; min-width: 0; } .context-file { max-width: 52vw; } }
 
-/* ===== Drawer de participantes (legado até C1) ===== */
-#participantes-drawer { max-width: 100%; box-sizing: border-box; overflow-x: hidden; margin: var(--tk-space-3) var(--tk-space-5) 0; padding: var(--tk-space-4); background: var(--tk-bg-1); border: 1px solid var(--tk-border); border-radius: var(--tk-radius-lg); display: flex; flex-direction: column; gap: var(--tk-space-2); }
-#participantes-drawer h2 { font-size: var(--tk-type-lg-size); font-weight: 600; }
-#participantes-drawer input[type="text"] { min-height: 36px; padding: 0 var(--tk-space-3); border-radius: var(--tk-radius-md); border: 1px solid var(--tk-border); background: var(--tk-bg-2); color: var(--tk-text-1); width: 100%; }
-#participantes-drawer button { min-height: 30px; padding: 0 var(--tk-space-3); border-radius: var(--tk-radius-sm); border: 1px solid var(--tk-border); background: var(--tk-bg-2); color: var(--tk-text-1); margin: 2px 4px 2px 0; }
-#participantes-drawer button:focus-visible, #participantes-drawer select:focus-visible, #participantes-drawer input:focus-visible, #abrir-participantes:focus-visible { outline: 2px solid var(--tk-accent); outline-offset: 2px; }
-#lista-participantes .participante-seg { overflow-wrap: anywhere; padding: var(--tk-space-2) 0; border-bottom: 1px solid var(--tk-border); }
-#lista-participantes .p-nome { font-weight: 600; }
-#lista-participantes .p-origem { color: var(--tk-text-3); font-size: var(--tk-type-xs-size); }
-
 /* Contraste forçado */
 @media (forced-colors: active) { .sidebar, .input-wrap, .bubble, .context-bar, .tk-chip { border: 1px solid CanvasText; } }

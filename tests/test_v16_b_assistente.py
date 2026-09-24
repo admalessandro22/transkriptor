@@ -45,7 +45,8 @@ def test_html_action_cards_hierarquia():
     assert 'id="chips"' in HTML and 'id="chips-editar"' in HTML
     assert 'empty-tips' in HTML
     assert 'empty-icon' in HTML
-    assert JS.count("rotulo: '") == 6
+    intencoes = (REPO / "static" / "js" / "intencoes.js").read_text(encoding="utf-8")
+    assert intencoes.count("rotulo: '") == 6
 
 
 def test_html_tem_search_wrap_e_header_meta():

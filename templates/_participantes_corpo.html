@@ -1,0 +1,41 @@
+<div class="tk-field participantes__reuniao">
+  <label for="reuniao-participantes" id="lbl-reuniao">Reunião</label>
+  <div class="tk-select-wrap"><select id="reuniao-participantes" aria-labelledby="lbl-reuniao" title="Reunião"></select><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-chevron-down"/></svg></div>
+</div>
+<div id="participantes-skeleton" class="participantes__skeleton" hidden aria-hidden="true">
+  <span class="tk-skeleton tk-skeleton--titulo"></span>
+  <span class="tk-skeleton tk-skeleton--card"></span>
+  <span class="tk-skeleton tk-skeleton--linha"></span>
+  <span class="tk-skeleton tk-skeleton--linha"></span>
+</div>
+<section class="participantes__falantes" aria-labelledby="titulo-falantes">
+  <h3 class="tk-label" id="titulo-falantes">Falantes</h3>
+  <ul id="lista-falantes" class="falantes"></ul>
+</section>
+<section class="participantes__falas" aria-labelledby="titulo-falas">
+  <div class="participantes__falas-cab">
+    <h3 class="tk-label" id="titulo-falas">Falas</h3>
+    <div id="filtro-falante" class="tk-chips" role="group" aria-label="Filtrar falas por falante"></div>
+  </div>
+  <div id="lista-participantes" class="falas" aria-live="polite" aria-label="Participantes e sugestões para revisão"></div>
+</section>
+<form id="form-correcao" class="participantes__form tk-card">
+  <div class="participantes__form-titulo">Corrigir nome nesta reunião</div>
+  <div class="tk-field">
+    <label for="correcao-cluster">Falante</label>
+    <div class="tk-select-wrap"><select id="correcao-cluster" title="Falante"></select><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-chevron-down"/></svg></div>
+  </div>
+  <div class="tk-field">
+    <label for="correcao-nome">Nome corrigido</label>
+    <input id="correcao-nome" type="text" autocomplete="off" spellcheck="false" maxlength="80" placeholder="Ex.: Maria Silva">
+    <span class="tk-field__dica">Vale só para esta reunião. Não cadastra a voz de ninguém.</span>
+  </div>
+  <input id="correcao-revisao" type="hidden" value="">
+  <div class="participantes__form-acoes">
+    <button type="submit" id="salvar-correcao" class="tk-btn tk-btn--primary">Salvar correção</button>
+    <button type="button" id="desfazer-correcao" class="tk-btn tk-btn--secondary"><svg class="tk-icon tk-icon--sm"><use href="{{ url_for('static', filename='icones.svg') }}#i-undo"/></svg>Desfazer</button>
+    <button type="button" id="exportar-txt" class="tk-btn tk-btn--secondary"><svg class="tk-icon tk-icon--sm"><use href="{{ url_for('static', filename='icones.svg') }}#i-download"/></svg>Exportar TXT</button>
+  </div>
+  <p class="tk-subtle tk-type-sm">O TXT exportado é legível e contém dados sensíveis da reunião.</p>
+</form>
+<div id="participantes-estado" class="participantes__estado" role="status" aria-live="polite"></div>

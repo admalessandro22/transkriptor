@@ -50,7 +50,7 @@ test("drawer lista, corrige e desfaz com foco restaurado", async ({ page }) => {
   await page.fill("#correcao-nome", "Ana");
   await page.click("#salvar-correcao");
   await expect(page.locator("#lista-participantes")).toContainText("Ana");
-  await expect(page.locator("#participantes-estado")).toContainText("rev-2");
+  await expect(page.locator("#participantes-estado")).toContainText("Revisão 2");
 
   const chamadas = ctx.chamadas().filter((c) => c.url.endsWith("/correcao"));
   expect(chamadas[0].corpo).toContain("FALANTE_00");

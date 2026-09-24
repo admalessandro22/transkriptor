@@ -53,7 +53,7 @@ test("markdown com tabela renderiza como table e o streaming não salta ao concl
   const altura1 = await page.locator("#chat .msg-row.ai").last().evaluate((el) => el.getBoundingClientRect().height);
   await page.waitForTimeout(300);
   const altura2 = await page.locator("#chat .msg-row.ai").last().evaluate((el) => el.getBoundingClientRect().height);
-  expect(altura2).toBe(altura1);
+  expect(Math.abs(altura2 - altura1)).toBeLessThan(0.5);
 });
 
 

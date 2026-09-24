@@ -39,7 +39,7 @@ test("foco entra no drawer, circula dentro e volta ao fechar", async ({ page }) 
   await carregar(page);
   await page.click("#abrir-participantes");
   await expect(page.locator("#reuniao-participantes")).toBeFocused();
-  await expect(page.locator("#reuniao-revisao")).toContainText("rev-1");
+  await expect(page.locator("#reuniao-revisao")).toContainText("Revisão 1");
   const ordem = [];
   for (let i = 0; i < 12; i++) {
     await page.keyboard.press("Tab");

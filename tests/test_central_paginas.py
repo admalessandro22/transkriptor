@@ -91,3 +91,11 @@ def test_janela_app_pode_ser_desligada(monkeypatch):
 
     monkeypatch.setenv("TRANSKRIPTOR_JANELA_APP", "0")
     assert flows._executavel_navegador_app() is None
+
+
+def test_pagina_participantes_renderiza_painel(cliente):
+    """UX-14.C1: a página Participantes serve o mesmo corpo do painel do assistente."""
+    html = cliente.get("/participantes").get_data(as_text=True)
+    for marcador in ('id="lista-falantes"', 'id="lista-participantes"', 'id="correcao-cluster"', 'id="reuniao-revisao"', "participantes--pagina"):
+        assert marcador in html
+    assert "FALANTE_" not in html

@@ -27,6 +27,14 @@
   --tk-state-diarizing-text: #FBBF24;
   --tk-state-paused-text: #94A3B8;
   --tk-state-error-text: #F87171;
+  --tk-speaker-1: #5B8DEF;
+  --tk-speaker-2: #2FBF8F;
+  --tk-speaker-3: #E0A030;
+  --tk-speaker-4: #C86DD7;
+  --tk-speaker-5: #E06C6C;
+  --tk-speaker-6: #3CB8C9;
+  --tk-speaker-7: #B8B85A;
+  --tk-speaker-8: #FF8A5B;
   --tk-state-idle: #5B6B8C;
   --tk-state-recording: #22C55E;
   --tk-state-processing: #8B5CF6;
@@ -98,6 +106,14 @@
     --tk-state-diarizing-text: #B45309;
     --tk-state-paused-text: #475569;
     --tk-state-error-text: #B91C1C;
+    --tk-speaker-1: #3B6FD6;
+    --tk-speaker-2: #1F8F6B;
+    --tk-speaker-3: #A86A0F;
+    --tk-speaker-4: #9A45AA;
+    --tk-speaker-5: #C24A4A;
+    --tk-speaker-6: #1F8A99;
+    --tk-speaker-7: #6E6E1F;
+    --tk-speaker-8: #C4552A;
   }
 }
 :root[data-theme="light"] {
@@ -127,4 +143,12 @@
   --tk-state-diarizing-text: #B45309;
   --tk-state-paused-text: #475569;
   --tk-state-error-text: #B91C1C;
+  --tk-speaker-1: #3B6FD6;
+  --tk-speaker-2: #1F8F6B;
+  --tk-speaker-3: #A86A0F;
+  --tk-speaker-4: #9A45AA;
+  --tk-speaker-5: #C24A4A;
+  --tk-speaker-6: #1F8A99;
+  --tk-speaker-7: #6E6E1F;
+  --tk-speaker-8: #C4552A;
 }
