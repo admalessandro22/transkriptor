@@ -14,9 +14,11 @@ def test_color_scheme_dark():
     assert "dark" in CSS
 
 
-def test_focus_visible_gold():
+def test_focus_visible_accent():
+    """Migrado na v1.9 (T-14.A1): o anel de foco usa o acento dos tokens."""
     assert "focus-visible" in CSS
-    assert "gold-bright" in CSS or "#e0c483" in CSS
+    assert "outline: 2px solid var(--accent)" in CSS
+    assert "--accent: var(--tk-accent)" in CSS
 
 
 def test_aria_labels_drawer():

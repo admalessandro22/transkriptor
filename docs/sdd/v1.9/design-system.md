@@ -20,16 +20,19 @@ Especificação visual normativa. Os nomes de tokens aqui são os nomes do contr
 | `--tk-bg-2` | `#1B1F2A` | `#EEF0F4` | Superfície elevada, hover, campos |
 | `--tk-bg-3` | `#232837` | `#E3E6EC` | Pressionado, selecionado |
 | `--tk-border` | `rgba(255,255,255,0.08)` | `rgba(15,17,21,0.10)` | Bordas padrão |
-| `--tk-border-strong` | `rgba(255,255,255,0.16)` | `rgba(15,17,21,0.20)` | Bordas de campos em foco/hover |
+| `--tk-border-strong` | `#626A7A` | `#858E9F` | Bordas de campos em foco/hover (sólida; ≥ 3:1 sobre `bg-1`) |
 | `--tk-text-1` | `#E8EAF0` | `#14171F` | Texto principal |
 | `--tk-text-2` | `#B0B6C3` | `#3E4553` | Texto secundário |
-| `--tk-text-3` | `#7C8494` | `#667085` | Rótulos, metadados (mínimo 4,5:1 sobre `bg-1`) |
+| `--tk-text-3` | `#828A9A` | `#5F6A7E` | Rótulos, metadados (mínimo 4,5:1 sobre `bg-1` e `bg-2`) |
 | `--tk-accent` | `#4F8CFF` | `#1F5FD6` | Links, ícones ativos, foco, texto de destaque |
 | `--tk-accent-fill` | `#2F6FE8` | `#1F5FD6` | Fundo de botão primário (texto branco ≥ 4,5:1) |
 | `--tk-accent-soft` | `rgba(79,140,255,0.14)` | `rgba(31,95,214,0.10)` | Seleção, fundo de chip ativo |
 | `--tk-on-accent` | `#FFFFFF` | `#FFFFFF` | Texto sobre `accent-fill` |
+| `--tk-danger` / `--tk-danger-fill` / `--tk-danger-soft` | `#F87171` / `#DC2626` / `rgba(239,68,68,0.12)` | `#B91C1C` / `#DC2626` / `rgba(220,38,38,0.08)` | Texto, botão e fundo de erro |
+| `--tk-focus` | `rgba(79,140,255,0.35)` | `rgba(31,95,214,0.35)` | Halo de foco em campos |
+| `--tk-scrim` | `rgba(0,0,0,0.55)` | `rgba(15,17,21,0.45)` | Fundo de overlay/drawer |
 
-Contrastes de referência (escuro): `text-1`/`bg-1` ≈ 15:1; `text-2`/`bg-1` ≈ 8,5:1; `text-3`/`bg-1` ≈ 4,7:1; `accent`/`bg-1` ≈ 5,5:1; `on-accent`/`accent-fill` ≈ 4,7:1. Claro: `text-3`/`bg-1` ≈ 5,0:1; `accent`/`bg-1` ≈ 5,8:1. O teste `tests/test_design_tokens.py` recalcula esses valores e reprova qualquer par abaixo de 4,5:1 (texto) ou 3:1 (bordas de controle e ícones).
+Contrastes medidos pelo gerador (escuro): `text-1`/`bg-1` 14,7:1; `text-2`/`bg-1` 8,7:1; `text-3`/`bg-1` 5,1:1 e sobre `bg-2` 4,7:1; `accent`/`bg-1` 5,5:1; `on-accent`/`accent-fill` 4,6:1. Claro: `text-3`/`bg-1` 5,5:1; `accent`/`bg-1` 5,7:1. O teste `tests/test_design_tokens.py` recalcula esses valores e reprova qualquer par abaixo de 4,5:1 (texto) ou 3:1 (bordas de controle e ícones).
 
 ### Estados semânticos (compartilhados com o ícone da bandeja)
 

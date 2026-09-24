@@ -3,12 +3,16 @@
 
 import time
 
-COR_AGUARDANDO = (30, 41, 59)
-COR_TRANSCREVENDO = (34, 197, 94)
-COR_DIARIZANDO = (201, 169, 97)
-COR_PROCESSANDO = (139, 92, 246)
-COR_ERRO = (239, 68, 68)
-COR_PAUSADO = (100, 116, 139)  # #64748b
+# Cores do ícone vêm da fonte única de tokens (design/tokens.json → design_tokens.py),
+# as mesmas usadas pela Central. Ver SDD v1.9, T-14.A1.
+from design_tokens import (
+    COR_AGUARDANDO,
+    COR_DIARIZANDO,
+    COR_ERRO,
+    COR_PAUSADO,
+    COR_PROCESSANDO,
+    COR_TRANSCREVENDO,
+)
 
 DURACAO_ERRO_ICONE = 30
 
