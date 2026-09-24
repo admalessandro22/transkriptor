@@ -38,15 +38,16 @@ def test_pausado_usa_cor_distinta_de_aguardando():
 def test_pausado_quando_deteccao_inativa():
     estado, titulo = resolver_estado_icone(None, deteccao_ativa=False)
     assert estado == "pausado"
-    assert "PAUSADO" in titulo
-    assert "não está gravando" in titulo or "nao esta gravando" in titulo.lower()
+    # v1.9 (T-14.E2): tooltip com o glossário da Central
+    assert titulo.startswith("Pausado")
+    assert "não grava" in titulo
 
 
 def test_transcrevendo_prioridade_sobre_pausado():
     t = SimpleNamespace(rodando=True, diarizando=False)
     estado, titulo = resolver_estado_icone(t, deteccao_ativa=False)
     assert estado == "transcrevendo"
-    assert titulo == "Transcrevendo"
+    assert titulo == "Gravando"  # v1.9 (T-14.E2)
 
 
 def test_app_inicia_com_deteccao_ativa(modulo_transkriptor, monkeypatch):

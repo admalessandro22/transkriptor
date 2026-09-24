@@ -39,7 +39,6 @@ from transkriptor_acoes import (
     confirmacao_saida_necessaria,
     deve_confirmar_pausa,
     saida_permitida,
-    texto_deteccao_menu,
 )
 from transkriptor_lock import liberar_lock
 from transkriptor_menu_flows import (
@@ -110,7 +109,11 @@ class MenuBandejaMixin:
         except Exception:
             return True
 
-    def alternar_deteccao(self, _icone=None, _item=None, confirmar=None):
+    def alternar_deteccao(self, _icone=None, _item=None):
+        # pystray só aceita ações com até dois parâmetros; a Central usa `_com`.
+        self.alternar_deteccao_com()
+
+    def alternar_deteccao_com(self, confirmar=None):
         if deve_confirmar_pausa(self.deteccao_ativa):
             confirmar = confirmar or getattr(self, "_confirmar_pausa", None) or self._confirmar_pausa_padrao
             if not confirmar():
@@ -196,11 +199,10 @@ class MenuBandejaMixin:
             def _fazer_acao(n=nome):
                 return lambda icone=None, item=None: self.definir_modelo_whisper(icone, n)
 
-            def _texto(item=None, n=nome):
-                marca = "✓ " if getattr(self, "modelo_whisper", MODELO_WHISPER) == n else ""
-                return f"{marca}{n}"
+            def _marcado(item=None, n=nome):
+                return getattr(self, "modelo_whisper", MODELO_WHISPER) == n
 
-            itens.append(pystray.MenuItem(_texto, _fazer_acao(), radio=True))
+            itens.append(pystray.MenuItem(nome, _fazer_acao(), checked=_marcado, radio=True))
         return pystray.Menu(*itens)
 
     def alternar_criptografia(self, _icone=None, _item=None):
@@ -234,7 +236,10 @@ class MenuBandejaMixin:
         except Exception:
             return False
 
-    def ativar_modo_protegido(self, _icone=None, _item=None, confirmar=None):
+    def ativar_modo_protegido(self, _icone=None, _item=None):
+        self.ativar_modo_protegido_com()
+
+    def ativar_modo_protegido_com(self, confirmar=None):
         import config_user
         from politica_privacidade import ProtectionMode, modo_efetivo
 
@@ -284,23 +289,26 @@ class MenuBandejaMixin:
         logging.info("Transkriptor encerrado.")
 
     def _texto_status(self, _item=None):
+        """UX-14.E2: primeira linha do menu com o mesmo vocabulário da Central."""
         # Sem lock: o pystray monta o menu a partir daqui e só lê atributos.
         # Esperar por `self._lock` no desenho do menu transformaria qualquer
         # operação lenta em bandeja congelada.
+        from app_estado_ui import ROTULOS
+
         transcritor = self.transcritor
         if transcritor and getattr(transcritor, "diarizando", False):
-            return "Separando vozes (pós-processamento)..."
+            return ROTULOS["separando_vozes"]
         if transcritor and transcritor.rodando:
             fontes = ", ".join(
                 getattr(getattr(self, "detector", None), "fontes_da_reuniao", None) or []
             )
-            return f"Gravando reunião ({fontes})..." if fontes else "Gravando reunião..."
+            return f"{ROTULOS['gravando']} · {fontes}" if fontes else ROTULOS["gravando"]
         estado = getattr(self, "_estado_processamento", None)
         if estado:
-            return f"Pós-processamento: {estado}"
+            return f"{ROTULOS['processando']} · {estado}"
         if not self.deteccao_ativa:
-            return "PAUSADO — não está gravando"
-        return f"Aguardando reunião — {self._resumo_fontes()}"
+            return f"{ROTULOS['pausado']} · não grava reuniões"
+        return f"{ROTULOS['aguardando']} · {self._resumo_fontes()}"
 
     def _resumo_fontes(self):
         """UX-9.1: o menu diz o que o detector está enxergando agora."""
@@ -312,56 +320,6 @@ class MenuBandejaMixin:
         except Exception:
             return "falha ao consultar fontes"
         return f"sinal de: {', '.join(ativos)}" if ativos else "nenhuma reunião à vista"
-
-    def _texto_deteccao(self, _item=None):
-        return texto_deteccao_menu(self.deteccao_ativa)
-
-    def _texto_diarizacao(self, _item=None):
-        return (
-            "Desativar separação de vozes"
-            if self.diarizacao_ativa
-            else "Ativar separação de vozes"
-        )
-
-    def _texto_criptografia(self, _item=None):
-        try:
-            from politica_privacidade import modo_efetivo
-
-            modo = modo_efetivo().value
-        except Exception:  # noqa: BLE001 — menu nunca quebra por política
-            modo = "?"
-        base = (
-            "✓ Criar cópia criptografada (.tkpt)"
-            if self.criptografar_transcricoes
-            else "Criar cópia criptografada (.tkpt)"
-        )
-        return f"{base} [{modo}]"
-
-    def _texto_startup(self, _item=None):
-        return (
-            "✓ Iniciar com o Windows"
-            if self.iniciar_com_windows
-            else "Iniciar com o Windows"
-        )
-
-    def _texto_identificar_voz(self, _item=None):
-        if self.identificar_minha_voz:
-            return f"✓ Identificar minha voz ({self.rotulo_usuario})"
-        return "Identificar minha voz"
-
-    def _texto_nomes_meet(self, _item=None):
-        return (
-            "✓ Identificar nomes do Meet"
-            if self.usar_nomes_meet
-            else "Identificar nomes do Meet"
-        )
-
-    def _texto_legendas_meet(self, _item=None):
-        return (
-            "✓ Modo legendas Meet (Tactiq)"
-            if self.modo_legendas_meet
-            else "Modo legendas Meet (Tactiq)"
-        )
 
     def _garantir_bridge(self):
         if self.usar_nomes_meet and self._meet_bridge_thread is None:

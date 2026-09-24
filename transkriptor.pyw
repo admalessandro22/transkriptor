@@ -359,7 +359,7 @@ class AppTranskriptor(CicloReuniaoMixin, ProcessamentoReuniaoMixin, MenuBandejaM
         self.icone = pystray.Icon(
             "Transkriptor",
             icon=criar_imagem(),
-            title=f"Transkriptor {VERSAO} - Aguardando Meet",
+            title=f"Transkriptor {VERSAO} - Aguardando reunião",
             menu=self._menu(),
         )
         configurar_icone(self.icone)

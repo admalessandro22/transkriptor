@@ -23,7 +23,10 @@ class AppFalso:
         self.iniciar_com_windows = False
         self.chamadas = []
 
-    def alternar_deteccao(self, _icone=None, _item=None, confirmar=None):
+    def alternar_deteccao(self, _icone=None, _item=None):
+        self.alternar_deteccao_com()
+
+    def alternar_deteccao_com(self, confirmar=None):
         if self.deteccao_ativa and confirmar is not None and not confirmar():
             return
         self.deteccao_ativa = not self.deteccao_ativa
@@ -53,7 +56,10 @@ class AppFalso:
         self.modelo_whisper = modelo
         self.chamadas.append(("modelo", modelo))
 
-    def ativar_modo_protegido(self, _icone=None, _item=None, confirmar=None):
+    def ativar_modo_protegido(self, _icone=None, _item=None):
+        self.ativar_modo_protegido_com()
+
+    def ativar_modo_protegido_com(self, confirmar=None):
         if confirmar is not None and not confirmar():
             return
         self.chamadas.append(("protegido", True))
@@ -149,5 +155,7 @@ def test_menu_da_bandeja_aceita_confirmar_injetado():
 
     from app_bandeja_menu import MenuBandejaMixin
 
-    assert "confirmar" in inspect.signature(MenuBandejaMixin.alternar_deteccao).parameters
-    assert "confirmar" in inspect.signature(MenuBandejaMixin.ativar_modo_protegido).parameters
+    # As ações do menu mantêm (icone, item) — o pystray recusa mais parâmetros — e delegam ao `_com`.
+    assert list(inspect.signature(MenuBandejaMixin.alternar_deteccao).parameters) == ["self", "_icone", "_item"]
+    assert "confirmar" in inspect.signature(MenuBandejaMixin.alternar_deteccao_com).parameters
+    assert "confirmar" in inspect.signature(MenuBandejaMixin.ativar_modo_protegido_com).parameters

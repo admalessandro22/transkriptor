@@ -46,6 +46,10 @@ def test_assistente_host_local():
 
 
 def test_detect_zero_warnings_css_js():
-    css = (REPO / "static" / "assistente.css").read_text(encoding="utf-8").lower()
+    # v1.9 (T-14.B3): static/assistente.css é entrada legada (@import); o CSS
+    # real vive em static/css/*.css — o contrato vale para o conjunto.
+    partes = [(REPO / "static" / "assistente.css").read_text(encoding="utf-8")]
+    partes += [p.read_text(encoding="utf-8") for p in sorted((REPO / "static" / "css").glob("*.css"))]
+    css = "".join(partes).lower()
     assert "bounce" not in css
-    assert "color-scheme" in css.lower()
+    assert "color-scheme" in css

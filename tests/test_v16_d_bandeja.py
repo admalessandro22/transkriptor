@@ -43,3 +43,36 @@ def test_funcoes_legadas_continuam_alcancaveis():
 
 def test_menu_preserva_status_no_topo():
     assert "pystray.MenuItem(self._texto_status, None, enabled=False)" in BLOCO
+
+
+def test_sem_prefixo_check_textual():
+    assert "✓ " not in MENU
+    for helper in ("_texto_deteccao", "_texto_diarizacao", "_texto_criptografia", "_texto_startup", "_texto_identificar_voz", "_texto_nomes_meet", "_texto_legendas_meet"):
+        assert f"def {helper}" not in MENU, helper
+
+
+def test_primeira_linha_usa_glossario():
+    from types import SimpleNamespace
+
+    from app_bandeja_menu import MenuBandejaMixin
+    from app_estado_ui import ROTULOS
+
+    class App(MenuBandejaMixin):
+        transcritor = None
+        deteccao_ativa = True
+        _estado_processamento = None
+        detector = SimpleNamespace(fontes_da_reuniao=[], instantaneo=lambda: [])
+
+    app = App()
+    assert app._texto_status().startswith(ROTULOS["aguardando"])
+    app.deteccao_ativa = False
+    assert app._texto_status().startswith(ROTULOS["pausado"])
+    app.deteccao_ativa = True
+    app._estado_processamento = "Em fila"
+    assert app._texto_status().startswith(ROTULOS["processando"]) and "Em fila" in app._texto_status()
+    app._estado_processamento = None
+    app.transcritor = SimpleNamespace(rodando=True, diarizando=False)
+    app.detector = SimpleNamespace(fontes_da_reuniao=["titulo"], instantaneo=lambda: [])
+    assert app._texto_status() == f"{ROTULOS['gravando']} · titulo"
+    app.transcritor = SimpleNamespace(rodando=False, diarizando=True)
+    assert app._texto_status() == ROTULOS["separando_vozes"]

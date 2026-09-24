@@ -53,35 +53,32 @@ Clique com o **botão direito** no ícone da bandeja para abrir o menu.
 
 | Item | Função |
 |------|--------|
-| Status | Mostra detecção, gravação e `Em fila`, `Processando`, `Pronta` ou `Falhou` |
-| Abrir pasta de transcrições | Abre `transcricoes/` no Explorer |
-| Diagnóstico (por que não está gravando?) | Testa áudio e detecção e abre um relatório |
-| Abrir log | Abre `transkriptor.log` para diagnóstico |
-| Retranscrever áudio… | Reprocessa um áudio salvo em `transcricoes/audio/` |
-| Abrir assistente | Abre o assistente web local (Ollama) |
-| Pausar gravação automática | Exige confirmação; enquanto pausado **não grava** reuniões |
-| Confirmar antes de gravar | Regra obrigatória: somente **Sim** permite capturar |
-| Ativar/desativar separação de vozes | Liga ou desliga diarização ao final |
-| Cadastrar minha voz (20s) | Grava perfil de voz pelo microfone |
-| Identificar minha voz | Toggle do rótulo `VOCÊ` na diarização |
-| Apagar perfil de voz | Remove perfil de voz (`perfil_usuario.enc` ou legado `.npz`) |
-| Identificar nomes do Meet | Ativa ponte WebSocket para extensão Chrome |
-| Modo legendas Meet (Tactiq) | Prioriza legendas CC do Meet |
-| Instalar extensão Meet (pasta) | Abre pasta `extension/meet/` |
-| Renomear falante (última diarização) | Salva nome+embedding para reuniões futuras |
-| Abrir pasta vozes conhecidas | Pasta `_modelo_voz/` (`vozes_conhecidas.enc` ou legado `.json`) |
-| Criar cópia criptografada (.tkpt) | No modo compatível, cria uma cópia protegida do `.txt`; no modo protegido, `.tkpt` já é o resultado principal |
-| Ativar modo protegido para novas reuniões… | Após confirmação, protege novas capturas e resultados; arquivos antigos permanecem como estão |
-| Iniciar com o Windows | Atalho na pasta Startup |
+| Status (primeira linha) | O que o app está fazendo agora: Aguardando reunião, Gravando, Processando reunião, Separando vozes, Pausado ou Erro — o mesmo vocabulário da Central |
+| Abrir Transkriptor | Abre a Central (Início, Reuniões, Assistente, Participantes, Configurações, Diagnóstico) no navegador, em janela de aplicativo quando há Edge ou Chrome |
+| Gravação automática | Marcado = detecta reuniões e pergunta antes de gravar. Desmarcar exige confirmação e significa **não gravar** reuniões |
+| Separar vozes | Marcado = separa quem falou o quê ao terminar a reunião |
+| Reuniões ▸ | Abrir assistente (IA local), Renomear falante e participantes (Central), Retranscrever áudio… (Central), Abrir pasta de transcrições |
+| Configurações ▸ Minha voz | Cadastrar minha voz (20s), Identificar minha voz (marcado = rótulo `VOCÊ`), Apagar perfil de voz, Abrir pasta vozes conhecidas |
+| Configurações ▸ Google Meet | Identificar nomes do Meet (marcado = ponte local ligada), Modo legendas Meet (Tactiq), Instalar extensão Meet (pasta) |
+| Configurações ▸ Proteção | Criar cópia criptografada (.tkpt) (marcado), Ativar modo protegido para novas reuniões… (com confirmação) |
+| Configurações ▸ Modelo Whisper | Escolha do modelo; vale a partir da próxima transcrição |
+| Configurações ▸ Iniciar com o Windows | Marcado = atalho na pasta de inicialização |
+| Configurações ▸ Abrir log | Abre `transkriptor.log` |
+| Diagnóstico (por que não está gravando?) | Abre a página Diagnóstico da Central e salva o relatório `.txt` |
 | Sair | Encerra o app (confirma se estiver gravando) |
 
-### Cores do ícone
+Tudo isso também está na Central, em **Configurações**, com a consequência de cada opção ao lado. A regra "confirmar antes de gravar" é fixa: somente **Sim** no diálogo permite capturar.
 
-- **Verde** — gravando a reunião, sem carregar a IA
-- **Roxo** — processando a reunião depois do encerramento
-- **Azul** — aguardando reunião
-- **Cinza** — detecção pausada
-- **Vermelho** — erro crítico (reverte após ~30 s)
+### Estados do ícone
+
+Cada estado tem uma cor **e** um símbolo no canto do ícone, para não depender só da cor:
+
+- **Azul-acinzentado, sem símbolo** — aguardando reunião
+- **Verde, ponto** — gravando a reunião, sem carregar a IA
+- **Âmbar, três ondas** — separando vozes
+- **Roxo, engrenagem** — processando a reunião depois do encerramento
+- **Cinza, duas barras** — gravação automática pausada
+- **Vermelho, exclamação** — erro crítico (reverte após ~30 s)
 
 ### Notificações
 

@@ -7,6 +7,13 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 CSS = REPO / "static" / "assistente.css"
 HTML = REPO / "templates" / "assistente.html"
+# v1.9 (T-14.B3): static/assistente.css virou entrada legada só com @import; o
+# CSS de verdade vive em static/css/*.css. Os contratos abaixo valem para o conjunto.
+CSS_MODULOS = tuple(sorted((REPO / "static" / "css").glob("*.css")))
+
+
+def _css_total() -> str:
+    return CSS.read_text(encoding="utf-8") + "".join(p.read_text(encoding="utf-8") for p in CSS_MODULOS)
 
 
 def test_tokens_em_root_sem_hex_solto():
@@ -20,18 +27,17 @@ def test_tokens_em_root_sem_hex_solto():
     for token in ("--tk-bg-1", "--tk-accent", "--tk-text-1", "--tk-elev-", "--tk-radius-", "--tk-state-recording"):
         assert token in tokens
     assert '@import url("css/tokens.css")' in css
-    assert "var(--tk-" in css
+    assert "var(--tk-" in _css_total()
 
 
 def test_sem_bounce_ou_elastic():
-    css = CSS.read_text(encoding="utf-8").lower()
+    css = _css_total().lower()
     assert "bounce" not in css, "bounce easing proibido por UX-11.A2"
     assert "elastic" not in css
 
 
 def test_prefers_reduced_motion_presente():
-    css = CSS.read_text(encoding="utf-8")
-    assert "prefers-reduced-motion" in css
+    assert "prefers-reduced-motion" in _css_total()
 
 
 def test_detect_zero_warnings():

@@ -86,7 +86,7 @@ def aplicar(app, chave: str, valor, confirmar: Callable[[], bool]) -> tuple[dict
         if not isinstance(valor, bool):
             return None, ({"erro": "Valor inválido"}, 400)
         alternar = {
-            "deteccao_ativa": lambda: app.alternar_deteccao(confirmar=confirmar),
+            "deteccao_ativa": lambda: app.alternar_deteccao_com(confirmar=confirmar),
             "diarizacao_ativa": app.alternar_diarizacao,
             "identificar_minha_voz": app.alternar_identificar_voz,
             "usar_nomes_meet": app.alternar_nomes_meet,
@@ -103,7 +103,7 @@ def aplicar(app, chave: str, valor, confirmar: Callable[[], bool]) -> tuple[dict
     elif chave == "protection_mode":
         if valor != "protected":
             return None, ({"erro": "Só é possível ativar o modo protegido; ele não é desativado pela Central"}, 400)
-        app.ativar_modo_protegido(confirmar=confirmar)
+        app.ativar_modo_protegido_com(confirmar=confirmar)
     elif chave == "apagar_perfil_voz":
         app.apagar_perfil_voz()
     return estado_config(app), None

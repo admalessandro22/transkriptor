@@ -39,18 +39,19 @@ def resolver_estado_icone(
     processando=False,
 ):
     agora = time.monotonic() if agora is None else agora
+    # Títulos do tooltip seguem o glossário da Central (UX-14.E2).
     if em_erro:
         if instante_erro is None or not erro_icone_expirado(instante_erro, agora):
             return "erro", "Erro"
     if transcritor and getattr(transcritor, "diarizando", False):
-        return "diarizando", "Separando vozes..."
+        return "diarizando", "Separando vozes"
     if transcritor and getattr(transcritor, "rodando", False):
-        return "transcrevendo", "Transcrevendo"
+        return "transcrevendo", "Gravando"
     if processando:
-        return "processando", "Processando reunião..."
+        return "processando", "Processando reunião"
     if deteccao_ativa:
-        return "aguardando", "Aguardando Meet"
-    return "pausado", "PAUSADO — não está gravando"
+        return "aguardando", "Aguardando reunião"
+    return "pausado", "Pausado · não grava reuniões"
 
 
 def cor_por_estado(estado):
