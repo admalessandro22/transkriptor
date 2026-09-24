@@ -5,7 +5,7 @@
   "description": "Runners locais de teste para a interface e a extensão Meet.",
   "scripts": {
     "test:unit": "vitest run --config tests/js/vitest.config.mjs",
-    "test:e2e": "playwright test --config playwright.config.js"
+    "test:e2e": "node node_modules/@playwright/test/cli.js test --config playwright.config.js"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
