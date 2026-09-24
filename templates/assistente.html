@@ -101,6 +101,13 @@
       </div>
     </div>
 
+    <div id="ollama-offline" class="tk-empty ollama-offline is-hidden" role="status">
+      <svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-alert"/></svg>
+      <h2 class="tk-empty__titulo">Ollama não está em execução</h2>
+      <p class="tk-empty__texto">O assistente responde localmente pelo Ollama. Inicie o Ollama (e instale um modelo, se ainda não houver) e tente de novo.</p>
+      <button type="button" class="tk-btn tk-btn--primary" id="ollama-tentar">Tentar de novo</button>
+    </div>
+
     <div class="chips-linha">
       <div id="chips" class="tk-chips" role="group" aria-label="Ações rápidas de análise"></div>
       <button type="button" id="chips-editar" class="tk-btn tk-btn--quiet tk-btn--sm" aria-pressed="false" title="Colocar o prompt no campo para editar antes de enviar">Editar prompt</button>

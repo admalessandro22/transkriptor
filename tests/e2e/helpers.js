@@ -84,6 +84,9 @@ async function carregarPagina(page, nome = "assistente", opc = {}) {
       ctx.pedidos.push({ url: req.url(), metodo: req.method(), corpo: req.postData() });
       if (u.pathname === "/api/chat") {
         const texto = await (typeof opc.chat === "function" ? opc.chat(req) : (opc.chat || fx.resposta()));
+        if (texto && typeof texto === "object" && "status" in texto) {
+          return route.fulfill({ status: texto.status, body: texto.body, contentType: texto.contentType || "application/json", headers });
+        }
         return route.fulfill({ status: 200, body: texto, contentType: "text/plain; charset=utf-8", headers });
       }
       let dados = opc.api ? await opc.api(req.url(), req) : undefined;

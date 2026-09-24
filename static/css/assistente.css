@@ -108,6 +108,12 @@ select option { background: var(--tk-bg-1); }
 .empty-tips .tip { font-size: var(--tk-type-xs-size); color: var(--tk-text-3); display: inline-flex; align-items: center; gap: 6px; background: var(--tk-bg-1); border: 1px solid var(--tk-border); padding: 4px 10px; border-radius: var(--tk-radius-pill); }
 kbd { background: var(--tk-bg-2); border: 1px solid var(--tk-border); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; font-size: var(--tk-type-xs-size); font-family: var(--tk-font-mono); color: var(--tk-text-2); }
 
+.ollama-offline { margin: 0 auto var(--tk-space-4); padding: var(--tk-space-5); background: var(--tk-bg-1); border: 1px solid var(--tk-border); border-radius: var(--tk-radius-lg); max-width: 60ch; }
+.ollama-offline .tk-icon { color: var(--tk-warn); }
+.msg-erro { display: flex; flex-direction: column; gap: var(--tk-space-2); align-items: flex-start; padding: var(--tk-space-3) var(--tk-space-4); border-radius: var(--tk-radius-lg); background: var(--tk-danger-soft); border: 1px solid var(--tk-danger); }
+.msg-erro__titulo { font-weight: 600; color: var(--tk-danger); }
+.msg-erro__texto { color: var(--tk-text-2); font-size: var(--tk-type-sm-size); }
+
 /* ===== Chips e composer ===== */
 .chips-linha { display: flex; align-items: center; gap: var(--tk-space-2); padding: 0 var(--tk-space-5); max-width: calc(72ch + 2 * var(--tk-space-5)); margin: 0 auto; width: 100%; flex-wrap: wrap; }
 .chips-linha .tk-chips { flex: 1; }

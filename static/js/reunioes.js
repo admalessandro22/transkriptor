@@ -75,6 +75,7 @@ export function criarListbox(ul, opcoes) {
     itens = Array.isArray(novos) ? novos.slice() : [];
     ul.innerHTML = '';
     ul.classList.remove('is-loading', 'is-empty', 'is-error');
+    ul.removeAttribute('aria-busy');
     if (!itens.length) return;
     itens.forEach((item, i) => {
       const li = document.createElement('li');

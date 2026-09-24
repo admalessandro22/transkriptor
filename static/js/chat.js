@@ -33,6 +33,10 @@ const contextBadge = $('context-badge');
 const headerMeta = $('header-meta');
 const chipsEl = $('chips');
 const chipsEditar = $('chips-editar');
+const ollamaOffline = $('ollama-offline');
+const ollamaTentar = $('ollama-tentar');
+const inputArea = document.querySelector('.input-area');
+const chipsLinha = document.querySelector('.chips-linha');
 
 export const listaReunioes = selTrans ? criarListbox(selTrans) : null;
 
@@ -141,20 +145,37 @@ async function carregarDetalhesSelecionado() {
   }
 }
 
+function mostrarOllamaOffline(offline) {
+  // UX-14.B4: sem Ollama, o composer dá lugar a um cartão com o próximo passo; nenhum toast.
+  if (ollamaOffline) ollamaOffline.classList.toggle('is-hidden', !offline);
+  if (inputArea) inputArea.classList.toggle('is-hidden', offline);
+  if (chipsLinha) chipsLinha.classList.toggle('is-hidden', offline);
+}
+
+function modelosCarregando(sim) {
+  selMod.setAttribute('aria-busy', sim ? 'true' : 'false');
+  if (sim) {
+    selMod.replaceChildren();
+    const opt = document.createElement('option'); opt.value = ''; opt.textContent = 'Carregando modelos…'; opt.disabled = true;
+    selMod.appendChild(opt);
+  }
+}
+
 function buildModelOptions(modelos) {
   selMod.replaceChildren();
+  selMod.setAttribute('aria-busy', 'false');
   if (!modelos.length) {
     const opt = document.createElement('option'); opt.value = ''; opt.textContent = 'Ollama offline';
     selMod.appendChild(opt);
     statusMod.textContent = 'Ollama offline';
     ollamaDot.classList.add('off');
-    document.dispatchEvent(new CustomEvent('tk-ollama', { detail: { online: false } }));
+    mostrarOllamaOffline(true);
     return;
   }
   for (const nome of modelos) { const opt = document.createElement('option'); opt.value = nome; opt.textContent = nome; selMod.appendChild(opt); }
   statusMod.textContent = modelos[0];
   ollamaDot.classList.remove('off');
-  document.dispatchEvent(new CustomEvent('tk-ollama', { detail: { online: true } }));
+  mostrarOllamaOffline(false);
 }
 
 function buildSelectOptions(items) {
@@ -204,6 +225,7 @@ export async function loadList() {
 }
 
 export async function carregarModelos() {
+  modelosCarregando(true);
   try {
     const r = await fetch('/api/modelos', { ...fetchOpts, headers: apiHeaders() });
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -413,11 +435,25 @@ export async function pergunta(prompt) {
     pararTimer();
     const row = $('typing-row');
     const target = (row && row.querySelector('.bubble')) || typingBubble;
-    if (target) target.textContent = e.name === 'AbortError' ? '(cancelado)' : 'Não foi possível responder: ' + e.message + '. Tente de novo ou verifique o Ollama.';
+    if (target) {
+      if (e.name === 'AbortError') target.textContent = '(cancelado)';
+      else mostrarErroResposta(target, e.message, prompt);
+    }
     if (row) row.id = '';
   } finally {
     busy = false; mostrarBotoes(false); abortController = null; pararTimer();
   }
+}
+
+function mostrarErroResposta(alvo, mensagem, promptOriginal) {
+  // UX-14.B4: erro vira cartão com o que aconteceu e o próximo passo; nunca só "Erro: …".
+  alvo.className = 'msg-erro';
+  alvo.textContent = '';
+  const t = document.createElement('div'); t.className = 'msg-erro__titulo'; t.textContent = 'Não foi possível responder';
+  const x = document.createElement('div'); x.className = 'msg-erro__texto'; x.textContent = mensagem + '. Verifique se o Ollama está em execução e tente de novo.';
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'tk-btn tk-btn--sm'; b.textContent = 'Tentar de novo';
+  b.addEventListener('click', () => { const row = alvo.closest('.msg-row'); if (row) row.remove(); pergunta(promptOriginal); });
+  alvo.append(t, x, b);
 }
 
 function abrirDrawer(aberto) {
@@ -523,6 +559,7 @@ export function iniciarChat() {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); if (buscaInput) { abrirDrawer(true); buscaInput.focus(); buscaInput.select(); } }
   });
   montarChips();
+  if (ollamaTentar) ollamaTentar.addEventListener('click', () => carregarModelos());
   if (!chat.children.length) chat.appendChild(criarEmptyState());
   input.focus();
   loadList();

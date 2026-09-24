@@ -19,10 +19,12 @@ const larguras = largurasArg.split(",").map((n) => parseInt(n, 10));
   for (const tema of ["dark", "light"]) {
     for (const largura of larguras) {
       const page = await browser.newPage({ viewport: { width: largura, height: largura < 900 ? 760 : 800 }, colorScheme: tema });
-      const ctx = await carregarPagina(page, pagina);
+      const cenario = process.env.CAPTURA_CENARIO || "";
+      const api = cenario === "ollama-offline" ? (url) => (url.endsWith("/api/modelos") ? [] : undefined) : undefined;
+      const ctx = await carregarPagina(page, pagina, api ? { api } : {});
       await page.emulateMedia({ reducedMotion: "reduce" });
       await page.waitForTimeout(600);
-      const arquivo = path.join(destino, `${pagina}-${largura}-${tema}.png`);
+      const arquivo = path.join(destino, `${pagina}${cenario ? "-" + cenario : ""}-${largura}-${tema}.png`);
       await page.screenshot({ path: arquivo, fullPage: pagina === "galeria" });
       console.log(path.relative(raiz, arquivo), "violacoes:", ctx.violacoes.length);
       await page.close();
