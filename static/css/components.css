@@ -151,6 +151,13 @@
 .tk-row.is-selected .tk-row__meta { color: var(--tk-text-2); }
 .tk-row__principal { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
 .tk-row__meta { color: var(--tk-text-3); font-size: var(--tk-type-sm-size); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Linha de reunião: título + início/duração + participantes; a linha inteira abre a transcrição. */
+.tk-row--reuniao { position: relative; cursor: pointer; }
+.tk-row--reuniao .tk-row__principal { display: flex; flex-direction: column; gap: 2px; white-space: normal; flex: 1 1 16rem; }
+.tk-row__abrir { color: var(--tk-text-1); font-weight: 600; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tk-row__abrir::after { content: ""; position: absolute; inset: 0; }
+.tk-row__participantes { color: var(--tk-text-2); font-size: var(--tk-type-sm-size); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tk-row--reuniao .tk-badge, .tk-row__assistente { position: relative; z-index: 1; }
 
 /* ---- Progresso ---- */
 .tk-progress { position: relative; height: 4px; border-radius: 2px; background: var(--tk-bg-3); overflow: hidden; }
