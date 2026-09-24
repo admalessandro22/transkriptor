@@ -1,6 +1,6 @@
 # Tasks — plataforma visual e Central (SDD v1.9)
 
-**Estado em 24/09/2026: plano aprovado; 12 `DONE` (F14.A–C concluídas, D1–D2), 9 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.D3.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
+**Estado em 24/09/2026: plano aprovado; 13 `DONE` (F14.A–D concluídas), 8 `PENDING`; execução na branch `sdd-v1.9-design`, próxima task T-14.E1.** Ordem, gates e ciclo obrigatório em `plan.md`. Contratos em `interfaces.md`. Especificação visual em `design-system.md`. Prefixo de todos os IDs: `T-14`.
 
 Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, **Teste final** e **Aceite** são cumulativos. Os arquivos de teste novos são entregáveis da implementação; os seletores são planejados, não testes que já passaram. Nenhuma task usa dados reais; capturas usam `tests/e2e/fixtures/`.
 
@@ -134,7 +134,7 @@ Os blocos **Arquivos**, **Implementação**, **RED**, **Migração de testes**, 
 
 ### T-14.D3 — diagnóstico e retranscrição na Central
 
-- [ ] **Requisito:** FR-14.D3. **Depende de:** D2 e DP-14-05. **Estado:** `PENDING`.
+- [x] **Requisito:** FR-14.D3. **Depende de:** D2 e DP-14-05. **Estado:** `DONE`; commits `79f8999`, `3ae03be`; evidência: `evidencias/T-14.D3.md` (gate da fase D verde).
 - **Arquivos:** criar `templates/diagnostico.html`, `static/js/diagnostico.js`, `tests/e2e/diagnostico.spec.js`; modificar `assistente.py` (`POST /api/diagnostico`, `GET /api/diagnostico/exportar`, `GET /api/audios-retidos`, `POST /api/acoes/retranscrever`), `transkriptor_menu_flows.py` (remove `_escolher_audio_dialog` e o fallback `simpledialog`; "Diagnóstico" abre a Central e mantém salvar `.txt`), `tests/test_central_api.py`, `tests/test_diagnostico.py`.
 - **Implementação:** diagnóstico como lista de itens com estado (OK/Aviso/Erro), detalhe e ação sugerida por item (por exemplo "Atualizar soundcard" mostra o comando); botão "Exportar sem dados pessoais"; página de retranscrição lista áudios retidos (data, duração, nome) e inicia o job com progresso pela barra de estado; ambos funcionam sem bandeja (503 explicado).
 - **RED:** `test_central_api.py::test_diagnostico_exportar_sem_pii`, `::test_retranscrever_nome_fora_da_lista_400`, `::test_retranscrever_exige_header`; `diagnostico.spec.js::itens com acao sugerida`, `::exportar baixa texto`, `::retranscrever mostra progresso`.
