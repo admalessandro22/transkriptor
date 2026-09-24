@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """Núcleo de transcrição: captura loopback + faster-whisper + diarização.
-
 Salva o áudio em disco (WAV temporário) e os segmentos com timestamps
 durante a reunião, e ao final roda a diarização (separação de falantes)
 em uma thread dedicada para não bloquear o monitor de Meet.
@@ -23,6 +22,7 @@ from captura_leve import CapturaLeveMixin
 from com_audio import com_inicializada
 from recuperacao_sessao import registrar_wavs_abertos, selar_transcritor
 from politica_privacidade import ProtectionMode, modo_efetivo
+from status_seguro import emitir_evento
 
 from config import (
     SAMPLE_RATE,
@@ -135,8 +135,6 @@ class Transcritor(CapturaLeveMixin):
             try:
                 self._modelo = WhisperModel(modelo, device=device, compute_type=ctype)
             except Exception:
-                from status_seguro import emitir_evento
-
                 logger.warning(emitir_evento("modelo_fallback_cpu"))
                 self.on_status("Falha no modelo GPU — carregando small em CPU...")
                 self._modelo = WhisperModel("small", device="cpu", compute_type="int8")
@@ -369,8 +367,6 @@ class Transcritor(CapturaLeveMixin):
             self.on_status(
                 "Transcrição indisponível — gravando somente áudio para retranscrição"
             )
-            from status_seguro import emitir_evento
-
             logger.warning(emitir_evento("modelo_indisponivel"))
             self._thread_proc = threading.Thread(
                 target=self._processar_somente_audio, daemon=True
@@ -423,8 +419,6 @@ class Transcritor(CapturaLeveMixin):
                 try:
                     os.remove(c)
                 except OSError:
-                    from status_seguro import emitir_evento
-
                     logger.warning(emitir_evento("audio_descarte_falhou"))
 
     def stop(self):

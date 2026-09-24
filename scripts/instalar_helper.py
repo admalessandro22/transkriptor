@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import sys
+from importlib import metadata
 from collections.abc import Callable
 
 
@@ -73,6 +74,27 @@ def _rota_detectada() -> str:
     return "cuda" if tem_gpu_nvidia() else "cpu"
 
 
+def versoes_torch_instaladas() -> tuple[str | None, str | None]:
+    """Lê metadados sem carregar torch nem inicializar GPU."""
+    def versao(nome: str) -> str | None:
+        try:
+            return metadata.version(nome)
+        except metadata.PackageNotFoundError:
+            return None
+
+    return versao("torch"), versao("torchaudio")
+
+
+def rota_instalada_valida(rota: str, *, exige_instalada: bool = False) -> tuple[bool, str]:
+    torch, audio = versoes_torch_instaladas()
+    if torch is None and audio is None and not exige_instalada:
+        return True, "OK venv vazia"
+    esperado = "2.11.0+cu128" if rota == "cuda" else "2.11.0"
+    if torch == audio == esperado:
+        return True, f"OK torch/torchaudio da rota {rota}"
+    return False, f"ERRO: venv incompatível com rota {rota}; use uma venv nova"
+
+
 def processo_ativo(runner: Runner | None = None) -> bool:
     """Detecta app/gravação em curso via tasklist (desinstalador aborta)."""
     runner = runner or (lambda cmd: subprocess.run(cmd, capture_output=True, text=True))
@@ -107,6 +129,16 @@ def alvos_desinstalacao() -> dict:
 
 def main(argv=None):
     argv = list(argv or sys.argv[1:])
+    if argv == ["--version"]:
+        import runpy
+        from pathlib import Path
+
+        config_path = Path(__file__).resolve().parent.parent / "config.py"
+        print(runpy.run_path(str(config_path))["VERSAO"])
+        return 0
+    if argv == ["--route"]:
+        print(_rota_detectada())
+        return 0
     if not argv or argv[0] != "--check":
         print("Uso: instalar_helper.py --check python|gpu|ollama|torch|deps")
         return 2
@@ -140,6 +172,17 @@ def main(argv=None):
             return 2
         ok, msg = combinacao_valida({"torch_cuda": rota == "cuda", "tem_gpu": tem_gpu_nvidia()})
         print(f"{msg} (rota {rota})")
+        return 0 if ok else 1
+    if oque == "installed-route":
+        try:
+            rota = argv[argv.index("--rota") + 1]
+        except (ValueError, IndexError):
+            rota = ""
+        if rota not in ("cpu", "cuda"):
+            print("ERRO: informe --rota cpu|cuda")
+            return 2
+        ok, msg = rota_instalada_valida(rota, exige_instalada="--require-installed" in argv)
+        print(msg)
         return 0 if ok else 1
     if oque == "processo":
         if processo_ativo():
