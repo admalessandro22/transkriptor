@@ -4,6 +4,8 @@
 
 **Checkpoint corrente em 24/09/2026:** Tasks 1–11 do plano de remediação têm commits e evidência de automação; o complemento da Task 8 está no SHA `8527b1ddaf5bda27b97d7857f3478ba1ef8b7111`. Task 12 está em execução. A suíte Python (804 passed), o verificador de fase (238 passed), JS (22 passed), E2E (21 passed), compilação, `pip check` e diff passaram no código atualizado. Os checkboxes `REOPENED`/`BLOCKED` abaixo continuam abertos até os gates reais e CI do mesmo SHA; o usuário agendará depois a janela de ociosidade e os três participantes consentidos. Não houve bump nem release.
 
+**Atualização operacional em 24/09/2026:** O usuário dispensou os testes reais e autorizou reiniciar a bandeja e publicar a branch. A nova instância registrou prontidão; o workflow Windows CPU foi acionado. A dispensa é registrada como **não executado**, sem marcar gate humano como PASS ou fechar os checkboxes de D2/G1/G2/G3. O uso local segue na versão 1.7.0 e Task 12 permanece aberta para release formal. Detalhes em `evidencias/REMEDIACAO-2026-09-22.md`.
+
 Para execução por outra LLM, `interfaces.md` e `executor-llm.md` são leitura obrigatória. Os blocos **Arquivos**, **Implementação**, **RED**, **Teste final** e **Aceite** de cada task são cumulativos, não alternativas. O agente não pode trocar nomes de interfaces, tecnologia decidida, ordem, thresholds ou comportamento de falha sem primeiro emendar os documentos e obter revisão.
 
 As decisões DU-01–DU-16 de `decisoes-usuario.md` estão aprovadas. Não perguntar novamente durante A–G. H1–H3 permanecem bloqueadas por tipo/edição da conta Google e autorização própria.
