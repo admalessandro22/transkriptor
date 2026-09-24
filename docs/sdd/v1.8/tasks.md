@@ -6,6 +6,8 @@
 
 **Atualização operacional em 24/09/2026:** O usuário dispensou os testes reais e autorizou reiniciar a bandeja e publicar a branch. A nova instância registrou prontidão; o workflow Windows CPU foi acionado. A dispensa é registrada como **não executado**, sem marcar gate humano como PASS ou fechar os checkboxes de D2/G1/G2/G3. O uso local segue na versão 1.7.0 e Task 12 permanece aberta para release formal. Detalhes em `evidencias/REMEDIACAO-2026-09-22.md`.
 
+**CI e publicação verificados em 24/09/2026:** SHA candidato `4128cd6253ab94a0e83c4234b737f5ec4bf1291a`, workflow dispatch `36003594423` e check da PR #1 `36004713892` verdes; PR aberta sem merge. A suíte local teve 806 passed; CI Windows CPU teve 804 passed e 2 skipped exclusivamente por ausência comprovada de alto-falantes no runner. A falta de gates reais e de aceite das exceções mantém Task 12/G3 abertos. O índice de evidência contém os comandos e limites.
+
 Para execução por outra LLM, `interfaces.md` e `executor-llm.md` são leitura obrigatória. Os blocos **Arquivos**, **Implementação**, **RED**, **Teste final** e **Aceite** de cada task são cumulativos, não alternativas. O agente não pode trocar nomes de interfaces, tecnologia decidida, ordem, thresholds ou comportamento de falha sem primeiro emendar os documentos e obter revisão.
 
 As decisões DU-01–DU-16 de `decisoes-usuario.md` estão aprovadas. Não perguntar novamente durante A–G. H1–H3 permanecem bloqueadas por tipo/edição da conta Google e autorização própria.
@@ -244,7 +246,7 @@ Os arquivos de teste novos são entregáveis da implementação futura. Nomes de
 
 ### T-13.G3 — corpus, avaliação física e fechamento
 
-- [ ] **Requisito:** NFR-13.G3. **Depende de:** todas A–G2 e gates da Task 12. **Estado:** `BLOCKED`; faltam gates humanos, CI do SHA candidato e autorização de release.
+- [ ] **Requisito:** NFR-13.G3. **Depende de:** todas A–G2 e gates da Task 12. **Estado:** `BLOCKED`; CI do candidato `4128cd6` verde, mas faltam gates reais, aceite das exceções de dependências e fechamento formal do release.
 - **Arquivos:** criar `scripts/avaliar_qualidade_reuniao.py`, `tests/test_metricas_qualidade.py`, protocolo `docs/QUALIDADE-REUNIOES.md`; atualizar manual, releases, evidências e versão só depois dos gates.
 - **Implementação:** calcular WER/DER, precisão nominal, cobertura total/elegível, abstinências, erros de eco e IC 95%; versionar referência por hashes sem commitar gravações pessoais. Separar conjunto de calibração e teste. Verificar todos os passos físicos de `plan.md`, recursos e recuperação. Conferir correspondência requisito→teste→resultado→commit.
 - **RED:** calculador de métricas deve penalizar nome incorreto, reconhecer abstinência e não confundir roster com fala; fixture com erro conhecido produz o valor esperado.

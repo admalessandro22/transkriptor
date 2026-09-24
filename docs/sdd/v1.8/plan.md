@@ -26,6 +26,8 @@ Estados: `REOPENED` significa que a implementação existente não satisfaz o co
 
 **Uso operacional em 24/09/2026:** O usuário posteriormente dispensou os testes reais, autorizou atualizar a bandeja e publicar a branch. A instância antiga foi substituída após checagem de ociosidade; a nova registrou prontidão com uma instância. A dispensa não promove D2/G1/G2/G3 a DONE: os gates físicos e CUDA não foram executados, e a precisão seletiva de nomes permanece sem medição no corpus exigido. A automação passou no SHA `5566f074011948457571cf934c8fb02c8855a6e8`; CI remoto foi acionado. Evidência e limites em `evidencias/REMEDIACAO-2026-09-22.md`. Uso local autorizado não equivale à release formal definida abaixo; versão permanece 1.7.0.
 
+**Fechamento automatizado em 24/09/2026:** Depois de corrigir o teste COM do runner sem alto-falantes, o candidato `4128cd6253ab94a0e83c4234b737f5ec4bf1291a` passou localmente (806 Python, 238 no verificador, 22 JS, 21 E2E) e no CI Windows CPU (804 Python, 2 skipped por ausência comprovada de dispositivo, 22 JS, 21 E2E, auditoria/SBOM/instalação). Workflow dispatch `36003594423` e PR #1 check `36004713892` verdes no mesmo SHA; branch publicada, PR aberta. O checkpoint anterior registra a tentativa histórica. Task 12/G3 continuam bloqueados pelos gates reais dispensados e pelo aceite das exceções; sem release formal.
+
 Emenda de contrato aprovada com a ordem de continuação: o código de sala observado no `hello` é vinculado em memória à `meeting_key` opaca da sessão consentida somente quando houver uma única sala ativa. Ambiguidade ou ausência de código mantém nomes indisponíveis; o áudio local segue seu fluxo. Detalhes normativos: `spec.md` e `interfaces.md`.
 
 ## Checkpoint histórico de execução — 19/09/2026

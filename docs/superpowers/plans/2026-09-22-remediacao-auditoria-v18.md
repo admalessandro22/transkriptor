@@ -8,6 +8,12 @@
 
 **Tech Stack:** Python 3.12+, Windows/PowerShell, pytest, JavaScript Manifest V3, Vitest, Playwright, WebSocket em `127.0.0.1`, Flask/Ollama local, PyNaCl/Libsodium SecretStream TKAS/1, pip-tools, pip-audit e CycloneDX.
 
+## Checkpoint de execução — 24/09/2026
+
+Tasks 1–11 foram implementadas em sequência, com commits e RED→GREEN indexados em `docs/sdd/v1.8/evidencias/REMEDIACAO-2026-09-22.md`. A automação da Task 12 passou no código `4128cd6253ab94a0e83c4234b737f5ec4bf1291a`: suíte local 806 passed; CI Windows CPU 804 passed e 2 skipped pela ausência comprovada de alto-falantes no runner; Vitest 22 passed; Playwright 21 passed; auditoria de dependências, SBOM e pré-checagem de instalação verdes. O workflow dispatch `36003594423` e o check da PR #1 `36004713892` terminaram com sucesso no mesmo SHA. A branch `remediacao-auditoria-v18` foi publicada e a PR #1 está aberta, sem merge.
+
+Com autorização do usuário, a bandeja em uso foi reiniciada após verificação de ociosidade; uma instância nova registrou `Bandeja pronta` e heartbeats. O usuário dispensou os testes reais nesta etapa. Isso deixa **não executados**, sem PASS, a captura 25/600 s, a prova D2 em Chrome e Edge, a reunião consentida de três pessoas, a instalação CUDA limpa e a segunda partida real da bandeja. As duas exceções temporárias de dependências ainda precisam de aceite explícito. A Task 12 e o gate formal G3 permanecem **BLOCKED** para release: `config.VERSAO` segue `1.7.0`, sem bump, tag ou merge. Este checkpoint de resultado prevalece sobre instruções futuras ainda desmarcadas abaixo; elas não representam gates concluídos.
+
 ## Global Constraints
 
 - `config.VERSAO` continua sendo a única fonte de versão; manter `1.7.0` até o gate final e fazer um único bump autorizado.
