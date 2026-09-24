@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block titulo %}Início{% endblock %}
-{% block estilos %}<link rel="stylesheet" href="{{ url_for('static', filename='css/inicio.css') }}">{% endblock %}
+{% block estilos %}<link rel="stylesheet" href="{{ url_for('static', filename='css/inicio.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/reunioes.css') }}">{% endblock %}
 {% block conteudo %}
 <div class="tk-page" id="pagina-inicio">
   <div class="tk-page__inner">
@@ -38,7 +38,7 @@
         <h3 class="tk-label" id="inicio-recentes-titulo">Últimas reuniões</h3>
         <a class="tk-btn tk-btn--quiet tk-btn--sm" href="/reunioes">Ver todas</a>
       </div>
-      <div class="tk-rows" id="inicio-recentes" hidden></div>
+      <div class="tk-rows tk-tabela-reunioes tk-tabela-reunioes--compacta" id="inicio-recentes" role="table" aria-labelledby="inicio-recentes-titulo" hidden></div>
       <div class="tk-empty" id="inicio-recentes-estado" hidden></div>
     </section>
   </div>

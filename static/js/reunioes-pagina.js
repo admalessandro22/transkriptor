@@ -1,5 +1,6 @@
 // Página Reuniões (SDD v1.9, T-14.B2): índice paginado sem conteúdo de fala.
-import { toast } from './ui.js';
+import { icone, toast } from './ui.js';
+import { ligarAcoesReunioes } from './reunioes-acoes.js';
 
 const LIMITE = 20;
 const QUALIDADE = { pronto: ['Pronta', 'processando'], parcial: ['Parcial', 'separando_vozes'], falhou: ['Falhou', 'erro'], complete: ['Pronta', 'processando'], partial: ['Parcial', 'separando_vozes'], failed: ['Falhou', 'erro'] };
@@ -44,6 +45,7 @@ export async function preencherParticipantes(raiz, fetchFn = (u, o) => fetch(u, 
           participantesCache.set(id, r.ok ? await r.json() : null);
         }
         el.textContent = textoParticipantes(participantesCache.get(id));
+        el.title = el.textContent;
       } catch (_) {
         el.textContent = 'Participantes não identificados';
       }
@@ -81,41 +83,104 @@ export async function preencherResumos(raiz, fetchFn = (u, o) => fetch(u, o)) {
   if (gerando && raiz.isConnected) timerResumos = setTimeout(() => preencherResumos(raiz, fetchFn), RESUMO_POLL_MS);
 }
 
-export function linhaReuniao(r) {
+function doisDigitos(n) { return String(n).padStart(2, '0'); }
+
+/** { data: "24/09/2026", inicio: "16:05", fim: "17:01" } — fim só com duração conhecida. */
+export function horarios(r) {
+  const d = new Date(r.started_at);
+  if (!r.started_at || Number.isNaN(d.getTime())) return { data: '—', inicio: '—', fim: '—' };
+  const hora = (x) => `${doisDigitos(x.getHours())}:${doisDigitos(x.getMinutes())}`;
+  const fim = r.duration_ms != null ? hora(new Date(d.getTime() + r.duration_ms)) : '—';
+  return { data: `${doisDigitos(d.getDate())}/${doisDigitos(d.getMonth() + 1)}/${d.getFullYear()}`, inicio: hora(d), fim };
+}
+
+function celula(classe, rotulo, conteudo) {
+  const c = document.createElement('div');
+  c.className = 'tk-reuniao__cel tk-reuniao__' + classe;
+  c.setAttribute('role', 'cell');
+  c.dataset.rotulo = rotulo;
+  if (typeof conteudo === 'string') c.textContent = conteudo; else if (conteudo) c.append(...[].concat(conteudo));
+  return c;
+}
+
+function botaoAcao(acao, rotulo, nomeIcone, perigo = false) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'tk-btn tk-btn--sm tk-btn--quiet tk-btn--icon tk-reuniao__acao' + (perigo ? ' tk-reuniao__acao--perigo' : '');
+  b.dataset.acao = acao;
+  b.setAttribute('aria-label', rotulo);
+  b.title = rotulo;
+  b.appendChild(icone(nomeIcone, 'tk-icon tk-icon--sm'));
+  return b;
+}
+
+/** Cabeçalho das colunas (só na página Reuniões). */
+export function cabecalhoReunioes() {
+  const cab = document.createElement('div');
+  cab.className = 'tk-reuniao tk-reuniao--cabecalho';
+  cab.setAttribute('role', 'row');
+  for (const [classe, texto] of [['nome', 'Reunião'], ['data', 'Data'], ['inicio', 'Início'], ['fim', 'Fim'], ['duracao', 'Duração'], ['pessoas', 'Participantes'], ['estado', 'Status'], ['acoes', 'Ações']]) {
+    const c = document.createElement('div');
+    c.className = 'tk-reuniao__cel tk-reuniao__' + classe;
+    c.setAttribute('role', 'columnheader');
+    if (classe === 'acoes') { const t = document.createElement('span'); t.className = 'tk-visually-hidden'; t.textContent = texto; c.appendChild(t); } else c.textContent = texto;
+    cab.appendChild(c);
+  }
+  return cab;
+}
+
+export function linhaReuniao(r, { acoes = false } = {}) {
   const div = document.createElement('div');
-  div.className = 'tk-row tk-row--reuniao';
+  div.className = 'tk-row tk-row--reuniao tk-reuniao';
+  div.setAttribute('role', 'row');
   div.dataset.id = r.meeting_id;
-  const principal = document.createElement('div');
-  principal.className = 'tk-row__principal';
+  div.dataset.titulo = r.title || '';
   const abrir = document.createElement('a');
   abrir.className = 'tk-row__abrir';
   abrir.href = '/participantes?reuniao=' + encodeURIComponent(r.meeting_id);
   abrir.textContent = r.title || 'Reunião sem título';
+  if (!r.title) abrir.classList.add('is-sem-titulo');
   const resumo = document.createElement('span');
   resumo.className = 'tk-row__resumo';
   resumo.id = 'resumo-reuniao-' + (++seqResumo);
   resumo.setAttribute('role', 'tooltip');
   resumo.textContent = 'Carregando resumo…';
   abrir.setAttribute('aria-describedby', resumo.id);
-  const meta = document.createElement('span');
-  meta.className = 'tk-row__meta';
-  meta.textContent = [formatarData(r.started_at), r.duration_ms != null ? formatarDuracao(r.duration_ms) : null].filter(Boolean).join(' · ');
-  meta.title = 'Revisão ' + (String(r.revision || '').replace(/^rev-/, '') || '—');
+  const h = horarios(r);
   const pessoas = document.createElement('span');
   pessoas.className = 'tk-row__participantes';
   pessoas.dataset.pendente = '';
-  pessoas.textContent = 'Carregando participantes…';
-  principal.append(abrir, resumo, meta, pessoas);
+  pessoas.textContent = 'Carregando…';
   const [rotulo, estado] = QUALIDADE[r.quality_state] || ['Parcial', 'separando_vozes'];
   const badge = document.createElement('span');
   badge.className = 'tk-badge tk-badge-state';
   badge.dataset.estado = estado;
   badge.textContent = rotulo;
-  const assistente = document.createElement('a');
-  assistente.className = 'tk-btn tk-btn--sm tk-btn--quiet tk-row__assistente';
-  assistente.href = '/?reuniao=' + encodeURIComponent(r.arquivo || r.meeting_id);
-  assistente.textContent = 'Abrir no Assistente';
-  div.append(principal, badge, assistente);
+  badge.title = 'Revisão ' + (String(r.revision || '').replace(/^rev-/, '') || '—');
+  const cels = [
+    celula('nome', 'Reunião', [abrir, resumo]),
+    celula('data', 'Data', h.data),
+    celula('inicio', 'Início', h.inicio),
+    celula('fim', 'Fim', h.fim),
+    celula('duracao', 'Duração', formatarDuracao(r.duration_ms)),
+    celula('pessoas', 'Participantes', pessoas),
+    celula('estado', 'Status', badge),
+  ];
+  if (acoes) {
+    const assistente = document.createElement('a');
+    assistente.className = 'tk-btn tk-btn--sm tk-btn--quiet tk-btn--icon tk-reuniao__acao tk-row__assistente';
+    assistente.href = '/?reuniao=' + encodeURIComponent(r.arquivo || r.meeting_id);
+    assistente.setAttribute('aria-label', 'Abrir no Assistente');
+    assistente.title = 'Abrir no Assistente';
+    assistente.appendChild(icone('message', 'tk-icon tk-icon--sm'));
+    cels.push(celula('acoes', 'Ações', [
+      botaoAcao('resumo', 'Ver resumo da IA', 'sparkles'),
+      botaoAcao('editar', 'Editar nome e participantes', 'edit'),
+      assistente,
+      botaoAcao('excluir', 'Excluir reunião', 'trash', true),
+    ]));
+  }
+  div.append(...cels);
   return div;
 }
 
@@ -152,7 +217,8 @@ export function criarPaginaReunioes({ raiz, fetchFn = (u, o) => fetch(u, o) }) {
     if (!itens.length) { mostrarEstado('vazio'); lista.hidden = true; return; }
     if (!visiveis.length) { mostrarEstado('sem-resultado'); lista.hidden = true; return; }
     estadoEl.hidden = true; lista.hidden = false;
-    visiveis.forEach((r) => lista.appendChild(linhaReuniao(r)));
+    lista.appendChild(cabecalhoReunioes());
+    visiveis.forEach((r) => lista.appendChild(linhaReuniao(r, { acoes: true })));
     preencherParticipantes(lista, fetchFn);
     preencherResumos(lista, fetchFn);
   }
@@ -185,6 +251,11 @@ export function criarPaginaReunioes({ raiz, fetchFn = (u, o) => fetch(u, o) }) {
   }
 
   maisBtn.addEventListener('click', () => carregar(false));
+  ligarAcoesReunioes(lista, {
+    fetchFn,
+    aoMudar: () => { participantesCache.clear(); carregar(true); },
+    aoExcluir: (id) => { itens = itens.filter((r) => r.meeting_id !== id); renderizar(); },
+  });
   document.addEventListener('tk-resumos-atualizar', () => preencherResumos(lista, fetchFn));
   if (busca) busca.addEventListener('input', renderizar);
   carregar(true);

@@ -133,8 +133,11 @@ test("linha da reunião mostra título, início, duração e participantes", asy
   });
   const primeira = page.locator("#lista-reunioes .tk-row").first();
   await expect(primeira).toContainText("Planejamento semanal");
-  await expect(primeira).toContainText("22/09/2026 · 10:03");
-  await expect(primeira).toContainText("30 min");
+  await expect(primeira.locator(".tk-reuniao__data")).toHaveText("22/09/2026");
+  await expect(primeira.locator(".tk-reuniao__inicio")).toHaveText("10:03");
+  await expect(primeira.locator(".tk-reuniao__fim")).toHaveText("10:33");
+  await expect(primeira.locator(".tk-reuniao__duracao")).toHaveText("30 min");
+  await expect(page.locator('#lista-reunioes [role="columnheader"]')).toHaveText(["Reunião", "Data", "Início", "Fim", "Duração", "Participantes", "Status", "Ações"]);
   await expect(primeira.locator(".tk-row__participantes")).toHaveText("Ana Fictícia, Bruno Fictício + 1 sem nome");
   const segunda = page.locator("#lista-reunioes .tk-row").nth(1);
   await expect(segunda).toContainText("Reunião sem título");
@@ -193,4 +196,89 @@ test("passar o mouse no nome da reunião mostra o resumo da IA local", async ({ 
   await expect(dica).toBeHidden();
   await titulo.focus();
   await expect(dica).toBeVisible();
+});
+
+
+
+function apiAcoes(estado) {
+  return (url, req) => {
+    const id = fixtures.indice(1).reunioes[0].meeting_id;
+    if (url.includes("/api/reunioes-indice")) {
+      if (estado.excluida) return { reunioes: [], proximo: null };
+      const d = fixtures.indice(1);
+      d.reunioes[0].title = estado.titulo || null;
+      return d;
+    }
+    if (url.includes("/participantes")) return { participantes: [], sem_nome: 3 };
+    if (url.includes("/resumo")) return { estado: "pronto", resumo: "Equipe fechou o cronograma." };
+    if (url.includes("/resultado")) return fixtures.resultado();
+    if (url.includes("/titulo")) { estado.titulo = JSON.parse(req.postData()).titulo; return { titulo: estado.titulo }; }
+    if (url.includes("/correcao")) { estado.correcoes.push(JSON.parse(req.postData())); return { revision: "rev-" + (3 + estado.correcoes.length) }; }
+    if (url.includes("/exclusao")) return { meeting_id: id, plano_id: "p".repeat(64), bytes_total: 216500000,
+      itens: [{ caminho: "a.txt", categoria: "Transcrição", bytes: 500000, pasta: false }, { caminho: "audio/a_audio.wav.enc", categoria: "Áudio", bytes: 216000000, pasta: false }] };
+    if (url.includes("/excluir")) { estado.pedidoExclusao = JSON.parse(req.postData()); estado.excluida = true; return { excluidos: 2, bytes: 216500000 }; }
+    return undefined;
+  };
+}
+
+
+test("botão de resumo abre o resumo da IA num diálogo", async ({ page }) => {
+  const estado = { correcoes: [] };
+  await carregarPagina(page, "reunioes", { api: apiAcoes(estado) });
+  await page.locator('#lista-reunioes .tk-row button[data-acao="resumo"]').click();
+  const dlg = page.locator("dialog.tk-dialog--reuniao");
+  await expect(dlg).toBeVisible();
+  await expect(dlg.locator(".tk-resumo-ia")).toHaveText("Equipe fechou o cronograma.");
+  await page.keyboard.press("Escape");
+  await expect(dlg).toHaveCount(0);
+});
+
+
+test("editar salva o nome da reunião e o nome de um participante", async ({ page }) => {
+  const estado = { correcoes: [] };
+  await carregarPagina(page, "reunioes", { api: apiAcoes(estado) });
+  await page.locator('#lista-reunioes .tk-row button[data-acao="editar"]').click();
+  const dlg = page.locator("dialog.tk-dialog--reuniao");
+  await expect(dlg.locator("input[data-cluster]")).toHaveCount(3);
+  await dlg.locator("#edicao-titulo").fill("Planejamento semanal");
+  await dlg.locator('input[data-cluster="FALANTE_02"]').fill("Carla Fictícia");
+  await dlg.getByRole("button", { name: "Salvar" }).click();
+  await expect(dlg).toHaveCount(0);
+  expect(estado.titulo).toBe("Planejamento semanal");
+  expect(estado.correcoes).toEqual([{ expected_revision: "rev-3", speaker_cluster_id: "FALANTE_02", display_name: "Carla Fictícia" }]);
+  await expect(page.locator("#lista-reunioes .tk-row .tk-row__abrir").first()).toHaveText("Planejamento semanal");
+});
+
+
+test("excluir exige duas confirmações e a palavra EXCLUIR", async ({ page }) => {
+  const estado = { correcoes: [] };
+  await carregarPagina(page, "reunioes", { api: apiAcoes(estado) });
+  await page.locator('#lista-reunioes .tk-row button[data-acao="excluir"]').click();
+  const primeira = page.locator("dialog.tk-dialog--reuniao");
+  await expect(primeira).toContainText("Transcrição");
+  await expect(primeira).toContainText("Áudio");
+  await expect(primeira).toContainText("216 MB");
+  await primeira.getByRole("button", { name: "Continuar" }).click();
+  const final = page.locator("dialog.tk-dialog--reuniao");
+  await expect(final).toContainText("Confirmação final");
+  const apagar = final.getByRole("button", { name: "Excluir definitivamente" });
+  await expect(apagar).toBeDisabled();
+  await final.locator("#confirmar-exclusao").fill("excl");
+  await expect(apagar).toBeDisabled();
+  expect(estado.pedidoExclusao).toBeUndefined();
+  await final.locator("#confirmar-exclusao").fill("EXCLUIR");
+  await apagar.click();
+  await expect(page.locator("#lista-reunioes-estado")).toContainText("Nenhuma reunião ainda");
+  expect(estado.pedidoExclusao).toEqual({ plano_id: "p".repeat(64), confirmacao: "EXCLUIR" });
+});
+
+
+test("cancelar a exclusão não apaga nada", async ({ page }) => {
+  const estado = { correcoes: [] };
+  await carregarPagina(page, "reunioes", { api: apiAcoes(estado) });
+  await page.locator('#lista-reunioes .tk-row button[data-acao="excluir"]').click();
+  await page.locator("dialog.tk-dialog--reuniao").getByRole("button", { name: "Cancelar" }).click();
+  await expect(page.locator("dialog.tk-dialog--reuniao")).toHaveCount(0);
+  expect(estado.pedidoExclusao).toBeUndefined();
+  await expect(page.locator("#lista-reunioes .tk-row")).toHaveCount(1);
 });

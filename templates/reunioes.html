@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block titulo %}Reuniões{% endblock %}
+{% block estilos %}<link rel="stylesheet" href="{{ url_for('static', filename='css/reunioes.css') }}">{% endblock %}
 {% block conteudo %}
 <div class="tk-page" id="pagina-reunioes">
   <div class="tk-page__inner">
@@ -13,7 +14,7 @@
         <div class="tk-search"><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-search"/></svg><input id="busca-reunioes" type="search" placeholder="Filtrar por data ou título" autocomplete="off"></div>
       </div>
     </div>
-    <div class="tk-rows" id="lista-reunioes" aria-label="Reuniões processadas" aria-live="polite" hidden></div>
+    <div class="tk-rows tk-tabela-reunioes" id="lista-reunioes" role="table" aria-label="Reuniões processadas" aria-live="polite" hidden></div>
     <div id="lista-reunioes-estado" class="tk-empty" hidden></div>
     <div class="tk-page__acoes"><button type="button" class="tk-btn" id="carregar-mais" hidden>Carregar mais</button></div>
   </div>
