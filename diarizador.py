@@ -214,15 +214,17 @@ def reforcar_rotulo_por_mic(
 
 
 def _normalizar_segmentos(segmentos):
-    """BUG-09: normaliza segmentos sobrepostos e clampa limites."""
+    """Clampa intervalos inválidos sem apagar a sobreposição entre fontes.
+
+    Os trechos de áudio já chegam extraídos por segmento. Deslocar o início
+    para depois da fala anterior altera a chave temporal do resultado e
+    impede vincular o rótulo ao segmento original.
+    """
     normalizados = []
-    end_anterior = 0.0
     for start, end, texto in segmentos:
-        start = max(start, end_anterior)
+        start = max(0.0, float(start))
         end = max(end, start + 0.001)
-        if start < end:
-            normalizados.append((start, end, texto))
-            end_anterior = end
+        normalizados.append((start, end, texto))
     return normalizados
 
 
@@ -280,7 +282,7 @@ def diarizar(
     if not segmentos:
         return ([], {}) if retornar_centroides else []
 
-    # BUG-09: normaliza segmentos sobrepostos
+    # Mantém os tempos de falas sobrepostas para o resultado estruturado.
     segmentos = _normalizar_segmentos(segmentos)
     if not segmentos:
         return ([], {}) if retornar_centroides else []

@@ -39,9 +39,9 @@
 
 **Interfaces:** `diarizar(trechos_audio, segmentos, ...) -> [(rotulo, start, end, texto)]` deve devolver `start/end` de cada segmento de entrada; `criar_segmentos` continua exigindo chave temporal e textual para vincular rótulo.
 
-- [ ] RED: teste com duas falas simultâneas passa por `diarizar` e `criar_segmentos`; no código atual, uma cai em `segment_alignment_failed`.
-- [ ] GREEN: manter a normalização apenas no cálculo interno e devolver os tempos originais, preservando a ordem e as duas falas. Não atribuir falante por índice quando o texto ou a cardinalidade divergir.
-- [ ] Gate: `python -m pytest tests/test_resultado_pipeline.py tests/test_diarizador_progresso.py tests/test_audio_duas_fontes.py tests/test_diarizacao_voce.py -q --tb=short`.
+- [x] RED: duas falas simultâneas passaram por `diarizar` e `criar_segmentos`; o código anterior devolveu `segment_alignment_failed` (exit 1).
+- [x] GREEN: o clamp continua por segmento, sem deslocar uma fala para depois da outra. Os horários reais e a ordem são preservados; o alinhamento por tempo e texto continua conservador e não usa só o índice.
+- [x] Gate: `python -m pytest tests/test_resultado_pipeline.py tests/test_diarizador_progresso.py tests/test_audio_duas_fontes.py tests/test_diarizacao_voce.py -q --tb=short` → 22 passed, exit 0.
 
 ### Task 3 — reparar e verificar a reunião de 24/09
 

@@ -72,6 +72,27 @@ def test_alinhamento_nao_transfere_rotulo_por_indice():
     assert warnings == ("segment_alignment_failed",)
 
 
+def test_diarizacao_de_falas_sobrepostas_preserva_tempos_para_o_resultado(monkeypatch):
+    from diarizador import diarizar
+
+    monkeypatch.setattr("diarizador._carregar_encoder", lambda: object())
+    monkeypatch.setattr("diarizador._extrair_embedding", lambda _encoder, _trecho: None)
+    fundidos = (
+        SegmentoSTT("lb-1", 0, 1000, AudioSource.LOOPBACK, "fala remota", True),
+        SegmentoSTT("mic-1", 500, 1500, AudioSource.MICROPHONE, "fala local", True),
+    )
+    intervalos = [(s.start_ms / 1000, s.end_ms / 1000, s.text) for s in fundidos]
+    diarizados = diarizar(
+        [np.ones(16000, dtype=np.float32) for _ in fundidos], intervalos
+    )
+
+    segmentos, warnings = criar_segmentos(fundidos, diarizados)
+
+    assert [(s.start_ms, s.end_ms) for s in segmentos] == [(0, 1000), (500, 1500)]
+    assert len(diarizados) == 2
+    assert warnings == ()
+
+
 def test_manifesto_com_json_malformado_nao_libera_retencao(tmp_path):
     raiz = tmp_path
     audio = raiz / "audio.wav"
