@@ -111,6 +111,17 @@ def servico():
         return _servico
 
 
+def agendar_concluida(job) -> None:
+    """Agenda uma reunião nova ao concluir o job, mesmo sem a Central aberta."""
+    from indice_transcricoes import _instante
+
+    metadados = getattr(job, "metadados", None) or {}
+    inicio = metadados.get("inicio_iso") if isinstance(metadados, dict) else None
+    if (getattr(job, "estado", None) == "ready" and inicio
+            and _instante(inicio) >= _instante(RESUMOS_AUTOMATICOS_DESDE)):
+        servico().obter(job.id, gerar=True)
+
+
 @bp.route("/api/reunioes/<meeting_id>/resumo")
 def api_resumo_reuniao(meeting_id: str):
     s = servico()

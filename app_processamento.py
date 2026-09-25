@@ -34,6 +34,15 @@ def _esperar_worker(worker, timeout):
 class ProcessamentoReuniaoMixin:
     """Integra captura encerrada, fila durável e um worker serial."""
 
+    @staticmethod
+    def _agendar_resumo(job):
+        try:
+            from central_resumos import agendar_concluida
+
+            agendar_concluida(job)
+        except Exception as exc:  # o resumo não invalida a transcrição pronta
+            logger.warning("Falha ao agendar resumo automático (%s)", type(exc).__name__)
+
     def _definir_estado_processamento(self, estado, job_id=None):
         with self._lock:
             self._estado_processamento = estado
@@ -45,6 +54,11 @@ class ProcessamentoReuniaoMixin:
         return getattr(self, "_estado_processamento", None) == "Processando"
 
     def _preparar_processamento(self):
+        import app_estado_ui
+
+        # O resumo pode ser agendado antes de a Central ser aberta. O provedor
+        # precisa existir para que ele não dispute recursos com captura/worker.
+        app_estado_ui.registrar_provedor(lambda: app_estado_ui.snapshot(self))
         recuperados = self.fila.recuperar_interrompidos()
         if recuperados:
             logger.info("Jobs interrompidos recuperados: %d", recuperados)
@@ -57,6 +71,9 @@ class ProcessamentoReuniaoMixin:
             ultimo = max(jobs, key=lambda job: (job.atualizado_em, job.id))
             self._definir_estado_processamento(mapa.get(ultimo.estado), ultimo.id)
         self._despachar_proximo_job()
+        for job in jobs:
+            if job.estado == "ready":
+                self._agendar_resumo(job)
 
     def _despachar_proximo_job(self):
         falha_inicio = False
@@ -276,6 +293,7 @@ class ProcessamentoReuniaoMixin:
                 self._estado_processamento = "Falhou"
         self._atualizar_tooltip()
         if pronto:
+            self._agendar_resumo(job)
             notificar(
                 "Transkriptor",
                 f"Transcrição pronta: {Path(job.resultado).name}",

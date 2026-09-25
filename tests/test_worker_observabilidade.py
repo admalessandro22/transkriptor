@@ -76,6 +76,59 @@ def test_aguardar_worker_registra_saida_e_preserva_job_pendente(
     app._despachar_proximo_job.assert_called()
 
 
+def test_job_pronto_agenda_resumo_sem_abrir_a_central(monkeypatch):
+    import app_processamento
+    import central_resumos
+
+    job = SimpleNamespace(
+        id="reuniao-nova", estado="ready", resultado="reuniao.txt",
+        metadados={"inicio_iso": "2026-09-24T19:22:00-03:00"},
+    )
+    fila = MagicMock()
+    fila.obter.return_value = job
+    app = app_processamento.ProcessamentoReuniaoMixin.__new__(
+        app_processamento.ProcessamentoReuniaoMixin
+    )
+    app._lock = threading.Lock()
+    app._worker_processamento = None
+    app._estado_processamento = "Processando"
+    app.fila = fila
+    app._atualizar_tooltip = lambda: None
+    app._despachar_proximo_job = MagicMock()
+    agendar = MagicMock()
+    monkeypatch.setattr(central_resumos, "agendar_concluida", agendar, raising=False)
+    monkeypatch.setattr(app_processamento, "notificar", lambda *args, **kwargs: None)
+
+    app._aguardar_worker(job.id, SimpleNamespace(pid=1234, wait=lambda: 0))
+
+    agendar.assert_called_once_with(job)
+    app._despachar_proximo_job.assert_called_once_with()
+
+
+def test_startup_reagenda_resumo_de_job_pronto(monkeypatch):
+    import app_processamento
+    import central_resumos
+
+    pronto = SimpleNamespace(id="pronto", estado="ready", atualizado_em="2026-09-25T01:00:00Z")
+    falho = SimpleNamespace(id="falho", estado="failed", atualizado_em="2026-09-24T23:00:00Z")
+    fila = MagicMock()
+    fila.recuperar_interrompidos.return_value = 0
+    fila.listar.return_value = [pronto, falho]
+    app = app_processamento.ProcessamentoReuniaoMixin.__new__(
+        app_processamento.ProcessamentoReuniaoMixin
+    )
+    app._lock = threading.Lock()
+    app.fila = fila
+    app._atualizar_tooltip = lambda: None
+    app._despachar_proximo_job = MagicMock()
+    agendar = MagicMock()
+    monkeypatch.setattr(central_resumos, "agendar_concluida", agendar, raising=False)
+
+    app._preparar_processamento()
+
+    agendar.assert_called_once_with(pronto)
+
+
 def test_despacho_registra_pid_do_worker(tmp_path, monkeypatch):
     import app_processamento
 

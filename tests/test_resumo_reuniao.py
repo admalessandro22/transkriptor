@@ -258,3 +258,57 @@ def test_elegivel_so_reunioes_que_comecam_depois_do_corte(tmp_path, monkeypatch)
     assert central_resumos._elegivel(raiz, "antiga") is False
     assert central_resumos._elegivel(raiz, "sem_data") is False
     assert central_resumos._elegivel(raiz, "inexistente") is False
+
+
+def test_agendar_job_concluido_usa_data_do_job_sem_depender_do_indice(monkeypatch):
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    import central_resumos
+
+    servico = MagicMock()
+    monkeypatch.setattr(central_resumos, "servico", lambda: servico)
+    nova = SimpleNamespace(
+        id="nova", estado="ready",
+        metadados={"inicio_iso": "2026-09-24T19:22:46-03:00"},
+    )
+    antiga = SimpleNamespace(
+        id="antiga", estado="ready",
+        metadados={"inicio_iso": "2026-09-24T16:05:00-03:00"},
+    )
+    sem_data = SimpleNamespace(id="sem-data", estado="ready", metadados={})
+
+    for job in (nova, antiga, sem_data):
+        central_resumos.agendar_concluida(job)
+
+    servico.obter.assert_called_once_with("nova", gerar=True)
+
+
+def test_resumo_em_background_respeita_worker_sem_central_aberta(monkeypatch):
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    import app_estado_ui
+    import central_resumos
+    from app_processamento import ProcessamentoReuniaoMixin
+
+    app_estado_ui.registrar_provedor(None)
+    app = ProcessamentoReuniaoMixin.__new__(ProcessamentoReuniaoMixin)
+    app._estado_processamento = None
+    app._lock = threading.Lock()
+    app._atualizar_tooltip = lambda: None
+    app.fila = MagicMock()
+    app.fila.recuperar_interrompidos.return_value = 0
+    app.fila.listar.return_value = [
+        SimpleNamespace(id="pendente", estado="pending", atualizado_em="2026-09-25T01:00:00Z")
+    ]
+    app._despachar_proximo_job = lambda: setattr(app, "_estado_processamento", "Processando")
+    monkeypatch.setattr(
+        app_estado_ui, "snapshot",
+        lambda atual: SimpleNamespace(estado="aguardando", processamento=atual._estado_processamento),
+    )
+    try:
+        app._preparar_processamento()
+        assert central_resumos._app_ocupado() is True
+    finally:
+        app_estado_ui.registrar_provedor(None)
