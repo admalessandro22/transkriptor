@@ -85,6 +85,7 @@ class _Servico:
             espera_ocupado_seg=0.05,
             elegivel=elegivel,
         )
+        self.servico._espera_retry_seg = 0.05
 
 
 def _esperar(servico, mid, estado, limite=5.0):
@@ -142,6 +143,42 @@ def test_reuniao_inexistente_e_ia_fora_do_ar(tmp_path, chave_teste):
     s.servico.parar()
 
 
+def test_parar_interrompe_espera_por_app_ocupado(tmp_path, chave_teste):
+    entrou = threading.Event()
+    servico = rr.ServicoResumos(
+        tmp_path / "resumos", carregar=lambda mid: _dados(),
+        chamar=lambda modelo, mensagens: "Nunca chamado.",
+        modelos=lambda: ["granite4.1:3b"],
+        ocupado=lambda: entrou.set() or True,
+        espera_ocupado_seg=10,
+    )
+    servico.obter("reuniao-1")
+    assert entrou.wait(1)
+
+    servico.parar()
+
+    assert not servico._thread.is_alive()
+
+
+def test_falha_transitoria_da_ia_tenta_de_novo_automaticamente(tmp_path, chave_teste):
+    respostas = iter(["[Erro ao contatar o Ollama: HTTPError]", "Resumo recuperado."])
+    chamadas = []
+    servico = rr.ServicoResumos(
+        tmp_path / "resumos", carregar=lambda mid: _dados(),
+        chamar=lambda modelo, mensagens: chamadas.append(modelo) or next(respostas),
+        modelos=lambda: ["granite4.1:3b"], orcamento=lambda modelo: 10000,
+        espera_ocupado_seg=0.01,
+    )
+    servico._espera_retry_seg = 0.01
+
+    assert servico.obter("reuniao-1")["estado"] == "gerando"
+    pronto = _esperar(servico, "reuniao-1", "pronto")
+
+    assert pronto["resumo"] == "Resumo recuperado."
+    assert len(chamadas) == 2
+    servico.parar()
+
+
 def test_rota_da_central_devolve_estado_sem_expor_fala(tmp_path, monkeypatch, headers_token, chave_teste):
     import central_resumos
     from assistente import app
@@ -157,20 +194,22 @@ def test_rota_da_central_devolve_estado_sem_expor_fala(tmp_path, monkeypatch, he
     monkeypatch.setattr(central_resumos, "_chamar_resumo", lambda m, msgs: "Resumo sintético.")
     monkeypatch.setattr(central_resumos, "_elegivel", lambda raiz, mid: False)
     cliente = app.test_client()
-    assert cliente.get("/api/reunioes/reuniao-x/resumo", headers=headers_token).get_json() == {"estado": "sem_resumo"}
-    primeira = cliente.get("/api/reunioes/reuniao-x/resumo?gerar=1", headers=headers_token).get_json()
-    assert primeira["estado"] in ("gerando", "pronto")
-    fim = time.monotonic() + 5
-    while time.monotonic() < fim:
-        r = cliente.get("/api/reunioes/reuniao-x/resumo", headers=headers_token)
-        if r.get_json()["estado"] == "pronto":
-            break
-        time.sleep(0.05)
-    assert r.get_json() == {"estado": "pronto", "resumo": "Resumo sintético."}
-    assert "sigilosa" not in r.get_data(as_text=True)
-    assert cliente.get("/api/reunioes/nao-existe/resumo", headers=headers_token).get_json()["estado"] == "indisponivel"
-    central_resumos.servico().parar()
-    monkeypatch.setattr(central_resumos, "_servico", None)
+    try:
+        assert cliente.get("/api/reunioes/reuniao-x/resumo", headers=headers_token).get_json() == {"estado": "sem_resumo"}
+        primeira = cliente.get("/api/reunioes/reuniao-x/resumo?gerar=1", headers=headers_token).get_json()
+        assert primeira["estado"] in ("gerando", "pronto")
+        fim = time.monotonic() + 5
+        while time.monotonic() < fim:
+            r = cliente.get("/api/reunioes/reuniao-x/resumo", headers=headers_token)
+            if r.get_json()["estado"] == "pronto":
+                break
+            time.sleep(0.05)
+        assert r.get_json() == {"estado": "pronto", "resumo": "Resumo sintético."}
+        assert "sigilosa" not in r.get_data(as_text=True)
+        assert cliente.get("/api/reunioes/nao-existe/resumo", headers=headers_token).get_json()["estado"] == "indisponivel"
+    finally:
+        central_resumos.servico().parar()
+        monkeypatch.setattr(central_resumos, "_servico", None)
 
 
 def test_chamada_do_resumo_desliga_raciocinio_e_fixa_contexto(monkeypatch):

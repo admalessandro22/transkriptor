@@ -16,7 +16,6 @@ import logging
 import queue
 import re
 import threading
-import time
 from pathlib import Path
 from typing import Callable
 
@@ -149,6 +148,9 @@ class ServicoResumos:
         self._ocupado = ocupado
         self._orcamento = orcamento
         self._espera = float(espera_ocupado_seg)
+        from config import RESUMO_RETRY_ESPERA_SEG
+
+        self._espera_retry_seg = float(RESUMO_RETRY_ESPERA_SEG)
         self._elegivel = elegivel
         self._lock = threading.Lock()
         self._pendentes: set[str] = set()
@@ -211,6 +213,9 @@ class ServicoResumos:
     def parar(self) -> None:
         self._parar.set()
         self._fila.put(None)
+        thread = self._thread
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=2)
 
     # -- trabalho --
     def _garantir_thread(self) -> None:
@@ -225,7 +230,10 @@ class ServicoResumos:
             if meeting_id is None:
                 return
             while self._ocupado() and not self._parar.is_set():
-                time.sleep(self._espera)
+                if self._parar.wait(self._espera):
+                    return
+            if self._parar.is_set():
+                return
             try:
                 self._processar(meeting_id)
             finally:
@@ -234,13 +242,31 @@ class ServicoResumos:
 
     def _processar(self, meeting_id: str) -> None:
         try:
+            from config import RESUMO_RETRY_TENTATIVAS
+
             dados = self._carregar(meeting_id)
             if not dados:
                 raise ResumoIndisponivel("reunião sem resultado")
             modelo = escolher_modelo(list(self._modelos() or []))
             if modelo is None:
                 raise ResumoIndisponivel("IA local sem modelo instalado")
-            resumo = gerar_resumo(dados, modelo, self._chamar, orcamento_chars=self._orcamento(modelo))
+            for tentativa in range(max(1, RESUMO_RETRY_TENTATIVAS)):
+                try:
+                    resumo = gerar_resumo(
+                        dados, modelo, self._chamar,
+                        orcamento_chars=self._orcamento(modelo),
+                    )
+                    break
+                except ResumoIndisponivel as exc:
+                    if (str(exc) != "IA local indisponível"
+                            or tentativa + 1 >= RESUMO_RETRY_TENTATIVAS):
+                        raise
+                    logger.info("IA local falhou ao resumir; repetindo uma vez.")
+                    if self._parar.wait(self._espera_retry_seg):
+                        return
+                    while self._ocupado():
+                        if self._parar.wait(self._espera):
+                            return
             if not self._carregar(meeting_id):
                 return  # excluída enquanto o resumo era gerado: não recria dado
             self._gravar(meeting_id, str(dados.get("revision", "")), resumo, modelo)

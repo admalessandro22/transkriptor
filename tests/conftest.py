@@ -238,6 +238,9 @@ def _isolar_estado_local(monkeypatch, tmp_path):
 
     import config
     import config_user
+    import app_estado_ui
+
+    provedor_anterior = app_estado_ui.provedor_atual()
 
     substituicoes = {
         "CONFIG_USER_FILE": str(estado / "config_user.json"),
@@ -278,7 +281,8 @@ def _isolar_estado_local(monkeypatch, tmp_path):
         monkeypatch.setattr(startup_windows, "ATALHO_STARTUP", str(startup))
     except ImportError:
         pass
-    return estado
+    yield estado
+    app_estado_ui.registrar_provedor(provedor_anterior)
 
 
 @pytest.fixture
