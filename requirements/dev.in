@@ -1,0 +1,6 @@
+# Ferramentas de teste, auditoria e geração de lock/SBOM.
+pytest
+pytest-timeout
+pip-audit
+pip-tools
+cyclonedx-bom

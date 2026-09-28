@@ -134,6 +134,16 @@ def test_iniciar_transcricao_nao_trava_com_start_que_reporta_status(app_real_sta
     assert app_real_status._gravando() is True
 
 
+def test_inicio_registra_fontes_permitidas_sem_titulo(app_real_status, caplog):
+    import logging
+
+    app_real_status.detector.fontes_da_reuniao = ["titulo", "CANARIO-PRIVADO"]
+    with caplog.at_level(logging.INFO):
+        app_real_status._iniciar_transcricao()
+    assert "fontes=titulo" in caplog.text
+    assert "CANARIO-PRIVADO" not in caplog.text
+
+
 def test_thread_de_captura_nao_fica_presa_no_status(app_real_status):
     """A captura reportava status antes de abrir o áudio — e travava lá."""
     _executar_com_limite(app_real_status._iniciar_transcricao)

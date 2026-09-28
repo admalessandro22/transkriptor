@@ -101,6 +101,55 @@ def test_desfazer_restaura(tmp_path):
     assert len(dados["historico"]) == 2
 
 
+def test_correcao_e_undo_atualizam_txt_derivado_e_manifesto(tmp_path):
+    from resultado_reuniao import (
+        criar_manifesto_estruturado, salvar_manifesto, validar_manifesto,
+    )
+
+    audio = tmp_path / "audio.wav"
+    audio.write_bytes(b"RIFF")
+    caminho = tmp_path / "resultados" / "r.json"
+    salvar_segmentos(caminho, _segmentos(), {})
+    txt = tmp_path / "r.txt"
+    txt.write_text(exportar_txt(carregar_segmentos(caminho)["segmentos"], {}), encoding="utf-8")
+    manifesto = tmp_path / "r.resultado.json"
+    salvar_manifesto(manifesto, criar_manifesto_estruturado(
+        meeting_id="r", segmentos=caminho, resultado=txt, fontes_audio=[audio], raiz=tmp_path,
+    ))
+    assert validar_manifesto(manifesto, tmp_path)
+    assert NOME_PENDENTE in txt.read_text(encoding="utf-8")
+
+    revisao = aplicar_correcao(
+        caminho, expected_revision="rev-1", speaker_cluster_id="FALANTE_00",
+        participant_id="p1", display_name="Ana",
+    )
+    assert "[00:00:00] Ana: bom dia a todos" in txt.read_text(encoding="utf-8")
+    assert validar_manifesto(manifesto, tmp_path)
+    desfazer_correcao(caminho, expected_revision=revisao)
+    assert NOME_PENDENTE in txt.read_text(encoding="utf-8")
+    assert validar_manifesto(manifesto, tmp_path)
+
+
+def test_txt_editado_fora_do_app_nao_e_sobrescrito_nem_muda_revisao(tmp_path):
+    from resultado_reuniao import criar_manifesto_estruturado, salvar_manifesto
+
+    audio = tmp_path / "audio.wav"
+    audio.write_bytes(b"RIFF")
+    caminho = tmp_path / "resultados" / "r.json"
+    salvar_segmentos(caminho, _segmentos(), {})
+    txt = tmp_path / "r.txt"
+    txt.write_text(exportar_txt(carregar_segmentos(caminho)["segmentos"], {}), encoding="utf-8")
+    salvar_manifesto(tmp_path / "r.resultado.json", criar_manifesto_estruturado(
+        meeting_id="r", segmentos=caminho, resultado=txt, fontes_audio=[audio], raiz=tmp_path,
+    ))
+    txt.write_text("correção manual fora do app", encoding="utf-8")
+    with pytest.raises(ValueError, match="TXT alterado"):
+        aplicar_correcao(caminho, expected_revision="rev-1", speaker_cluster_id="FALANTE_00",
+                        participant_id=None, display_name="Ana")
+    assert txt.read_text(encoding="utf-8") == "correção manual fora do app"
+    assert carregar_segmentos(caminho)["revision"] == "rev-1"
+
+
 def test_api_reunioes_lista_corrige_desfaz(tmp_path, monkeypatch, headers_token):
     from assistente import app
 

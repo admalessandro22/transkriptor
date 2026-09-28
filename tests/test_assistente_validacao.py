@@ -7,7 +7,7 @@ import pytest
 from assistente_validacao import (
     PayloadInvalido,
     hosts_locais_aceitos,
-    origem_permitida_chat,
+    origem_exata_assistente,
     validar_chat_payload,
 )
 
@@ -62,8 +62,9 @@ def test_host_local_aceito_externo_nao():
 
 
 def test_origem_externa_rejeitada_local_ok():
-    assert origem_permitida_chat(None) is True
-    assert origem_permitida_chat("http://127.0.0.1:5052") is True
-    assert origem_permitida_chat("http://localhost:5052") is True
-    assert origem_permitida_chat("https://evil.example.test") is False
-    assert origem_permitida_chat("http://127.0.0.1.evil.test") is False
+    assert origem_exata_assistente(None, "http://127.0.0.1:5052/") is False
+    assert origem_exata_assistente("http://127.0.0.1:5052", "http://127.0.0.1:5052/") is True
+    assert origem_exata_assistente("http://localhost:5052", "http://127.0.0.1:5052/") is False
+    assert origem_exata_assistente("http://127.0.0.1:9999", "http://127.0.0.1:5052/") is False
+    assert origem_exata_assistente("https://evil.example.test", "http://127.0.0.1:5052/") is False
+    assert origem_exata_assistente("http://127.0.0.1.evil.test", "http://127.0.0.1:5052/") is False

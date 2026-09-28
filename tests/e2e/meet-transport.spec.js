@@ -12,6 +12,7 @@ const parserScript = readFileSync(resolve(raiz, "extension/meet/parser.js"), "ut
 const fundoScript = readFileSync(resolve(raiz, "extension/meet/background.js"), "utf8");
 const pairingHtml = readFileSync(resolve(raiz, "extension/meet/pairing.html"), "utf8");
 const pairingJs = readFileSync(resolve(raiz, "extension/meet/pairing.js"), "utf8");
+const pairingCss = readFileSync(resolve(raiz, "extension/meet/pairing.css"), "utf8");
 
 
 test("manifesto MV3: service worker, sem segredo no content script", async () => {
@@ -31,7 +32,7 @@ test("pareamento real guarda o código e aciona o service worker", async ({ page
     window.__enviado = [];
     window.chrome = {
       storage: {
-        session: {
+        local: {
           set: (obj, cb) => {
             window.__guardado = obj;
             if (cb) cb();
@@ -57,32 +58,87 @@ test("pareamento real guarda o código e aciona o service worker", async ({ page
     .poll(() => page.evaluate(() => window.__enviado))
     .toEqual([{ tipo: "parear" }]);
   await expect(page.locator("#estado")).not.toBeEmpty();
+  // UX-14.E5: resposta sem `pronto` = ainda conectando (estado carregando)
+  await expect(page.locator("#estado")).toHaveAttribute("data-estado", "carregando");
 });
 
 
-test("background real valida remetente e anexa a aba", async ({ page }) => {
+test("página de pareamento: IDs mantidos, passos, estados e nenhuma rede externa", async ({ page }) => {
+  expect(pairingHtml).toMatch(/id="codigo"/);
+  expect(pairingHtml).toMatch(/id="parear"/);
+  expect(pairingHtml).toMatch(/id="estado"/);
+  expect(pairingHtml).toMatch(/<link rel="stylesheet" href="pairing.css">/);
+  expect(pairingHtml).not.toMatch(/<style|style=|https?:\/\//);
+  expect(pairingCss).not.toMatch(/@import|https?:\/\/|url\(/);
+  expect(manifest.icons).toMatchObject({ "16": "icons/icone-16.png", "128": "icons/icone-128.png" });
+  const pedidos = [];
+  page.on("request", (req) => pedidos.push(req.url()));
+  await page.route("**/*", (rota) => {
+    const url = rota.request().url();
+    if (url.endsWith("/pairing.css")) return rota.fulfill({ status: 200, contentType: "text/css", body: pairingCss });
+    if (url.endsWith("/pairing.js")) return rota.fulfill({ status: 200, contentType: "text/javascript", body: pairingJs });
+    if (url.endsWith("/icons/icone-48.png")) return rota.fulfill({ status: 200, contentType: "image/png", body: readFileSync(resolve(raiz, "extension/meet/icons/icone-48.png")) });
+    if (url.startsWith("http://extensao.local/")) return rota.fulfill({ status: 200, contentType: "text/html", body: pairingHtml });
+    return rota.abort();
+  });
+  await page.addInitScript(() => {
+    window.chrome = {
+      storage: { local: { set: (obj, cb) => cb && cb() } },
+      runtime: { lastError: undefined, sendMessage: (msg, cb) => cb && cb({ pronto: true, pareamento: "confirmado" }) },
+    };
+  });
+  await page.goto("http://extensao.local/pairing.html");
+  await expect(page.locator("ol.passos li")).toHaveCount(4);
+  await page.fill("#codigo", "pair-codigo-de-uso-unico-12345");
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#estado")).toHaveAttribute("data-estado", "sucesso");
+  await expect(page.locator("#codigo")).toBeDisabled();
+  await expect(page.locator("#parear")).toBeDisabled();
+  expect(pedidos.filter((u) => !u.startsWith("http://extensao.local/"))).toEqual([]);
+});
+
+
+test("background real valida pareamento e produz envelope cliente v1", async ({ page }) => {
   await page.setContent("<main></main>");
   await page.evaluate(() => {
-    window.chrome = { storage: {}, runtime: {} };
+    window.chrome = { runtime: { id: "abcdefghijklmnop", onMessage: { addListener: () => {} } } };
   });
   await page.addScriptTag({ content: fundoScript });
-  const valido = await page.evaluate(() => window.validarSender({
+  const resultado = await page.evaluate(() => {
+    const mensagens = [];
+    const id = "abcdefghijklmnop";
+    const pareado = window.aoReceberMensagem({ tipo: "parear" }, {
+      id, frameId: 0, url: `chrome-extension://${id}/pairing.html`
+    }, () => {}, { runtimeId: id, conectar: () => {} });
+    const sender = { frameId: 0, tab: { id: 3 }, url: "https://meet.google.com/abc-defg-hij" };
+    window.aoReceberMensagem({ tipo: "meet-evento", evento: { tipo: "reuniao", ativa: true } },
+      sender, null, { enviar: (msg) => mensagens.push(msg) });
+    const hello = mensagens[0];
+    const sessao = window.aceitarSessao({ tipo: "sessao", connection_id: hello.connection_id,
+      tab_id: "3", session_id: "sessao-sintetica", meeting_key: "sala-sintetica" });
+    return { pareado, sessao, hello, envelope: window.montarEnvelope(
+      { tipo: "legenda", nome: "Pessoa Sintética", texto: "fala sintética", caption_id: "c-1", caption_revision: 1 },
+      sender, { wallMs: 100, monotonicMs: 50 }) };
+  });
+  expect(resultado.pareado).toBe(true);
+  expect(resultado.sessao).toBe(true);
+  expect(resultado.hello).toMatchObject({ tipo: "hello", tab_id: "3", meeting_hint: "abc-defg-hij" });
+  expect(resultado.envelope).toMatchObject({ schema_version: 1, session_id: "sessao-sintetica",
+    tab_id: "3", meeting_key: "sala-sintetica", kind: "caption", client_wall_ms: 100,
+    client_monotonic_ms: 50, caption_id: "c-1", caption_revision: 1 });
+  expect(JSON.stringify(resultado.envelope)).not.toMatch(/token|received_monotonic_ns/);
+  const valido = await page.evaluate(() => window.validarSenderMeet({
     frameId: 0,
     tab: { id: 3 },
     url: "https://meet.google.com/abc-defg-hij"
   }));
   expect(valido).toBe(true);
-  const subframe = await page.evaluate(() => window.validarSender({
+  const subframe = await page.evaluate(() => window.validarSenderMeet({
     frameId: 2,
     tab: { id: 3 },
     url: "https://meet.google.com/abc-defg-hij"
   }));
   expect(subframe).toBe(false);
-  const envelope = await page.evaluate(() => window.montarEnvelope(
-    { nome: "Ana", tipo: "ativo" },
-    { tab: { id: 3 } }
-  ));
-  expect(envelope).toMatchObject({ nome: "Ana", tabId: 3 });
 });
 
 
@@ -112,8 +168,58 @@ test("content real entrega legenda ao fundo no navegador", async ({ page }) => {
 
   await expect
     .poll(() => page.evaluate(() => window.__eventosMeetTeste))
-    .toEqual([expect.objectContaining({
+    .toContainEqual(expect.objectContaining({
       tipo: "meet-evento",
       evento: expect.objectContaining({ nome: "Pessoa Sintética" })
-    })]);
+    }));
+});
+
+test("content preserva id e revisão da legenda sem enviar título da aba", async ({ page }) => {
+  await page.setContent("<main></main>");
+  await page.evaluate(() => {
+    window.__eventosMeetTeste = [];
+    window.chrome = { runtime: { sendMessage: (msg) => window.__eventosMeetTeste.push(msg) } };
+    window.setInterval = () => 0;
+    document.title = "TÍTULO-CANÁRIO";
+  });
+  await page.addScriptTag({ content: parserScript });
+  await page.addScriptTag({ content: contentScript });
+  await page.evaluate(() => {
+    const bloco = document.createElement("section");
+    bloco.setAttribute("data-caption-block", "");
+    bloco.setAttribute("data-caption-id", "cap-sintetica");
+    bloco.setAttribute("data-caption-revision", "4");
+    bloco.setAttribute("data-participant-id", "p-caption");
+    bloco.innerHTML = '<span data-speaker-name="Pessoa Sintética"></span>' +
+      '<span data-caption-text>fala sintética</span>';
+    document.body.append(bloco);
+  });
+  await expect.poll(() => page.evaluate(() => window.__eventosMeetTeste)).toContainEqual(
+    expect.objectContaining({ evento: expect.objectContaining({
+      caption_id: "cap-sintetica", caption_revision: 4, participant_id: "p-caption",
+    }) })
+  );
+  expect(JSON.stringify(await page.evaluate(() => window.__eventosMeetTeste))).not.toContain("TÍTULO-CANÁRIO");
+});
+
+test("content preserva id do participante na atividade", async ({ page }) => {
+  await page.setContent("<main></main>");
+  await page.evaluate(() => {
+    window.__eventosMeetTeste = [];
+    window.chrome = { runtime: { sendMessage: (msg) => window.__eventosMeetTeste.push(msg) } };
+    window.setInterval = () => 0;
+  });
+  await page.addScriptTag({ content: parserScript });
+  await page.addScriptTag({ content: contentScript });
+  await page.evaluate(() => {
+    const tile = document.createElement("div");
+    tile.setAttribute("data-self-name", "Pessoa Sintética");
+    tile.setAttribute("data-requested-participant-id", "p-123");
+    document.body.append(tile);
+  });
+  await expect.poll(() => page.evaluate(() => window.__eventosMeetTeste)).toContainEqual(
+    expect.objectContaining({ evento: expect.objectContaining({
+      tipo: "ativo", participant_id: "p-123", nome: "Pessoa Sintética",
+    }) })
+  );
 });

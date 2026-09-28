@@ -40,10 +40,10 @@ def test_manual_md_existe_e_tem_secoes():
         assert secao.lower() in texto.lower(), f"Secao ausente: {secao}"
 
 
-def test_manual_descreve_fluxo_seguro_da_v15():
+def test_manual_descreve_fluxo_seguro_atual():
     texto = MANUAL_MD.read_text(encoding="utf-8")
     minusculo = texto.lower()
-    assert "transkriptor v1.5" in minusculo
+    assert "manual do usuário — transkriptor" in minusculo
     assert "processamento após a reunião" in minusculo
     assert "somente **sim**" in minusculo
     assert "antes de abrir" in minusculo
@@ -51,6 +51,17 @@ def test_manual_descreve_fluxo_seguro_da_v15():
     assert "| transcrição manual |" not in minusculo
     assert "a gravação começa **antes** da pergunta" not in minusculo
     assert "trechos aparecem em notificação" not in minusculo
+
+
+def test_manual_atual_descreve_locks_e_modo_protegido():
+    texto = MANUAL_MD.read_text(encoding="utf-8").lower()
+    assert "requirements/requirements-cpu.lock" in texto
+    assert "instalação nova" in texto and "modo protegido" in texto
+    assert "tkas/1" in texto and ".tkpt" in texto
+    assert "ativar modo protegido para novas reuniões" in texto
+    assert "exportar txt" in texto
+    assert "transkriptor v1.5" not in texto
+    assert "o `.txt` principal permanece" not in texto
 
 
 def test_gerar_pdf_produz_texto_legivel_na_pagina(tmp_path):
@@ -83,5 +94,9 @@ def test_manual_pdf_commitado_legivel():
         f"chars={validacao['chars']}"
     )
     texto = mod.extrair_texto_pdf(MANUAL_PDF).lower()
-    assert "transkriptor v1.5" in texto
+    assert "manual do usuário" in texto or "manual do usuario" in texto
     assert "processamento após a reunião" in texto or "processamento apos a reuniao" in texto
+    assert "requirements-cpu.lock" in texto
+    assert "tkas/1" in texto
+    assert "exportar txt" in texto
+    assert "v1.5" not in texto

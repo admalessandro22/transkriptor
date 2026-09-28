@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,9 +20,12 @@ class MeetingSummary:
     duration_ms: int | None
     revision: str
     quality_state: str
+    arquivo: str | None = None
 
 
 VERSAO_INDICE = 1
+_NOME_COM_DATA = re.compile(r"(\d{4})-(\d{2})-(\d{2})_(\d{2})h(\d{2})")
+_SUFIXO_MANIFESTO = ".resultado.json"
 
 
 def _sha_arquivo(caminho: Path) -> str:
@@ -91,11 +95,64 @@ def _resumo_de_manifesto(manifesto) -> dict:
     }
 
 
+def _metadados_do_job(raiz: Path, meeting_id: str) -> dict:
+    """Título/início/duração que a gravação deixou no job (sem conteúdo de fala)."""
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", str(meeting_id)):
+        return {}
+    caminho = raiz / ".jobs_processamento" / f"{meeting_id}.json"
+    try:
+        metadados = json.loads(caminho.read_text(encoding="utf-8")).get("metadados") or {}
+    except (OSError, ValueError, AttributeError):
+        return {}
+    info = {}
+    titulo = metadados.get("titulo_reuniao")
+    if isinstance(titulo, str) and titulo.strip():
+        info["title"] = titulo.strip()[:80]
+    inicio = metadados.get("inicio_iso")
+    if isinstance(inicio, str) and inicio:
+        info["started_at"] = inicio
+    duracao = metadados.get("duracao_seg")
+    if isinstance(duracao, (int, float)) and not isinstance(duracao, bool) and duracao >= 0:
+        info["duration_ms"] = int(round(float(duracao) * 1000))
+    return info
+
+
+def _inicio_pelo_nome(nome_manifesto: str) -> str | None:
+    """`transcricao_2026-09-22_13h59...` -> horário local de início da gravação."""
+    m = _NOME_COM_DATA.search(nome_manifesto)
+    if not m:
+        return None
+    ano, mes, dia, hora, minuto = m.groups()
+    return f"{ano}-{mes}-{dia}T{hora}:{minuto}:00"
+
+
+def _completar_resumo(resumo: dict, caminho: Path, meeting_id: str, anterior: dict | None) -> dict:
+    """Job > nome do arquivo > índice anterior; o horário de processamento é o último recurso."""
+    info = _metadados_do_job(caminho.parent, meeting_id)
+    anterior = anterior if isinstance(anterior, dict) else {}
+    resumo = dict(resumo)
+    resumo["title"] = info.get("title") or anterior.get("title")
+    resumo["duration_ms"] = info.get("duration_ms", anterior.get("duration_ms"))
+    resumo["started_at"] = (
+        info.get("started_at")
+        or anterior.get("inicio_real")
+        or _inicio_pelo_nome(caminho.name)
+        or resumo["started_at"]
+    )
+    if info.get("started_at") or anterior.get("inicio_real"):
+        resumo["inicio_real"] = resumo["started_at"]
+    if anterior.get("titulo_usuario"):
+        resumo["titulo_usuario"] = anterior["titulo_usuario"]
+    return resumo
+
+
 def _varrer_manifestos(raiz: Path) -> dict[str, Path]:
     achados: dict[str, Path] = {}
     if not raiz.is_dir():
         return achados
     for caminho in sorted(raiz.rglob("*.resultado.json")):
+        if any(parte.startswith(".lixeira") for parte in caminho.relative_to(raiz).parts):
+            continue  # reunião em exclusão (exclusao_reuniao.LIXEIRA)
         try:
             dados = json.loads(caminho.read_text(encoding="utf-8"))
         except (OSError, ValueError):
@@ -123,7 +180,9 @@ def atualizar_indice(index_path: Path, manifesto) -> None:
     if caminho is None:
         raise ValueError("manifesto não encontrado para a reunião")
     atual = carregar_manifesto(caminho)
-    resumo = _resumo_de_manifesto(atual)
+    resumo = _completar_resumo(
+        _resumo_de_manifesto(atual), caminho, str(manifesto.meeting_id), reunioes.get(str(manifesto.meeting_id))
+    )
     reunioes[str(manifesto.meeting_id)] = {
         "manifest": caminho.name,
         "sha": _sha_arquivo(caminho),
@@ -132,6 +191,45 @@ def atualizar_indice(index_path: Path, manifesto) -> None:
         **resumo,
     }
     _salvar_indice(indice, reunioes)
+
+
+def definir_titulo(index_path: Path, meeting_id: str, titulo: str) -> str | None:
+    """Título escolhido pelo usuário (≤ 80); vazio volta ao título da gravação."""
+    limpo = re.sub(r"\s+", " ", str(titulo or "")).strip()
+    limpo = "".join(ch for ch in limpo if ch.isprintable())
+    if len(limpo) > 80:
+        raise ValueError("título acima de 80 caracteres")
+    indice = Path(index_path)
+    reunioes = _carregar_indice(indice)
+    entrada = reunioes.get(str(meeting_id))
+    if not isinstance(entrada, dict):
+        raise KeyError("reunião não encontrada no índice")
+    if limpo:
+        entrada["titulo_usuario"] = limpo
+    else:
+        entrada.pop("titulo_usuario", None)
+    _salvar_indice(indice, reunioes)
+    return limpo or None
+
+
+def _instante(iso: object) -> float:
+    """ISO com fuso (job, manifesto) ou sem fuso (hora local do nome do arquivo)."""
+    import datetime as _dt
+
+    try:
+        texto = str(iso).strip()
+        if texto.endswith("Z"):
+            texto = texto[:-1] + "+00:00"
+        return _dt.datetime.fromisoformat(texto).timestamp()
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _arquivo_base(manifesto: object) -> str | None:
+    """Nome-base da transcrição (casa com `/api/transcricoes` no Assistente)."""
+    if isinstance(manifesto, str) and manifesto.endswith(_SUFIXO_MANIFESTO):
+        return manifesto[: -len(_SUFIXO_MANIFESTO)]
+    return None
 
 
 def listar_reunioes(index_path: Path, *, cursor: str | None, limit: int):
@@ -167,7 +265,9 @@ def listar_reunioes(index_path: Path, *, cursor: str | None, limit: int):
         ):
             primeiro_avistamento = not isinstance(entrada, dict)
             try:
-                resumo = _resumo_de_manifesto(carregar_manifesto(caminho))
+                resumo = _completar_resumo(
+                    _resumo_de_manifesto(carregar_manifesto(caminho)), caminho, mid, entrada
+                )
             except ValueError:
                 continue
             reunioes[mid] = {
@@ -180,7 +280,12 @@ def listar_reunioes(index_path: Path, *, cursor: str | None, limit: int):
             mudancas = True
     if mudancas:
         _salvar_indice(indice, reunioes)
-    ordenados = sorted(reunioes)
+    # Mais recente primeiro; empate por id crescente mantém o cursor estável.
+    ordenados = sorted(
+        sorted(reunioes),
+        key=lambda mid: _instante(reunioes[mid].get("started_at") if isinstance(reunioes[mid], dict) else None),
+        reverse=True,
+    )
     inicio = 0
     if cursor is not None:
         if cursor not in ordenados:
@@ -193,13 +298,14 @@ def listar_reunioes(index_path: Path, *, cursor: str | None, limit: int):
         summaries.append(
             MeetingSummary(
                 meeting_id=mid,
-                title=entrada.get("title"),
+                title=entrada.get("titulo_usuario") or entrada.get("title"),
                 started_at=str(entrada.get("started_at", "")),
                 duration_ms=entrada.get("duration_ms"),
                 revision=f"v{entrada.get('schema_version', 1)}-{str(entrada.get('sha', ''))[:8]}",
                 quality_state="desatualizado"
                 if not entrada.get("confirmado", True)
                 else str(entrada.get("quality", "parcial")),
+                arquivo=_arquivo_base(entrada.get("manifest")),
             )
         )
     proximo = fatia[-1] if inicio + limit < len(ordenados) else None

@@ -3,7 +3,8 @@
  * Único dono do WebSocket local: content script nunca toca em token.
  *
  * Fluxo: content.js --(chrome.runtime)--> background.js --(WS)--> ponte local.
- * A credencial vem de chrome.storage.session, gravada pela pairing.html
+ * A credencial vem de chrome.storage.local (persiste entre reinícios do
+ * Chrome, decisão do usuário 24/09/2026), gravada pela pairing.html
  * com o código de uso único exibido pelo app (Pareador).
  */
 "use strict";
@@ -17,14 +18,82 @@ let ws = null;
 let pronto = false;
 let tentativas = 0;
 let timerReconectar = null;
+/** "nenhum" | "pendente" | "confirmado" | "recusado" — lido pela pairing.html. */
+let pareamento = "nenhum";
+const abas = new Map();
 
-function validarSender(sender) {
+function novoId() {
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 15) | 64;
+  bytes[8] = (bytes[8] & 63) | 128;
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+function estadoAba(tabId) {
+  if (!abas.has(tabId)) {
+    abas.set(tabId, { connectionId: novoId(), session: null, seq: 0, helloSent: false, meetingHint: null });
+  }
+  return abas.get(tabId);
+}
+
+function hintDaSala(sender) {
+  try {
+    const url = new URL(sender.url || sender.tab.url || "");
+    const codigo = url.pathname.slice(1).toLowerCase();
+    return /^[a-z]{3,4}-[a-z]{3,4}-[a-z]{3,4}$/.test(codigo) ? codigo : null;
+  } catch (_e) {
+    return null;
+  }
+}
+
+function montarHello(sender, agora = {}, active = false) {
+  const estado = estadoAba(sender.tab.id);
+  estado.meetingHint = hintDaSala(sender);
+  return {
+    tipo: "hello",
+    connection_id: estado.connectionId,
+    tab_id: String(sender.tab.id),
+    meeting_hint: estado.meetingHint,
+    active: active === true,
+    client_wall_ms: agora.wallMs ?? Date.now(),
+    client_monotonic_ms: agora.monotonicMs ?? performance.now(),
+  };
+}
+
+function aceitarSessao(mensagem) {
+  if (!mensagem || mensagem.tipo !== "sessao") return false;
+  for (const [tabId, estado] of abas) {
+    if (estado.connectionId !== mensagem.connection_id) continue;
+    if (mensagem.tab_id !== String(tabId) || !mensagem.session_id || !mensagem.meeting_key) return false;
+    if (estado.session && estado.session.session_id !== mensagem.session_id) estado.seq = 0;
+    estado.session = { session_id: mensagem.session_id, meeting_key: mensagem.meeting_key };
+    return true;
+  }
+  return false;
+}
+
+function validarSenderPareamento(sender, runtimeId) {
+  if (!sender || !runtimeId || sender.id !== runtimeId || sender.frameId !== 0) return false;
+  try {
+    const url = new URL(sender.url || "");
+    return url.protocol === "chrome-extension:" &&
+      url.hostname === runtimeId && url.pathname === "/pairing.html";
+  } catch (_e) {
+    return false;
+  }
+}
+
+function validarSenderMeet(sender) {
   if (!sender || sender.frameId !== 0) return false;
   const tab = sender.tab;
   if (!tab || typeof tab.id !== "number") return false;
   const url = sender.url || tab.url || "";
-  return typeof url === "string" && url.indexOf("https://meet.google.com/") === 0;
+  return typeof url === "string" && /^https:\/\/meet\.google\.com\//.test(url);
 }
+
+const validarSender = validarSenderMeet;
 
 function atrasoReconexao(tentativa, aleatorio) {
   const sorteio = typeof aleatorio === "function" ? aleatorio : Math.random;
@@ -33,10 +102,62 @@ function atrasoReconexao(tentativa, aleatorio) {
   return Math.max(0, Math.round(base + jitter));
 }
 
-function montarEnvelope(evento, remetente) {
-  const copia = Object.assign({}, evento);
-  copia.tabId = remetente && remetente.tab ? remetente.tab.id : null;
-  return copia;
+function montarEnvelope(evento, remetente, agora = {}) {
+  if (!evento || !remetente || !remetente.tab) return null;
+  const estado = estadoAba(remetente.tab.id);
+  if (!estado.session) return null;
+  const kind = {
+    reuniao: "heartbeat", legenda: "caption", ativo: "speaker_activity",
+    atividade: "speaker_activity", capabilities: "capabilities",
+  }[evento.tipo];
+  if (!kind) return null;
+  const envelope = {
+    schema_version: 1,
+    event_id: novoId(),
+    session_id: estado.session.session_id,
+    connection_id: estado.connectionId,
+    seq: estado.seq++,
+    tab_id: String(remetente.tab.id),
+    meeting_key: estado.session.meeting_key,
+    kind,
+    client_wall_ms: agora.wallMs ?? Date.now(),
+    client_monotonic_ms: agora.monotonicMs ?? performance.now(),
+  };
+  if (kind === "heartbeat") envelope.active = evento.ativa === true;
+  if (kind === "caption" || kind === "speaker_activity") {
+    if (typeof evento.participant_id === "string") envelope.participant_id = evento.participant_id;
+    if (typeof evento.nome === "string") envelope.display_name = evento.nome;
+    if (typeof evento.confidence_source === "string") envelope.confidence_source = evento.confidence_source;
+  }
+  if (kind === "caption") {
+    if (typeof evento.caption_id === "string") envelope.caption_id = evento.caption_id;
+    if (Number.isInteger(evento.caption_revision)) envelope.caption_revision = evento.caption_revision;
+    if (typeof evento.texto === "string") envelope.text = evento.texto;
+  }
+  return envelope;
+}
+
+function enviarPonte(mensagem) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+  try {
+    ws.send(JSON.stringify(mensagem));
+    return true;
+  } catch (_e) {
+    return false;
+  }
+}
+
+function registrarPareamento(estado) {
+  pareamento = estado;
+}
+
+function estadoPareamento() {
+  return pareamento;
+}
+
+/** 1008 = o app recusou a credencial (código expirado, usado ou errado). */
+function tratarFechamento(evento) {
+  if (evento && evento.code === 1008 && pareamento !== "confirmado") pareamento = "recusado";
 }
 
 function agendarReconexao() {
@@ -50,10 +171,28 @@ function agendarReconexao() {
   }, espera);
 }
 
+/** Novo código de pareamento: descarta o socket da credencial antiga. */
+function reconectarComNovaCredencial() {
+  if (timerReconectar !== null) {
+    clearTimeout(timerReconectar);
+    timerReconectar = null;
+  }
+  if (ws) {
+    const antigo = ws;
+    ws = null;
+    pronto = false;
+    antigo.onclose = null;
+    try {
+      antigo.close();
+    } catch (_e) {}
+  }
+  conectar();
+}
+
 function conectar() {
   if (typeof chrome === "undefined" || !chrome.storage) return;
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
-  chrome.storage.session.get(CHAVE_CREDENCIAL, function (dados) {
+  chrome.storage.local.get(CHAVE_CREDENCIAL, function (dados) {
     const credencial = dados && dados[CHAVE_CREDENCIAL];
     if (!credencial) {
       pronto = false;
@@ -68,8 +207,13 @@ function conectar() {
     ws.onopen = function () {
       pronto = true;
       tentativas = 0;
+      for (const estado of abas.values()) {
+        estado.helloSent = false;
+        estado.session = null;
+      }
     };
-    ws.onclose = function () {
+    ws.onclose = function (evento) {
+      tratarFechamento(evento);
       pronto = false;
       ws = null;
       agendarReconexao();
@@ -83,32 +227,54 @@ function conectar() {
       try {
         const msg = JSON.parse(evento.data);
         if (msg && msg.tipo === "pareado" && msg.token && chrome.storage) {
-          chrome.storage.session.set({ [CHAVE_CREDENCIAL]: msg.token });
+          chrome.storage.local.set({ [CHAVE_CREDENCIAL]: msg.token });
+          registrarPareamento("confirmado");
         }
+        if (msg && msg.tipo === "sessao") aceitarSessao(msg);
       } catch (_e) {}
     };
   });
 }
 
-function aoReceberMensagem(mensagem, remetente, responder) {
-  if (!validarSender(remetente)) return false;
+function aoReceberMensagem(mensagem, remetente, responder, dependencias = {}) {
   if (!mensagem || typeof mensagem !== "object") return false;
   if (mensagem.tipo === "parear") {
+    const runtimeId = dependencias.runtimeId || (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.id);
+    if (!validarSenderPareamento(remetente, runtimeId)) return false;
     tentativas = 0;
-    conectar();
-    if (typeof responder === "function") responder({ pronto });
+    registrarPareamento("pendente");
+    (dependencias.conectar || reconectarComNovaCredencial)();
+    if (typeof responder === "function") responder({ pronto, pareamento });
     return true;
   }
+  if (mensagem.tipo === "estadoPareamento") {
+    const runtimeId = dependencias.runtimeId || (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.id);
+    if (!validarSenderPareamento(remetente, runtimeId)) return false;
+    if (typeof responder === "function") responder({ pronto, pareamento });
+    return true;
+  }
+  if (!validarSenderMeet(remetente)) return false;
   if (mensagem.tipo === "estadoPonte") {
     if (typeof responder === "function") responder({ pronto });
     return true;
   }
   if (mensagem.tipo === "meet-evento") {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      try {
-        ws.send(JSON.stringify(montarEnvelope(mensagem.evento, remetente)));
-      } catch (_e) {}
+    let estado = estadoAba(remetente.tab.id);
+    const hint = hintDaSala(remetente);
+    if (estado.meetingHint !== null && estado.meetingHint !== hint) {
+      abas.delete(remetente.tab.id);
+      estado = estadoAba(remetente.tab.id);
     }
+    const enviar = dependencias.enviar || enviarPonte;
+    if (!estado.session) {
+      if (!estado.helloSent || (mensagem.evento && mensagem.evento.tipo === "reuniao")) {
+        estado.helloSent = enviar(montarHello(remetente, {}, mensagem.evento && mensagem.evento.ativa)) !== false;
+      }
+      if (!estado.helloSent) (dependencias.conectar || conectar)();
+      return false;
+    }
+    const envelope = montarEnvelope(mensagem.evento, remetente);
+    if (envelope) enviar(envelope);
     return false;
   }
   return false;
@@ -122,8 +288,17 @@ if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.onMessage)
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     validarSender,
+    validarSenderMeet,
+    validarSenderPareamento,
+    aoReceberMensagem,
+    estadoAba,
+    montarHello,
+    aceitarSessao,
     atrasoReconexao,
     montarEnvelope,
+    registrarPareamento,
+    estadoPareamento,
+    tratarFechamento,
     PONTE_URL,
     RECONECTAR_BASE_MS,
     RECONECTAR_MAX_MS,

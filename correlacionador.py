@@ -30,6 +30,20 @@ def similaridade_tokens(a: str, b: str) -> float:
     return inter / uniao
 
 
+def atribuir_segmentos(fundidos, eventos, *, clock_uncertainty_ms: int) -> dict[str, dict]:
+    """Produz sugestões auditáveis por ID sem alterar rótulos de voz."""
+    from config import CALIBRACAO_IDENTIDADE_VERSAO
+    from identidade_reuniao import resolver_atribuicao, serializar_atribuicao
+
+    return {
+        segmento.segment_id: serializar_atribuicao(resolver_atribuicao(
+            segmento, eventos, clock_uncertainty_ms=clock_uncertainty_ms,
+            calibration_version=CALIBRACAO_IDENTIDADE_VERSAO,
+        ))
+        for segmento in fundidos
+    }
+
+
 def correlacionar_segmento(
     start: float,
     end: float,

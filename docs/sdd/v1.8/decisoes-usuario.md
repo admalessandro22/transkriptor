@@ -19,6 +19,7 @@ Confirmação recebida em 19/09/2026. Estas decisões são normativas para conce
 | DU-13 | Depois de autorização explícita para implementar, a LLM pode criar um commit local por task. | Push, tag, release, instalação real, OAuth e publicação continuam proibidos sem autorização própria. |
 | DU-14 | A release suporta CPU e GPU CUDA compatível. | G1/G3 testam e documentam as duas rotas; otimização exclusiva da máquina atual não encerra a fase. |
 | DU-15 | Falha parcial preserva dados íntegros e informa a etapa afetada. | Erro, ausência de permissão ou ausência de dados nunca é apresentado como sucesso. |
+| DU-17 | (24/09/2026) Nomes do Meet sempre ativos, sem ligar CC e sem re-parear a cada reinício. | Extensão lê legendas/nomes pelo canal RTC (`rtc.js`, mundo MAIN). Credencial persiste: app guarda só SHA-256 + validade em `_modelo_voz/meet_pareamento.json` (90 dias, renovada no uso, máx. 5); extensão usa `chrome.storage.local`. |
 | DU-16 | Tipo e edição da conta Google não foram informados. | H1–H3 ficam `BLOCKED_EXTERNAL_INFO` até o usuário informar conta pessoal/Workspace e edição, além de autorizar OAuth/piloto. A–G prosseguem normalmente. |
 
 ## Rastreabilidade para implementação

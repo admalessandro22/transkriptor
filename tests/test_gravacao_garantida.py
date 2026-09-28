@@ -30,7 +30,7 @@ def test_wav_sempre_aberto_mesmo_sem_diarizacao(tmp_path):
     t._wav = None
 
 
-def test_stop_sem_diarizacao_move_wav_para_pasta_audio(tmp_path, monkeypatch):
+def test_stop_sem_diarizacao_move_wav_para_pasta_audio(tmp_path, monkeypatch, chave_teste):
     """FR-2.1: após stop() com diarização off, WAV existe em PASTA_AUDIO com frames > 0."""
     pasta_audio = tmp_path / "audio"
     monkeypatch.setattr("transcricao_core.PASTA_AUDIO", str(pasta_audio))
@@ -64,7 +64,7 @@ def test_stop_sem_diarizacao_move_wav_para_pasta_audio(tmp_path, monkeypatch):
     assert not list(tmp_path.glob("*_audio.wav"))
 
 
-def test_stop_com_diarizacao_move_wav_no_finally(tmp_path, monkeypatch):
+def test_stop_com_diarizacao_move_wav_no_finally(tmp_path, monkeypatch, chave_teste):
     """FR-2.1: com diarização, WAV é movido ao fim (não apagado)."""
     pasta_audio = tmp_path / "audio"
     monkeypatch.setattr("transcricao_core.PASTA_AUDIO", str(pasta_audio))
@@ -282,7 +282,7 @@ def test_transcrever_bloco_grava_wav_quando_transcribe_falha(tmp_path, monkeypat
         assert w.getnframes() == 800
 
 
-def test_whisper_falha_ainda_grava_somente_audio(tmp_path, monkeypatch):
+def test_whisper_falha_ainda_grava_somente_audio(tmp_path, monkeypatch, chave_teste):
     """FR-2.4: WhisperModel lança → start grava WAV; status contém 'somente áudio'."""
     pasta_audio = tmp_path / "audio"
     monkeypatch.setattr("transcricao_core.PASTA_AUDIO", str(pasta_audio))

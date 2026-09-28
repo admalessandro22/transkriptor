@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import datetime
+import functools
 import json
 import logging
 import os
 import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Iterator, Mapping
@@ -31,6 +33,14 @@ TIPOS_CONTEUDO = frozenset(
 
 class ColetaBloqueada(RuntimeError):
     """Coleta de conteúdo bloqueada (sem chave ou coleta revogada)."""
+
+
+def _sincronizado(func):
+    @functools.wraps(func)
+    def executar(self, *args, **kwargs):
+        with self._lock:
+            return func(self, *args, **kwargs)
+    return executar
 
 
 def _chave_ok() -> bool:
@@ -84,6 +94,8 @@ class EventStore:
         # raiz de transcrições para refs resolvíveis pelo job v2).
         self._ancora = Path(ancora_refs) if ancora_refs is not None else self._raiz
         self.sessao = session
+        self._lock = threading.RLock()
+        self._fechado = False
         self._aberto: list[bytes] = []
         self._aberto_bytes = 0
         self._aberto_desde: float | None = None
@@ -164,7 +176,10 @@ class EventStore:
         if kind in TIPOS_CONTEUDO and not _chave_ok():
             raise ColetaBloqueada("cifra indisponível para legendas/nomes")
 
+    @_sincronizado
     def append(self, event: Mapping) -> int:
+        if self._fechado:
+            raise ColetaBloqueada("store fechado")
         try:
             valido = validar_envelope(event, self.sessao)
         except EnvelopeRejeitado:
@@ -193,6 +208,7 @@ class EventStore:
             if caminho.is_file()
         )
 
+    @_sincronizado
     def descarregar(self, forcar: bool = False) -> int:
         if not self._aberto:
             return self._ack
@@ -255,16 +271,19 @@ class EventStore:
             ).encode("utf-8"),
         )
 
+    @_sincronizado
     def read_events(self) -> Iterator[dict]:
-        yield from self._ler_selados_recuperando()
+        eventos = self._ler_selados_recuperando()
         for linha in self._aberto:
             try:
                 evento = json.loads(linha.decode("utf-8"))
             except ValueError:
                 continue
             if isinstance(evento, dict):
-                yield evento
+                eventos.append(evento)
+        return iter(eventos)
 
+    @_sincronizado
     def seal(self) -> tuple[ArtifactRef, ...]:
         self.descarregar(forcar=True)
         refs = []
@@ -277,8 +296,10 @@ class EventStore:
                     schema_version=VERSAO_ARTEFATO,
                 )
             )
+        self._fechado = True
         return tuple(refs)
 
+    @_sincronizado
     def revogar(self) -> None:
         self._revogada = True
 

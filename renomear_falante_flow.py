@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import logging
-import os
 import re
 
 import numpy as np
 
-from config import ARQUIVO_VOZES_CONHECIDAS, PASTA_TRANSCRICOES
+from config import ARQUIVO_VOZES_CONHECIDAS
 from identificador_voz import renomear_falante
-from notificador import notificar
 
 logger = logging.getLogger(__name__)
 
@@ -80,55 +78,3 @@ def corrigir_nome_reuniao(
         display_name=novo_nome,
         autor=autor,
     )
-
-
-def corrigir_nome_reuniao_ui(app) -> None:
-    """Diálogo de correção por reunião (T-13.D7): sem cadastrar biometria."""
-    import tkinter as tk
-    from tkinter import filedialog, simpledialog
-
-    from resultado_reuniao import carregar_segmentos
-
-    root = tk.Tk()
-    root.withdraw()
-    try:
-        caminho = filedialog.askopenfilename(
-            parent=root,
-            title="Resultado da reunião (.json)",
-            initialdir=os.path.join(PASTA_TRANSCRICOES, "resultados"),
-            filetypes=[("Resultado", "*.json")],
-        )
-        if not caminho:
-            return
-        try:
-            dados = carregar_segmentos(caminho)
-        except ValueError as e:
-            notificar("Transkriptor", f"Resultado inválido: {e}")
-            return
-        clusters = sorted({s["speaker_cluster_id"] for s in dados["segmentos"]})
-        cluster = simpledialog.askstring(
-            "Corrigir nome",
-            f"Falante ({', '.join(clusters)}):",
-            parent=root,
-        )
-        if not cluster:
-            return
-        nome = simpledialog.askstring("Corrigir nome", "Nome correto:", parent=root)
-        if not nome:
-            return
-        revisao = corrigir_nome_reuniao(
-            caminho, dados["revision"], cluster, nome, autor="bandeja"
-        )
-        notificar("Transkriptor", f"Nome corrigido nesta reunião ({revisao}).")
-        app._status(f"Correção salva: {revisao}")
-    except ValueError as e:
-        notificar("Transkriptor", str(e))
-        app._status(f"Erro ao corrigir: {e}")
-    except Exception as e:
-        logger.exception("Erro ao corrigir nome da reunião")
-        app._status(f"Erro ao corrigir: {e}")
-    finally:
-        try:
-            root.destroy()
-        except Exception:
-            pass

@@ -1,0 +1,108 @@
+- link "Ir para o conteúdo":
+  - /url: "#conteudo"
+- navigation "Navegação principal":
+  - text: Transkriptor Reuniões locais
+  - list:
+    - listitem:
+      - link "Início":
+        - /url: /inicio
+        - img
+        - text: Início
+    - listitem:
+      - link "Reuniões":
+        - /url: /reunioes
+        - img
+        - text: Reuniões
+    - listitem:
+      - link "Assistente":
+        - /url: /
+        - img
+        - text: Assistente
+    - listitem:
+      - link "Participantes":
+        - /url: /participantes
+        - img
+        - text: Participantes
+    - listitem:
+      - link "Configurações":
+        - /url: /configuracoes
+        - img
+        - text: Configurações
+    - listitem:
+      - link "Diagnóstico":
+        - /url: /diagnostico
+        - img
+        - text: Diagnóstico
+  - text: Local em 127.0.0.1
+- banner:
+  - heading "Participantes" [level=1]
+  - status: Aguardando reunião
+  - button "Mudar para tema escuro":
+    - img
+- main:
+  - heading "Participantes" [level=2]
+  - paragraph: Quem falou em cada reunião, com a origem de cada nome. Corrija nomes só para esta reunião; nenhuma voz é cadastrada sem uma ação separada.
+  - text: Revisão 3
+  - region "Participantes da reunião":
+    - heading "Participantes da reunião" [level=2]
+    - text: Reunião
+    - combobox "Reunião":
+      - option "reuniao-2026-09-22" [selected]
+    - img
+    - region "Falantes":
+      - heading "Falantes" [level=3]
+      - list:
+        - listitem "FALANTE_00":
+          - text: Falante 1 2 falas · 1 min Sugerido
+          - button "Aprender a voz de Falante 1 para próximas reuniões": Aprender voz
+        - listitem "FALANTE_01":
+          - text: VOCÊ Você 1 fala · 1 min Confirmado · voz
+          - button "Aprender a voz de VOCÊ para próximas reuniões": Aprender voz
+        - listitem "FALANTE_02":
+          - text: Falante 3 1 fala · 1 min Identificação pendente
+          - button "Aprender a voz de Falante 3 para próximas reuniões": Aprender voz
+    - region "Falas":
+      - heading "Falas" [level=3]
+      - group "Filtrar falas por falante":
+        - button "Todos" [pressed]
+        - button "Falante 1"
+        - button "VOCÊ"
+        - button "Falante 3"
+      - article:
+        - text: 00:00:00 Identificação pendente (pendente, incerto · Falante 1)
+        - paragraph: Bom dia a todos, vamos começar pela pauta do dia.
+        - text: "Sugestão: Ana Souza · origem: legenda · confiança: 91%"
+        - button "Confirmar Ana Souza"
+        - button "Escolher outro nome"
+      - article:
+        - text: 00:00:04 VOCÊ (voz)
+        - paragraph: Perfeito. Eu fico com a parte de integração.
+      - article:
+        - text: 00:00:09 Identificação pendente (pendente, incerto · Falante 1)
+        - paragraph: Então fechamos o prazo para sexta.
+        - text: "Sugestão: Ana Souza · origem: legenda · confiança: 88%"
+        - button "Confirmar Ana Souza"
+        - button "Escolher outro nome"
+      - article:
+        - text: 00:00:14 Identificação pendente (pendente, incerto · Falante 3)
+        - paragraph: Eu reviso o documento até quinta.
+    - text: Corrigir nome nesta reunião Falante
+    - combobox "Falante":
+      - option "Falante 1" [selected]
+      - option "VOCÊ"
+      - option "Falante 3"
+    - img
+    - text: Nome corrigido
+    - textbox "Nome corrigido":
+      - /placeholder: "Ex.: Maria Silva"
+    - text: Vale só para esta reunião. Não cadastra a voz de ninguém.
+    - button "Salvar correção"
+    - button "Desfazer" [disabled]:
+      - img
+      - text: Desfazer
+    - button "Exportar TXT":
+      - img
+      - text: Exportar TXT
+    - paragraph: Nada a desfazer.
+    - paragraph: O TXT exportado é legível e contém dados sensíveis da reunião.
+    - status

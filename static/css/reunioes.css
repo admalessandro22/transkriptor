@@ -1,0 +1,72 @@
+/* Lista de reuniões em colunas + diálogos de resumo, edição e exclusão. */
+.tk-tabela-reunioes { overflow: visible; }
+.tk-row.tk-reuniao, .tk-reuniao--cabecalho {
+  display: grid;
+  grid-template-columns: minmax(13rem, 2.4fr) 6.25rem 3.75rem 3.75rem 5.5rem minmax(9rem, 2fr) 5.75rem 9.5rem;
+  align-items: center; gap: var(--tk-space-3); padding: var(--tk-space-3) var(--tk-space-4);
+}
+.tk-tabela-reunioes--compacta .tk-row.tk-reuniao { grid-template-columns: minmax(12rem, 2.4fr) 6.25rem 3.75rem 3.75rem 5.5rem minmax(8rem, 2fr) 5.75rem; }
+.tk-reuniao--cabecalho {
+  padding-top: var(--tk-space-2); padding-bottom: var(--tk-space-2);
+  background: var(--tk-bg-2); border-bottom: 1px solid var(--tk-border);
+  border-radius: var(--tk-radius-md) var(--tk-radius-md) 0 0;
+  font-size: var(--tk-type-xs-size); line-height: var(--tk-type-xs-line); font-weight: 600; letter-spacing: 0.4px;
+  text-transform: uppercase; color: var(--tk-text-3);
+}
+.tk-tabela-reunioes > .tk-reuniao--cabecalho + .tk-row { border-radius: 0; }
+.tk-reuniao__cel { min-width: 0; }
+.tk-reuniao__data, .tk-reuniao__inicio, .tk-reuniao__fim, .tk-reuniao__duracao {
+  color: var(--tk-text-2); font-size: var(--tk-type-sm-size); font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.tk-reuniao__nome .tk-row__abrir { display: block; font-weight: 600; }
+.tk-row__abrir.is-sem-titulo { color: var(--tk-text-3); font-weight: 500; font-style: italic; }
+.tk-reuniao__pessoas .tk-row__participantes { display: block; }
+.tk-reuniao__acoes { display: flex; justify-content: flex-end; gap: 2px; position: relative; z-index: 1; }
+.tk-reuniao__estado { position: relative; z-index: 1; }
+.tk-reuniao__acao { color: var(--tk-text-3); width: 32px; }
+.tk-reuniao__acao:hover { color: var(--tk-text-1); background: var(--tk-bg-3); }
+.tk-reuniao__acao--perigo:hover { color: var(--tk-danger); background: var(--tk-danger-soft); }
+.tk-row.tk-reuniao .tk-row__resumo { top: calc(100% - var(--tk-space-3)); }
+
+/* Até ~1100 px vira cartão; o rótulo de cada campo aparece antes do valor. */
+@media (max-width: 1100px) {
+  .tk-reuniao--cabecalho { display: none; }
+  .tk-row.tk-reuniao, .tk-tabela-reunioes--compacta .tk-row.tk-reuniao { display: flex; flex-wrap: wrap; gap: var(--tk-space-1) var(--tk-space-4); }
+  .tk-reuniao__nome { flex: 1 1 100%; }
+  .tk-reuniao__data::before, .tk-reuniao__inicio::before, .tk-reuniao__fim::before, .tk-reuniao__duracao::before {
+    content: attr(data-rotulo) " "; color: var(--tk-text-3); font-size: var(--tk-type-xs-size);
+  }
+  .tk-reuniao__pessoas { flex: 1 1 100%; order: 2; }
+  .tk-reuniao__estado { order: 3; }
+  .tk-reuniao__acoes { order: 4; margin-left: auto; }
+}
+
+/* Diálogos */
+.tk-dialog--largo { width: min(640px, calc(100vw - 32px)); }
+.tk-dialog__subtitulo { color: var(--tk-text-3); font-size: var(--tk-type-sm-size); font-variant-numeric: tabular-nums; margin-top: calc(-1 * var(--tk-space-2)); }
+.tk-dialog__conteudo { display: flex; flex-direction: column; gap: var(--tk-space-3); }
+.tk-dialog__aviso { color: var(--tk-danger); font-size: var(--tk-type-sm-size); }
+.tk-resumo-ia__selo { display: inline-flex; align-items: center; gap: var(--tk-space-1); color: var(--tk-accent); font-size: var(--tk-type-xs-size); font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; }
+.tk-resumo-ia { font-size: 15px; line-height: 1.65; color: var(--tk-text-1); padding: var(--tk-space-4); background: var(--tk-bg-2); border-radius: var(--tk-radius-md); border-left: 3px solid var(--tk-accent); }
+.tk-resumo-ia[data-estado="gerando"], .tk-resumo-ia[data-estado="indisponivel"], .tk-resumo-ia[data-estado="sem_resumo"] { color: var(--tk-text-3); font-style: italic; border-left-color: var(--tk-border-strong); }
+.tk-form-reuniao { display: flex; flex-direction: column; gap: var(--tk-space-5); }
+.tk-field__ajuda { color: var(--tk-text-3); font-size: var(--tk-type-xs-size); }
+.tk-form-reuniao__pessoas { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--tk-space-2); }
+.tk-form-reuniao__lista { display: flex; flex-direction: column; gap: var(--tk-space-2); max-height: 42vh; overflow: auto; padding-right: var(--tk-space-1); }
+.tk-form-reuniao__pessoa { display: grid; grid-template-columns: 7.5rem 1fr 4.5rem; align-items: center; gap: var(--tk-space-3); }
+.tk-form-reuniao__rotulo { display: inline-flex; align-items: center; gap: var(--tk-space-2); color: var(--tk-text-2); font-size: var(--tk-type-sm-size); }
+.tk-form-reuniao__cor { width: 10px; height: 10px; border-radius: 50%; background: var(--cor-falante, var(--tk-text-3)); flex: none; }
+.tk-form-reuniao__cor[data-cor="1"] { --cor-falante: var(--tk-speaker-1); } .tk-form-reuniao__cor[data-cor="2"] { --cor-falante: var(--tk-speaker-2); }
+.tk-form-reuniao__cor[data-cor="3"] { --cor-falante: var(--tk-speaker-3); } .tk-form-reuniao__cor[data-cor="4"] { --cor-falante: var(--tk-speaker-4); }
+.tk-form-reuniao__cor[data-cor="5"] { --cor-falante: var(--tk-speaker-5); } .tk-form-reuniao__cor[data-cor="6"] { --cor-falante: var(--tk-speaker-6); }
+.tk-form-reuniao__cor[data-cor="7"] { --cor-falante: var(--tk-speaker-7); } .tk-form-reuniao__cor[data-cor="8"] { --cor-falante: var(--tk-speaker-8); }
+.tk-form-reuniao__falas { color: var(--tk-text-3); font-size: var(--tk-type-xs-size); text-align: right; font-variant-numeric: tabular-nums; }
+.tk-plano-exclusao { list-style: none; margin: 0; padding: 0; border: 1px solid var(--tk-border); border-radius: var(--tk-radius-md); }
+.tk-plano-exclusao li { display: flex; justify-content: space-between; gap: var(--tk-space-3); padding: var(--tk-space-2) var(--tk-space-3); border-bottom: 1px solid var(--tk-border); font-size: var(--tk-type-sm-size); }
+.tk-plano-exclusao li:last-child { border-bottom: 0; }
+.tk-plano-exclusao__qtd { color: var(--tk-text-2); font-variant-numeric: tabular-nums; }
+.tk-plano-exclusao__total { font-weight: 600; background: var(--tk-bg-2); }
+.tk-plano-exclusao__detalhes summary { cursor: pointer; color: var(--tk-text-2); font-size: var(--tk-type-sm-size); }
+.tk-plano-exclusao__arquivos { margin: var(--tk-space-2) 0 0; padding-left: var(--tk-space-4); max-height: 10rem; overflow: auto; font-family: var(--tk-font-mono); font-size: var(--tk-type-xs-size); color: var(--tk-text-3); word-break: break-all; }
+.tk-input-confirmacao { font-family: var(--tk-font-mono); letter-spacing: 2px; text-transform: uppercase; }
+@media (max-width: 560px) { .tk-form-reuniao__pessoa { grid-template-columns: 1fr; gap: var(--tk-space-1); } .tk-form-reuniao__falas { text-align: left; } }

@@ -1,54 +1,7 @@
 # -*- coding: utf-8 -*-
 """Sanitização de mensagens de status para logs (SEC-6)."""
 
-PREFIXOS_MENSAGEM_SISTEMA = (
-    # O ciclo de reunião fala por estas duas palavras. Sem elas, "Reunião
-    # detectada...", "Reunião encerrada..." e "Gravação em andamento" eram
-    # censuradas como se fossem fala — em 2026-08-07 o app travou e o log ficou
-    # com uma única linha inútil (ver tests/test_status_seguro.py).
-    "Reunião",
-    "Reuniao",
-    "Gravação",
-    "Gravacao",
-    "Esta reunião",
-    "Carregando",
-    "Modelo pronto",
-    "Capturando",
-    "Erro",
-    "Iniciando",
-    "Diarização",
-    "Transcrição",
-    "Transcricao",
-    "Sem segmentos",
-    "Watchdog",
-    "Meet",
-    "Salvo:",
-    "Assistente",
-    "Detec",
-    "Ponte",
-    "ERRO",
-    "Separação",
-    "Reiniciando",
-    "Ja transcrevendo",
-    "Finalizando",
-    "encerrada",
-    "ativa em",
-    "rodando em",
-    "pausada",
-    "retomada",
-    "desativada",
-    "Abrindo",
-    "Aguardando",
-    "Cadastro",
-    "perfil",
-    "nomes Meet",
-    "legendas",
-    "Vozes separadas",
-    "offline",
-    "Parar",
-    "Sair",
-    "Encerrando",
-)
+import re
 
 MSG_LOG_TRANSCRICAO_OMITIDA = "[conteúdo de transcrição omitido do log]"
 
@@ -58,6 +11,14 @@ MSG_LOG_TRANSCRICAO_OMITIDA = "[conteúdo de transcrição omitido do log]"
 CAMPOS_LIVRES_OMITIDOS = frozenset({"detalhe", "texto", "mensagem", "conteudo"})
 
 CODIGOS_EVENTO = {
+    "meeting_detected": ("fontes",),
+    "status_error": (),
+    "diarizacao_status": (),
+    "modelo_carregando": (),
+    "erro_critico": (),
+    "audio_descarte_falhou": (),
+    "modelo_fallback_cpu": (),
+    "modelo_indisponivel": (),
     "captura_iniciada": ("dispositivo", "frames"),
     "captura_encerrada": ("duracao_seg",),
     "transcricao_bloco": (),
@@ -69,6 +30,15 @@ CODIGOS_EVENTO = {
     "worker_etapa": ("stage", "unidades"),
     "recuperacao": ("itens", "recuperados"),
 }
+
+VALORES_EVENTO = {
+    "dispositivo": frozenset({"loopback", "microfone"}),
+    "motivo_codigo": frozenset({"sem_dispositivo", "captura_falhou", "sem_frames"}),
+    "thread": frozenset({"captura", "microfone", "monitor"}),
+    "tipo": frozenset({"join", "leave", "rename", "participants"}),
+    "stage": frozenset({"reservado", "transcrevendo", "diarizando", "concluido", "erro"}),
+}
+FONTES_REUNIAO = frozenset({"titulo", "microfone", "zoom", "extensao"})
 
 _PADROES_CREDENCIAL = None
 
@@ -106,7 +76,16 @@ def emitir_evento(codigo: str, **campos) -> str:
             continue
         if chave not in permitidos:
             raise ValueError(f"campo não permitido para {codigo}: {chave}")
-        if not isinstance(valor, (str, int, float, bool)):
+        if chave == "fontes":
+            fontes = valor.split(",") if isinstance(valor, str) else []
+            valido = bool(fontes) and len(fontes) <= 4 and len(fontes) == len(set(fontes)) and all(
+                fonte in FONTES_REUNIAO for fonte in fontes
+            )
+        elif chave in VALORES_EVENTO:
+            valido = isinstance(valor, str) and valor in VALORES_EVENTO[chave]
+        else:
+            valido = isinstance(valor, (int, float)) and not isinstance(valor, bool) and valor >= 0
+        if not valido:
             raise ValueError(f"campo não permitido para {codigo}: {chave}")
         partes.append(f"{chave}={valor}")
     return _sem_credencial(" ".join(partes))
@@ -121,15 +100,34 @@ def mensagem_e_sistema(msg: str) -> bool:
     if not msg or not str(msg).strip():
         return True
     texto = str(msg).strip()
-    for prefixo in PREFIXOS_MENSAGEM_SISTEMA:
-        if texto.startswith(prefixo):
-            return True
-    if ".txt" in texto or "127.0.0.1" in texto:
+    if texto in {
+        "Carregando modelo base...",
+        "Modelo pronto.",
+        "Reunião detectada. Iniciando gravação...",
+        "Reunião encerrada. Finalizando transcricao...",
+        "Reunião encerrada e colocada na fila de transcrição.",
+        "Esta reunião não será gravada.",
+        "Gravação da reunião em andamento.",
+        "Gravação automática pausada.",
+        "Gravação automática retomada.",
+        "Gravação descartada.",
+        "Transcrição encerrada.",
+        "Transcricao em andamento.",
+        "Capturando audio...",
+    }:
         return True
-    return False
+    return bool(re.fullmatch(r"Capturando audio\.\.\. \([0-9]{4,6} Hz\)", texto))
 
 
 def sanitizar_para_log(msg: str) -> str:
+    if str(msg).startswith(("Reunião detectada", "Reuniao detectada")):
+        return emitir_evento("meeting_detected")
+    if str(msg).startswith(("Erro", "ERRO")):
+        return emitir_evento("status_error")
+    if str(msg).startswith("Diarização concluída:"):
+        return emitir_evento("diarizacao_status")
+    if str(msg).startswith("Carregando modelo"):
+        return emitir_evento("modelo_carregando")
     if mensagem_e_sistema(msg):
         return msg
     return MSG_LOG_TRANSCRICAO_OMITIDA

@@ -1,0 +1,76 @@
+- link "Ir para o conteúdo":
+  - /url: "#conteudo"
+- navigation "Navegação principal":
+  - text: Transkriptor Reuniões locais
+  - list:
+    - listitem:
+      - link "Início":
+        - /url: /inicio
+        - img
+        - text: Início
+    - listitem:
+      - link "Reuniões":
+        - /url: /reunioes
+        - img
+        - text: Reuniões
+    - listitem:
+      - link "Assistente":
+        - /url: /
+        - img
+        - text: Assistente
+    - listitem:
+      - link "Participantes":
+        - /url: /participantes
+        - img
+        - text: Participantes
+    - listitem:
+      - link "Configurações":
+        - /url: /configuracoes
+        - img
+        - text: Configurações
+    - listitem:
+      - link "Diagnóstico":
+        - /url: /diagnostico
+        - img
+        - text: Diagnóstico
+  - text: Local em 127.0.0.1
+- banner:
+  - heading "Configurações" [level=1]
+  - status: Aguardando reunião
+  - button "Mudar para tema escuro":
+    - img
+- main:
+  - heading "Configurações" [level=2]
+  - paragraph: As mesmas opções do menu da bandeja, com a consequência de cada uma. Mudanças valem na hora e ficam salvas.
+  - status: Sincronizado com a bandeja
+  - region "Gravação":
+    - heading "Gravação" [level=3]
+    - paragraph: O Transkriptor sempre pergunta antes de gravar. Só a resposta "Sim" inicia a captura; "Não" ou silêncio não gravam.
+    - text: Gravação automática Detecta reuniões do Meet e do Zoom e pergunta antes de gravar. Pausar significa não gravar nenhuma reunião.
+    - switch "Gravação automática Detecta reuniões do Meet e do Zoom e pergunta antes de gravar. Pausar significa não gravar nenhuma reunião." [checked]
+    - text: Separar vozes Ao terminar a reunião, separa quem falou o quê. Sem isso, a transcrição sai sem falantes.
+    - switch "Separar vozes Ao terminar a reunião, separa quem falou o quê. Sem isso, a transcrição sai sem falantes." [checked]
+    - text: Modelo de transcrição "auto" escolhe pelo hardware. Vale a partir da próxima transcrição.
+    - combobox "Modelo de transcrição \"auto\" escolhe pelo hardware. Vale a partir da próxima transcrição.":
+      - option "auto" [selected]
+    - img
+  - region "Vozes":
+    - heading "Vozes" [level=3]
+    - text: Identificar minha voz (VOCÊ) Usa o seu perfil de voz para marcar as suas falas. Exige um perfil cadastrado pelo menu da bandeja (20 segundos de microfone).
+    - switch "Identificar minha voz (VOCÊ) Usa o seu perfil de voz para marcar as suas falas. Exige um perfil cadastrado pelo menu da bandeja (20 segundos de microfone)." [disabled]
+    - text: "Perfil de voz Nenhum perfil cadastrado. Cadastre pelo menu da bandeja: Configurações → Minha voz → Cadastrar minha voz (20s)."
+    - button "Apagar perfil" [disabled]
+  - region "Google Meet":
+    - heading "Google Meet" [level=3]
+    - text: Identificar nomes do Meet Liga a ponte local (127.0.0.1) para a extensão enviar os nomes dos participantes.
+    - switch "Identificar nomes do Meet Liga a ponte local (127.0.0.1) para a extensão enviar os nomes dos participantes."
+    - text: Usar legendas do Meet Prioriza as legendas (CC) para atribuir falas. Liga também a identificação de nomes.
+    - switch "Usar legendas do Meet Prioriza as legendas (CC) para atribuir falas. Liga também a identificação de nomes."
+  - region "Proteção":
+    - heading "Proteção" [level=3]
+    - text: Modo em vigor Resultados e eventos cifrados em repouso; exportar texto legível exige ação explícita. Protegida Cópia protegida das transcrições No modo compatível, guarda também uma cópia cifrada de cada transcrição.
+    - switch "Cópia protegida das transcrições No modo compatível, guarda também uma cópia cifrada de cada transcrição." [checked]
+  - region "Sistema":
+    - heading "Sistema" [level=3]
+    - text: Iniciar com o Windows Cria um atalho na pasta de inicialização para a bandeja abrir sozinha.
+    - switch "Iniciar com o Windows Cria um atalho na pasta de inicialização para a bandeja abrir sozinha."

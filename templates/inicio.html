@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block titulo %}Início{% endblock %}
+{% block estilos %}<link rel="stylesheet" href="{{ url_for('static', filename='css/inicio.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/reunioes.css') }}">{% endblock %}
+{% block conteudo %}
+<div class="tk-page" id="pagina-inicio">
+  <div class="tk-page__inner">
+    <div class="tk-page__cabecalho">
+      <div>
+        <h2 class="tk-page__titulo">Início</h2>
+        <p class="tk-subtle">O que o Transkriptor está fazendo agora, a última reunião e a proteção em vigor. Tudo local, em 127.0.0.1.</p>
+      </div>
+      <div class="inicio__acoes">
+        <a class="tk-btn tk-btn--primary" href="/">Abrir assistente</a>
+        <a class="tk-btn tk-btn--secondary" href="/diagnostico">Diagnóstico</a>
+      </div>
+    </div>
+
+    <div class="inicio__cartoes">
+      <section class="tk-card inicio__cartao" id="inicio-estado" data-estado="indisponivel" aria-labelledby="inicio-estado-titulo" aria-live="polite">
+        <span class="tk-card__titulo" id="inicio-estado-titulo">Agora</span>
+        <span class="tk-card__valor" id="inicio-estado-valor">Central sem bandeja</span>
+        <span class="tk-subtle" id="inicio-estado-detalhe">O aplicativo da bandeja não está ligado a esta Central.</span>
+      </section>
+      <section class="tk-card inicio__cartao" id="inicio-ultima" aria-labelledby="inicio-ultima-titulo">
+        <span class="tk-card__titulo" id="inicio-ultima-titulo">Última reunião</span>
+        <span class="tk-card__valor" id="inicio-ultima-valor">—</span>
+        <span class="tk-subtle" id="inicio-ultima-detalhe">Nenhuma reunião processada ainda.</span>
+      </section>
+      <section class="tk-card inicio__cartao" id="inicio-protecao" aria-labelledby="inicio-protecao-titulo">
+        <span class="tk-card__titulo" id="inicio-protecao-titulo">Proteção</span>
+        <span class="tk-card__valor" id="inicio-protecao-valor">—</span>
+        <span class="tk-subtle" id="inicio-protecao-detalhe">Estado da proteção em repouso.</span>
+      </section>
+    </div>
+
+    <section class="inicio__recentes" aria-labelledby="inicio-recentes-titulo">
+      <div class="tk-page__cabecalho">
+        <h3 class="tk-label" id="inicio-recentes-titulo">Últimas reuniões</h3>
+        <a class="tk-btn tk-btn--quiet tk-btn--sm" href="/reunioes">Ver todas</a>
+      </div>
+      <div class="tk-rows tk-tabela-reunioes tk-tabela-reunioes--compacta" id="inicio-recentes" role="table" aria-labelledby="inicio-recentes-titulo" hidden></div>
+      <div class="tk-empty" id="inicio-recentes-estado" hidden></div>
+    </section>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script type="module" src="{{ url_for('static', filename='js/inicio.js') }}"></script>{% endblock %}

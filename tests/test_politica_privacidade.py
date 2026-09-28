@@ -25,6 +25,70 @@ def test_instalacao_existente_sem_campo_compativel():
     assert resolve_initial_mode({"protection_mode": "protected"}) == ProtectionMode.PROTECTED
 
 
+def test_menu_ativa_protecao_apenas_com_confirmacao_e_chave(monkeypatch):
+    import app_bandeja_menu
+    import config_user
+    import politica_privacidade
+
+    alteracoes = []
+    monkeypatch.setattr(config_user, "atualizar", lambda **kw: alteracoes.append(kw))
+    monkeypatch.setattr(app_bandeja_menu, "chave_disponivel", lambda: True)
+    monkeypatch.setattr(politica_privacidade, "modo_efetivo", lambda: ProtectionMode.COMPATIBLE)
+
+    class Bandeja(app_bandeja_menu.MenuBandejaMixin):
+        def _gravando(self): return False
+        def _processamento_em_execucao(self): return False
+        def _confirmar_modo_protegido(self): return True
+        def _status(self, _texto): pass
+        def _atualizar_tooltip(self): pass
+
+    bandeja = Bandeja()
+    bandeja.ativar_modo_protegido()
+    assert alteracoes == [{"protection_mode": "protected"}]
+
+    alteracoes.clear()
+    monkeypatch.setattr(Bandeja, "_confirmar_modo_protegido", lambda self: False)
+    bandeja.ativar_modo_protegido()
+    assert alteracoes == []
+
+
+def test_menu_recusa_protecao_durante_gravacao(monkeypatch):
+    import app_bandeja_menu
+    import config_user
+    import politica_privacidade
+
+    alteracoes = []
+    monkeypatch.setattr(config_user, "atualizar", lambda **kw: alteracoes.append(kw))
+    monkeypatch.setattr(politica_privacidade, "modo_efetivo", lambda: ProtectionMode.COMPATIBLE)
+
+    class Bandeja(app_bandeja_menu.MenuBandejaMixin):
+        def _gravando(self): return True
+        def _processamento_em_execucao(self): return False
+        def _status(self, _texto): pass
+
+    Bandeja().ativar_modo_protegido()
+    assert alteracoes == []
+
+
+def test_menu_recusa_protecao_sem_chave(monkeypatch):
+    import app_bandeja_menu
+    import config_user
+    import politica_privacidade
+
+    alteracoes = []
+    monkeypatch.setattr(config_user, "atualizar", lambda **kw: alteracoes.append(kw))
+    monkeypatch.setattr(politica_privacidade, "modo_efetivo", lambda: ProtectionMode.COMPATIBLE)
+    monkeypatch.setattr(app_bandeja_menu, "chave_disponivel", lambda: False)
+
+    class Bandeja(app_bandeja_menu.MenuBandejaMixin):
+        def _gravando(self): return False
+        def _processamento_em_execucao(self): return False
+        def _status(self, _texto): pass
+
+    Bandeja().ativar_modo_protegido()
+    assert alteracoes == []
+
+
 def test_sem_chave_nao_salva_biometria_em_claro(tmp_path, monkeypatch):
     import crypto_storage
     import politica_privacidade
@@ -77,6 +141,18 @@ def test_troca_modo_nao_rebaixa_protegido(chave_teste, tmp_path):
     protecao = protect_artifact(tmp_path / "a.wav.enc", ProtectionMode.COMPATIBLE)
     assert protecao.state == ProtectionState.PROTECTED
     assert not (tmp_path / "a.wav").exists()
+
+
+def test_modo_protegido_prevalece_sobre_flag_legada(chave_teste, tmp_path, monkeypatch):
+    import crypto_storage
+
+    monkeypatch.setattr(crypto_storage, "criptografia_ativa", lambda: False)
+    caminho = tmp_path / "resultado.txt"
+    caminho.write_text("conteúdo sensível", encoding="utf-8")
+    protecao = protect_artifact(caminho, ProtectionMode.PROTECTED)
+    assert protecao.state == ProtectionState.PROTECTED
+    assert not caminho.exists()
+    assert crypto_storage.ler_bytes_arquivo(str(tmp_path / protecao.relative_path)) == "conteúdo sensível".encode("utf-8")
 
 
 def test_dry_run_nao_remove(tmp_path):

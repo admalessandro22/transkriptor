@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Transkriptor — símbolo (SDD v1.9, UX-14.E1). Fonte vetorial de referência.
+       Geometria reproduzida em bandeja_icone.desenhar_icone (PIL). Cores por estado
+       vêm de design/tokens.json (color.state); aqui o estado neutro "idle". -->
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="#5B6B8C" stroke="#000" stroke-opacity="0.27" stroke-width="1.5"/>
+  <rect x="24" y="12" width="16" height="24" rx="8" fill="#fff"/>
+  <path d="M17 34a15 12 0 0 0 30 0" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+  <rect x="30" y="45" width="4" height="7" fill="#fff"/>
+  <rect x="23" y="51" width="18" height="4" rx="2" fill="#fff"/>
+  <!-- Glifos de estado (canto inferior direito, centro 48,48, raio 9):
+       transcrevendo: ponto · processando: engrenagem · diarizando: três ondas ·
+       pausado: duas barras · erro: exclamação · aguardando: nenhum -->
+</svg>

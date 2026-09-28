@@ -238,6 +238,9 @@ def _isolar_estado_local(monkeypatch, tmp_path):
 
     import config
     import config_user
+    import app_estado_ui
+
+    provedor_anterior = app_estado_ui.provedor_atual()
 
     substituicoes = {
         "CONFIG_USER_FILE": str(estado / "config_user.json"),
@@ -278,7 +281,8 @@ def _isolar_estado_local(monkeypatch, tmp_path):
         monkeypatch.setattr(startup_windows, "ATALHO_STARTUP", str(startup))
     except ImportError:
         pass
-    return estado
+    yield estado
+    app_estado_ui.registrar_provedor(provedor_anterior)
 
 
 @pytest.fixture
@@ -318,7 +322,7 @@ def tmp_transcricoes(tmp_path):
 
 
 @pytest.fixture(scope="session")
-def modulo_transkriptor(log_de_teste):
+def modulo_transkriptor(log_de_teste, tmp_path_factory):
     """Carrega o app .pyw sem executar o bloco __main__.
 
     Depende de `log_de_teste` de propósito: o handler de log é instalado no
@@ -329,4 +333,13 @@ def modulo_transkriptor(log_de_teste):
     spec = spec_from_loader(loader.name, loader)
     modulo = module_from_spec(spec)
     loader.exec_module(modulo)
-    return modulo
+    # O .pyw carregado por SourceFileLoader mantém cópias das constantes; a
+    # recuperação de órfãos no __init__ deve olhar apenas o estado isolado.
+    transcricoes = tmp_path_factory.mktemp("app_estado") / "transcricoes"
+    audio = transcricoes / "audio"
+    audio.mkdir(parents=True, exist_ok=True)
+    mp = pytest.MonkeyPatch()
+    mp.setattr(modulo, "PASTA_TRANSCRICOES", str(transcricoes))
+    mp.setattr(modulo, "PASTA_AUDIO", str(audio))
+    yield modulo
+    mp.undo()

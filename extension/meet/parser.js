@@ -35,12 +35,15 @@ function idLocal(prefixo, indice) {
 
 function montarFala(bloco, nome, texto, indice) {
   const idAttr = bloco.getAttribute && (bloco.getAttribute("data-caption-id") || bloco.getAttribute("data-caption-block-id"));
+  const participantId = bloco.getAttribute &&
+    (bloco.getAttribute("data-participant-id") || bloco.getAttribute("data-requested-participant-id"));
   return {
     id: idAttr || idLocal("cap", indice),
     nome: nome.trim(),
     texto: texto.slice(0, MAX_TEXTO),
     revisao: revisaoDe(bloco),
     efemero: !idAttr,
+    participant_id: participantId || undefined,
   };
 }
 

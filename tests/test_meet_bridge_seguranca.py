@@ -69,7 +69,7 @@ def test_convite_uso_unico_e_token_antigo_rejeitado():
         with pytest.raises(ConviteInvalido):
             pareador.trocar_convite(convite)
 
-        async def _usar(token_usado, troca_fechada):
+        async def _usar(token_usado, troca_fechada, connection_id, hint):
             import websockets
 
             try:
@@ -77,19 +77,22 @@ def test_convite_uso_unico_e_token_antigo_rejeitado():
                     f"ws://127.0.0.1:5071?token={token_usado}",
                     origin="http://127.0.0.1:5071",
                 ) as ws:
-                    await ws.send(json.dumps({"nome": "Ana", "ts_ms": 1, "tipo": "ativo"}))
+                    await ws.send(json.dumps({"tipo": "hello", "connection_id": connection_id,
+                                              "tab_id": "aba-1", "meeting_hint": hint,
+                                              "active": True, "client_wall_ms": 1_789_848_060_000,
+                                              "client_monotonic_ms": 1000}))
                     await asyncio.sleep(0.2)
             except Exception:
                 troca_fechada.append(True)
 
-        asyncio.run(_usar(token, []))
+        asyncio.run(_usar(token, [], "c1", "abc-defg-hij"))
         time.sleep(0.2)
-        assert len(bridge.drenar_eventos()) == 1
+        assert bridge.hint_ativo_unico() == "abc-defg-hij"
         pareador.revogar_token(token)
         fechada = []
-        asyncio.run(_usar(token, fechada))
+        asyncio.run(_usar(token, fechada, "c2", "xyz-abcd-efg"))
         time.sleep(0.2)
-        assert bridge.drenar_eventos() == []
+        assert bridge.hint_ativo_unico() == "abc-defg-hij"
     finally:
         bridge.parar()
         thread.join(timeout=2)

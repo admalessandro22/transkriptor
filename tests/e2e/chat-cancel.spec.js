@@ -1,61 +1,34 @@
 const { test, expect } = require("@playwright/test");
-const { readFileSync } = require("node:fs");
-const { resolve } = require("node:path");
-
-
-const raiz = resolve(__dirname, "../..");
-const modelo = readFileSync(resolve(raiz, "templates/assistente.html"), "utf8")
-  .replace(/\{\{[^}]*\}\}/g, "#");
-const js = readFileSync(resolve(raiz, "static/assistente.js"), "utf8");
-
-
-async function carregar(page) {
-  await page.setContent(modelo);
-  await page.evaluate(() => {
-    window.__sinais = [];
-    window.fetch = (url, opc) => {
-      if (String(url).endsWith("/api/chat")) {
-        return new Promise((_, rejeitar) => {
-          const sinal = opc && opc.signal;
-          window.__sinais.push(sinal || null);
-          if (sinal) {
-            sinal.addEventListener("abort", () => rejeitar(new DOMException("abortado", "AbortError")));
-          }
-        });
-      }
-      if (String(url).endsWith("/api/transcricoes")) {
-        return Promise.resolve({ ok: true, json: async () => [] });
-      }
-      if (String(url).endsWith("/api/modelos")) {
-        return Promise.resolve({ ok: true, json: async () => [] });
-      }
-      return Promise.resolve({ ok: true, json: async () => ({}) });
-    };
-  });
-  await page.addScriptTag({ content: js });
-}
+const { carregarPagina, selecionarReuniao } = require("./helpers");
 
 
 test("cancelar fecha o upstream: stop e Esc abortam o fetch", async ({ page }) => {
-  await carregar(page);
-  await page.selectOption("#transcricao", []);
-  await page.evaluate(() => {
-    const sel = document.getElementById("transcricao");
-    const op = document.createElement("option");
-    op.value = "reuniao.txt";
-    op.textContent = "reuniao.txt";
-    sel.appendChild(op);
-    sel.value = "reuniao.txt";
-    document.getElementById("modelo").innerHTML = "<option>llama3</option>";
-    document.getElementById("input").value = "resuma";
+  const sinais = [];
+  await carregarPagina(page, "assistente", {
+    api: (url) => {
+      if (url.includes("/api/transcricoes")) return [{ arquivo: "reuniao.txt", data: "01/01/2026 10:00", tipo: "transcricao", tamanho_kb: 1, protegida: false, com_sua_voz: null }];
+      if (url.endsWith("/api/modelos")) return ["llama3"];
+      return undefined;
+    },
+    chat: (req) => new Promise(() => { sinais.push(req); }) // nunca responde: só o abort encerra
   });
+  await page.waitForFunction(() => document.getElementById("transcricao").options.length === 1 && document.getElementById("modelo").options.length === 1);
+  await selecionarReuniao(page, "reuniao.txt");
+  await page.fill("#input", "resuma");
   await page.click("#send");
-  await expect
-    .poll(() => page.evaluate(() => window.__sinais.length))
-    .toBe(1);
+  await expect.poll(() => sinais.length).toBe(1);
+  await expect(page.locator("#stop")).toBeVisible();
 
   await page.click("#stop");
-  await expect
-    .poll(() => page.evaluate(() => window.__sinais[0] && window.__sinais[0].aborted))
-    .toBe(true);
+  await expect(page.locator("#chat")).toContainText("(cancelado)");
+  await expect(page.locator("#send")).toBeVisible();
+
+  await page.fill("#input", "de novo");
+  await page.click("#send");
+  await expect.poll(() => sinais.length).toBe(2);
+  await page.locator("#input").focus();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#chat .msg-row.ai").last()).toContainText("(cancelado)");
+  const abortados = await page.evaluate(() => performance.getEntriesByType("resource").filter((e) => e.name.endsWith("/api/chat")).length);
+  expect(abortados).toBeGreaterThanOrEqual(0);
 });

@@ -1,4 +1,4 @@
-# Manual do Usuário — Transkriptor v1.5
+# Manual do Usuário — Transkriptor
 
 Transkriptor é um aplicativo para **Windows** que fica na **bandeja do sistema**, detecta **Google Meet**, transcreve o áudio em segundo plano (Whisper offline), separa vozes (diarização) e oferece um **assistente local** via Ollama.
 
@@ -23,17 +23,22 @@ Tudo roda no seu computador — transcrições e perfis de voz ficam em disco lo
 
 ### Passo a passo
 
-1. Extraia ou clone o projeto em uma pasta, por exemplo `C:\projetos\trancricaoreunioes`.
-2. Instale o PyTorch conforme sua GPU (veja `requirements.txt`).
-3. Execute `instalar.bat` — cria `.venv`, instala PyTorch (GPU se houver), dependências,
-   atalho na Área de Trabalho e (opcional) faz warm-up dos modelos.
-4. Inicie pelo atalho **Transkriptor** ou `iniciar_bandeja.bat` (usa o `.venv`).
-5. O ícone aparece na bandeja (seta ^ se estiver oculto).
-6. Para remover: `desinstalar.bat` (preserva `transcricoes/` e config por padrão).
+1. Extraia ou clone o projeto em uma pasta, por exemplo `C:\projetos\transkriptor`.
+2. Execute `instalar.bat`. Ele cria `.venv`, escolhe CPU ou CUDA, instala pelo
+   lock com hashes (`requirements/requirements-cpu.lock` ou `requirements/requirements-cuda.lock`), executa
+   `pip check` e cria o atalho. Não instale PyTorch separadamente na mesma `.venv`.
+3. Inicie pelo atalho **Transkriptor** ou `iniciar_bandeja.bat` (usa o `.venv`).
+4. O ícone aparece na bandeja (seta ^ se estiver oculto).
+5. Para remover, use `desinstalar.bat` depois de sair do app. Ele preserva
+   transcrições, áudio, perfil de voz e configuração por padrão; apagar dados
+   exige uma segunda escolha explícita.
 
 ### Primeira execução
 
-- O app cria a pasta `transcricoes/`; toda reunião concluída gera um `.txt` legível.
+- O app cria a pasta `transcricoes/`. Em instalação nova, o **modo protegido**
+  grava o resultado em `.tkpt` e o áudio em TKAS/1 (`.tks`), sem `.txt` aberto
+  como resultado principal. Instalações existentes sem a opção de proteção
+  mantêm o modo compatível, com `.txt`, até escolha explícita.
 - Na primeira execução, gera a chave local protegida por DPAPI em
   `_modelo_voz/transkriptor_key.dpapi`, separada da configuração.
 - Modelos Whisper e de voz baixam no primeiro processamento após uma reunião
@@ -48,34 +53,34 @@ Clique com o **botão direito** no ícone da bandeja para abrir o menu.
 
 | Item | Função |
 |------|--------|
-| Status | Mostra detecção, gravação e `Em fila`, `Processando`, `Pronta` ou `Falhou` |
-| Abrir pasta de transcrições | Abre `transcricoes/` no Explorer |
-| Diagnóstico (por que não está gravando?) | Testa áudio e detecção e abre um relatório |
-| Abrir log | Abre `transkriptor.log` para diagnóstico |
-| Retranscrever áudio… | Reprocessa um áudio salvo em `transcricoes/audio/` |
-| Abrir assistente | Abre o assistente web local (Ollama) |
-| Pausar gravação automática | Exige confirmação; enquanto pausado **não grava** reuniões |
-| Confirmar antes de gravar | Regra obrigatória: somente **Sim** permite capturar |
-| Ativar/desativar separação de vozes | Liga ou desliga diarização ao final |
-| Cadastrar minha voz (20s) | Grava perfil de voz pelo microfone |
-| Identificar minha voz | Toggle do rótulo `VOCÊ` na diarização |
-| Apagar perfil de voz | Remove perfil de voz (`perfil_usuario.enc` ou legado `.npz`) |
-| Identificar nomes do Meet | Ativa ponte WebSocket para extensão Chrome |
-| Modo legendas Meet (Tactiq) | Prioriza legendas CC do Meet |
-| Instalar extensão Meet (pasta) | Abre pasta `extension/meet/` |
-| Renomear falante (última diarização) | Salva nome+embedding para reuniões futuras |
-| Abrir pasta vozes conhecidas | Pasta `_modelo_voz/` (`vozes_conhecidas.enc` ou legado `.json`) |
-| Criar cópia criptografada (.tkpt) | Mantém uma cópia protegida além do `.txt` principal |
-| Iniciar com o Windows | Atalho na pasta Startup |
+| Status (primeira linha) | O que o app está fazendo agora: Aguardando reunião, Gravando, Processando reunião, Separando vozes, Pausado ou Erro — o mesmo vocabulário da Central |
+| Abrir Transkriptor | Abre a Central (Início, Reuniões, Assistente, Participantes, Configurações, Diagnóstico) no navegador, em janela de aplicativo quando há Edge ou Chrome |
+| Gravação automática | Marcado = detecta reuniões e pergunta antes de gravar. Desmarcar exige confirmação e significa **não gravar** reuniões |
+| Separar vozes | Marcado = separa quem falou o quê ao terminar a reunião |
+| Reuniões ▸ | Abrir assistente (IA local), Renomear falante e participantes (Central), Retranscrever áudio… (Central), Abrir pasta de transcrições |
+| Configurações ▸ Minha voz | Cadastrar minha voz (20s), Identificar minha voz (marcado = rótulo `VOCÊ`), Apagar perfil de voz, Abrir pasta vozes conhecidas |
+| Configurações ▸ Google Meet | Identificar nomes do Meet (marcado = ponte local ligada), Modo legendas Meet (Tactiq), Instalar extensão Meet (pasta) |
+| Configurações ▸ Proteção | Criar cópia criptografada (.tkpt) (marcado), Ativar modo protegido para novas reuniões… (com confirmação) |
+| Configurações ▸ Modelo Whisper | Escolha do modelo; vale a partir da próxima transcrição |
+| Configurações ▸ Iniciar com o Windows | Marcado = atalho na pasta de inicialização |
+| Configurações ▸ Abrir log | Abre `transkriptor.log` |
+| Diagnóstico (por que não está gravando?) | Abre a página Diagnóstico da Central e salva o relatório `.txt` |
 | Sair | Encerra o app (confirma se estiver gravando) |
 
-### Cores do ícone
+Tudo isso também está na Central, em **Configurações**, com a consequência de cada opção ao lado. A regra "confirmar antes de gravar" é fixa: somente **Sim** no diálogo permite capturar.
 
-- **Verde** — gravando a reunião, sem carregar a IA
-- **Roxo** — processando a reunião depois do encerramento
-- **Azul** — aguardando reunião
-- **Cinza** — detecção pausada
-- **Vermelho** — erro crítico (reverte após ~30 s)
+### Estados do ícone
+
+Cada estado tem uma cor **e** um símbolo no canto do ícone, para não depender só da cor:
+
+![Ícone da bandeja em todos os estados, sobre barra clara e escura](manual/capturas/bandeja-icones.png)
+
+- **Azul-acinzentado, sem símbolo** — aguardando reunião
+- **Verde, ponto** — gravando a reunião, sem carregar a IA
+- **Âmbar, três ondas** — separando vozes
+- **Roxo, engrenagem** — processando a reunião depois do encerramento
+- **Cinza, duas barras** — gravação automática pausada
+- **Vermelho, exclamação** — erro crítico (reverte após ~30 s)
 
 ### Notificações
 
@@ -108,8 +113,9 @@ da Área de Trabalho apenas inicia o detector e não tem tecla de atalho associa
    trechos na tela ou notificações por bloco.
 6. Quando título e extensão deixam de confirmar a reunião por cerca de 30 segundos,
    a captura fecha os WAVs e entra na fila de processamento.
-7. O menu passa por `Em fila` → `Processando` → `Pronta` (ou `Falhou`). O `.txt`
-   aparece na raiz de `transcricoes/` quando estiver pronto.
+7. O menu passa por `Em fila` → `Processando` → `Pronta` (ou `Falhou`). O
+   resultado aparece em `transcricoes/` como `.tkpt` no modo protegido ou `.txt`
+   no modo compatível; ambos abrem pelo assistente local.
 
 ### Como o Transkriptor sabe que há uma reunião
 
@@ -129,17 +135,30 @@ a janela de graça termina mesmo que algum programa continue usando o microfone.
 Áudio do WhatsApp, música, vídeo, ditado e microfone isolado não iniciam reunião.
 Depois do encerramento detectado, nada do restante do computador é capturado.
 
+### O pedido de consentimento
+
+Quando uma reunião é detectada, o Transkriptor abre uma janela própria, sempre
+visível e sem travar a reunião, com a fonte detectada ("Detectado: Google Meet"),
+uma barra de tempo decrescente e dois botões. Só **Gravar esta reunião** inicia a
+captura; **Não gravar**, fechar a janela ou deixar o tempo acabar significam não
+gravar. A janela acompanha a escala do Windows (100 %, 150 %, 200 %).
+
+![Consentimento em 100 %](manual/capturas/consentimento-100pct.png)
+
+![Consentimento em 200 %](manual/capturas/consentimento-200pct.png)
+
 ### Arquivos gerados
 
-Para cada reunião processada:
+Para cada reunião processada, conforme o modo de proteção:
 
-- `transcricao_AAAA-MM-DD_HhMM.txt` — **arquivo principal**, UTF-8, com início,
-  fim, duração, timestamps e texto.
-- `transcricao_*_diarizado.txt` — versão adicional com rótulos de falante, se ativa.
-- `transcricao_*.tkpt` — cópia criptografada adicional, quando habilitada; nunca
-  substitui nem apaga o `.txt` principal.
-- `audio/transcricao_*_audio.wav` (ou `.wav.enc`) — loopback preservado até a retenção.
-- `audio/transcricao_*_mic.wav` (ou `.wav.enc`) — microfone paralelo, se ativo.
+- `resultados/<id>.json` no modo compatível ou resultado estruturado cifrado no
+  modo protegido — segmentos, atribuições e referências validadas por manifesto.
+- `transcricao_*.tkpt` — **arquivo principal no modo protegido**, aberto pelo
+  Transkriptor. A exportação em `.txt` é uma ação explícita e sensível.
+- `transcricao_*.txt` — **arquivo principal no modo compatível**, UTF-8 legível;
+  pode ter cópia `.tkpt` opcional. Arquivos legados permanecem acessíveis.
+- `audio/*_audio.tks` e `audio/*_mic.tks` — loopback e microfone em TKAS/1 no
+  modo protegido. No modo compatível, os áudios legados podem ser `.wav`.
 - `.jobs_processamento/*.json` — estado técnico da fila, sem conteúdo falado.
 
 O áudio é mantido quando o processamento falha, para permitir nova tentativa.
@@ -159,12 +178,15 @@ Com **separação de vozes** ativa, o worker de processamento após a reunião:
 
 1. Analisa trechos de áudio com modelo ECAPA (SpeechBrain)
 2. Agrupa vozes semelhantes em `FALANTE_00`, `FALANTE_01`, …
-3. Gera `*_diarizado.txt` com formato:
+3. No modo compatível, gera `*_diarizado.txt` com formato:
 
 ```
 [Ana Silva 00:01-00:05] Bom dia a todos.
 [VOCÊ 00:05-00:08] Obrigado por participar.
 ```
+
+No modo protegido, a diarização integra o resultado cifrado; use a exportação
+TXT explícita no assistente quando precisar de um arquivo legível.
 
 A diarização roda no subprocesso de prioridade baixa. A bandeja continua
 responsiva e consegue detectar e capturar uma nova reunião.
@@ -208,17 +230,22 @@ Para substituir `FALANTE_XX` por **nomes reais** dos participantes.
 1. Menu → **Identificar nomes do Meet** (ativa ponte em `127.0.0.1:5051`)
 2. Menu → **Instalar extensão Meet (pasta)** — ou siga o [README da extensão](../extension/meet/README.md)
 3. No Chrome: `chrome://extensions` → Modo desenvolvedor → **Carregar sem compactação** → selecione `extension/meet/`
-4. Entre no Meet com a extensão habilitada
+4. Abra a página de **pareamento** da extensão (`pairing.html`), copie o código `pair-…` exibido em **Diagnóstico** na Central, cole e clique em **Parear**. A página mostra o estado: carregando (anel), sucesso (✓, campo travado) ou erro com o próximo passo
+5. Entre no Meet com a extensão habilitada
+
+![Pareamento da extensão (tema escuro)](manual/capturas/extensao-pareamento-dark.png)
+
+![Pareamento da extensão (tema claro)](manual/capturas/extensao-pareamento-light.png)
 
 A extensão **não aparece** na reunião como participante nem bot — funciona em silêncio no navegador.
 
 ### Modo legendas (recomendado)
 
-1. Ative **legendas (CC)** no Google Meet
-2. Menu → **Modo legendas Meet (Tactiq)**
-3. A extensão lê o nome do falante nas legendas
+1. Menu → **Modo legendas Meet (Tactiq)**
+2. Não é preciso ligar as legendas (CC) no Meet: a extensão recebe nome + legenda por um canal próprio na conexão do Meet, invisível na reunião (mesma técnica do Tactiq)
+3. Depois de instalar ou atualizar a extensão, recarregue a aba do Meet (F5)
 
-Se o modo legendas estiver ativo mas nenhum evento for recebido, você verá o aviso: *"Ative legendas no Meet para identificar participantes"*.
+Se o modo legendas estiver ativo mas nenhum evento for recebido, você verá o aviso: *"Nenhum nome recebido do Meet — recarregue a aba e confira o pareamento da extensão"*.
 
 ### Prioridade de rótulos
 
@@ -228,40 +255,112 @@ Nome do Meet  >  Nome cadastrado (vozes conhecidas)  >  VOCÊ  >  FALANTE_XX
 
 ### Renomear falante manualmente
 
-Após uma diarização:
+Após uma diarização, na Central → **Participantes** (ou Menu → Reuniões ▸
+**Renomear falante e participantes (Central)**):
 
-1. Menu → **Renomear falante (última diarização)**
-2. Informe o rótulo (`FALANTE_01`) e o nome desejado (ex.: Carlos)
-3. O embedding é salvo em `vozes_conhecidas.enc` (ou `.json` legado) para próximas reuniões
+1. Escolha a reunião; cada falante aparece como **Falante 1, 2…** com a sugestão de nome, a origem (legendas do Meet, voz conhecida) e a confiança (ex.: "Ana Souza · legendas · 91 %")
+2. **Confirmar** aceita a sugestão; **Escolher outro nome** corrige só esta reunião; **Desfazer** volta a revisão anterior
+3. **Aprender voz** é uma ação separada e confirmada: só então o embedding vai para `vozes_conhecidas.enc` para as próximas reuniões
 
 ---
 
-## 7. Assistente Ollama (resumo e perguntas)
+## 7. A Central (Início, Reuniões, Assistente, Participantes, Configurações, Diagnóstico)
 
-### Pré-requisito
-
-Instale e inicie o **Ollama** com pelo menos um modelo (ex.: `ollama pull llama3.2`).
+A Central é a interface principal do Transkriptor: uma página local
+(`http://127.0.0.1:PORTA`, porta automática — **5051** reservada para o Meet)
+aberta em janela de aplicativo pelo Edge ou Chrome. Tem tema escuro e claro
+(segue o Windows; alterne no botão do canto superior direito) e uma barra de
+status com o mesmo vocabulário da bandeja: Aguardando reunião, Gravando,
+Processando reunião, Separando vozes, Pausado, Erro.
 
 ### Abrir
 
-Menu → **Abrir assistente (resumo, perguntas)**
+Menu da bandeja → **Abrir Transkriptor** (item padrão; duplo clique no ícone
+também abre). A Central só responde ao navegador que recebeu o token da sessão;
+nenhuma requisição sai de `127.0.0.1`.
 
-O navegador abre `http://127.0.0.1:PORTA/?token=...` — porta automática (5050, 5052, …; **5051** reservada para Meet).
+### Início
 
-### Uso
+Estado atual, últimas reuniões, proteção em vigor e atalhos para o Assistente e
+o Diagnóstico. Quando algo impede a gravação, o cartão de estado diz o motivo e
+o próximo passo.
 
-1. Selecione uma transcrição no dropdown
-2. Transcrições diarizadas com suas falas aparecem marcadas como **com sua voz** no dropdown e nos metadados (tamanho do arquivo)
-3. Use cartões de ação: resumo, pontos principais, tarefas, decisões
-4. Ou digite perguntas livres no chat
-5. Botão **Copiar resposta** guarda a última resposta da IA
+![Início (tema escuro)](manual/capturas/central-inicio-dark.png)
 
-O assistente lê `.tkpt` e `.txt` automaticamente. O `.txt` principal também abre
-diretamente no Bloco de Notas ou editor de sua preferência.
+![Início (tema claro)](manual/capturas/central-inicio-light.png)
 
-### Sem Ollama
+### Reuniões
 
-A transcrição continua funcionando; apenas o assistente fica indisponível.
+Lista de todas as reuniões com data, duração, estado (Protegida ou Legível,
+Separar vozes, com sua voz) e busca. Setas e Enter funcionam no teclado;
+**Abrir no Assistente** leva a reunião selecionada para o chat.
+
+![Reuniões (tema escuro)](manual/capturas/central-reunioes-dark.png)
+
+![Reuniões (tema claro)](manual/capturas/central-reunioes-light.png)
+
+### Assistente (resumo e perguntas)
+
+Pré-requisito: instale e inicie o **Ollama** com pelo menos um modelo (ex.:
+`ollama pull llama3.2`).
+
+1. Selecione a reunião na lista à esquerda (as que têm suas falas aparecem marcadas **com sua voz**)
+2. Use os atalhos: resumo, pontos principais, tarefas, decisões, próximos passos — ou escreva uma pergunta
+3. A resposta chega em texto formatado (títulos, listas, tabelas); **Copiar resposta** guarda a última; `Esc` cancela uma geração em andamento
+4. O histórico é por reunião; trocar de reunião troca o contexto
+
+O assistente lê `.tkpt` e `.txt` automaticamente. Um `.txt` do modo compatível
+ou exportado pode ser aberto em um editor comum; trate essa cópia como dado sensível.
+
+![Assistente (tema escuro)](manual/capturas/central-assistente-dark.png)
+
+![Assistente (tema claro)](manual/capturas/central-assistente-light.png)
+
+**Sem Ollama:** a transcrição continua funcionando; a Central avisa
+"Ollama não respondeu" com o botão **Tentar de novo**, e o restante das páginas
+segue disponível.
+
+### Participantes
+
+Revisão de quem falou o quê: falantes com sugestão, origem e confiança
+(ex.: "Ana Souza · legendas · 91 %"), confirmação, correção só desta reunião,
+**Desfazer** por revisão, **Aprender voz** (ação separada e confirmada) e
+**Exportar TXT** (texto legível — pede confirmação e explica a consequência).
+
+![Participantes (tema escuro)](manual/capturas/central-participantes-dark.png)
+
+![Participantes (tema claro)](manual/capturas/central-participantes-light.png)
+
+### Configurações
+
+As mesmas opções do menu da bandeja, cada uma com a consequência escrita ao
+lado. Mudanças valem na hora e ficam salvas. Ações com efeito irreversível ou
+que desligam a gravação pedem confirmação com o **mesmo texto** na Central e na
+bandeja; o botão padrão é sempre o seguro (Cancelar / Não).
+
+![Configurações (tema escuro)](manual/capturas/central-configuracoes-dark.png)
+
+![Configurações (tema claro)](manual/capturas/central-configuracoes-light.png)
+
+![Confirmação na Central (tema escuro)](manual/capturas/confirmacao-central-dark.png)
+
+![Confirmação na Central (tema claro)](manual/capturas/confirmacao-central-light.png)
+
+![A mesma confirmação na bandeja](manual/capturas/confirmacao-bandeja.png)
+
+### Diagnóstico
+
+"Por que não está gravando?": roda as verificações de áudio, fontes de reunião
+(título, microfone, extensão, Zoom), modelos e pastas; mostra o código de
+pareamento da extensão; lista áudios retidos com **Retranscrever**; exporta o
+relatório `.txt` sem dados pessoais.
+
+![Diagnóstico (tema escuro)](manual/capturas/central-diagnostico-dark.png)
+
+![Diagnóstico (tema claro)](manual/capturas/central-diagnostico-light.png)
+
+Todas as capturas deste manual são **sintéticas** (nomes e reuniões inventados,
+como "Ana Souza"); ver `docs/manual/capturas/README.md`.
 
 ---
 
@@ -270,25 +369,33 @@ A transcrição continua funcionando; apenas o assistente fica indisponível.
 | Tópico | Comportamento |
 |--------|----------------|
 | Rede | Assistente e ponte Meet escutam só em `127.0.0.1` (localhost) |
-| API | Rotas `/api/*` exigem token (`X-Transkriptor-Token` ou `?token=`) |
+| API | Rotas `/api/*` exigem sessão local; mutações validam Host, Origin e JSON, e ausência de Origin exige header secreto |
 | Arquivos | API rejeita paths com `../` (403) |
 | XSS | Nomes de arquivo não são injetados via `innerHTML` no assistente |
 | Logs | Conteúdo de transcrições **não** é gravado no log |
 | Dados sensíveis | `transcricoes/`, perfil de voz e vozes conhecidas ficam locais |
-| Criptografia em repouso | Cópia `.tkpt`, áudios `.enc`, perfil e vozes com AES-256-GCM; chave protegida por DPAPI |
+| Criptografia em repouso | Instalação nova usa `.tkpt`, áudio TKAS/1 (`.tks`) e resultado estruturado cifrado; chave local protegida por DPAPI |
 | Instância única | Mutex impede duas cópias simultâneas |
 
-### Cópia criptografada (padrão ligado)
+### Modo protegido e compatibilidade
 
-- O `.txt` principal permanece legível e deve ser tratado como dado sensível.
-- Arquivos `.tkpt` e `.enc` são **ilegíveis** no Bloco de Notas ou Explorer.
-- Leitura só pelo Transkriptor e pelo assistente autenticado (token na URL).
-- Ativar a cópia criptografada não remove nem substitui arquivos `.txt`.
-- Se a chave DPAPI não puder ser aberta (outro usuário Windows, perfil corrompido), a criptografia fica indisponível até o problema ser resolvido — arquivos antigos **não** são apagados.
+- Instalação nova usa **modo protegido**: `.tkpt`, TKAS/1 e resultado estruturado
+  cifrado. Esses arquivos não são legíveis em um editor comum.
+- Instalação existente sem preferência registrada permanece no modo compatível;
+  o `.txt` principal continua legível até escolher **Ativar modo protegido para
+  novas reuniões…** no menu da bandeja e confirmar. Faça a mudança após a
+  gravação e o processamento terminarem.
+- Em **Assistente → Participantes**, selecione a reunião e use **Exportar TXT**.
+  Confirme o aviso: o navegador baixa um arquivo legível, sensível, e o app não
+  grava uma cópia TXT no servidor durante essa exportação.
+- Ativar proteção não apaga automaticamente arquivos antigos em claro. Revise as
+  cópias e exportações antes de movê-las ou compartilhá-las.
+- Se a chave DPAPI não puder ser aberta, o app sinaliza `protection_pending` e
+  preserva a fonte para recuperação; não considera a proteção concluída.
 
 ### Boas práticas
 
-- Restrinja o acesso à pasta `transcricoes/`, pois o resultado principal é `.txt`.
+- Restrinja o acesso à pasta `transcricoes/`, sobretudo a `.txt` antigos ou exportados.
 - Não copie `transkriptor_key.dpapi` entre usuários Windows diferentes (a chave é por usuário).
 - Feche o assistente quando não estiver em uso (aba do navegador).
 - Mantenha o Windows e o Chrome atualizados.
@@ -319,6 +426,7 @@ Arquivo na raiz do projeto (criado/atualizado pelo menu):
 {
   "versao_config": 2,
   "iniciar_com_windows": false,
+  "protection_mode": "protected",
   "criptografar_transcricoes": true,
   "backup_txt_na_migracao": false,
   "identificar_minha_voz": true,
@@ -362,7 +470,7 @@ costuma ser normal (por exemplo, "loopback em silêncio" quando nada está tocan
 
 ### WhatsApp, vídeo ou música iniciou gravação
 
-Na v1.5 isso não deve acontecer: microfone e áudio do sistema não iniciam reunião.
+Microfone e áudio do sistema, sozinhos, não iniciam reunião.
 Abra o menu e confirme o status. Se estiver `Gravando reunião`, use **Diagnóstico**
 para identificar qual título ou extensão está sendo tratado como fonte forte e
 anexe o relatório ao suporte; ele não inclui o conteúdo falado.
@@ -373,17 +481,17 @@ Sinal clássico de captura de áudio quebrada: o arquivo em `transcricoes/audio/
 fica com pouquíssimos bytes.
 
 - Rode o **Diagnóstico**: a linha `soundcard` aponta incompatibilidade de versão
-- Correção: `pip install -U "soundcard>=0.4.6"` (versões anteriores não funcionam
-  com numpy 2)
+- Confira `pip check` na `.venv` e reinstale pelo `instalar.bat` se a instalação
+  estiver incompleta; não atualize pacotes isolados fora do lock.
 - Confira também se o dispositivo de saída do Windows não mudou (fone conectado
   no meio da reunião)
 
 ### "Já está em execução" mas não há ícone na bandeja
 
-A partir da v1.5 isso não deve mais acontecer: o controle de instância única usa
-um mutex do Windows, liberado pelo sistema mesmo se o app for encerrado à força.
-Se acontecer, feche `pythonw.exe` no Gerenciador de Tarefas e apague
-`transkriptor.lock`.
+O controle de instância única usa um mutex do Windows. Confira pelo Gerenciador
+de Tarefas se o processo do Transkriptor desta instalação ainda está ativo e
+saia pelo menu da bandeja quando possível. Se o aviso persistir, use o
+Diagnóstico; não encerre outros processos Python nem apague locks às cegas.
 
 ### Diarização não gera arquivo
 
@@ -394,7 +502,7 @@ Se acontecer, feche `pythonw.exe` no Gerenciador de Tarefas e apague
 ### O áudio existe, mas o texto ainda não apareceu
 
 - Veja a primeira linha do menu: `Em fila` e `Processando` ainda não são erro
-- `Pronta` indica um `.txt` na raiz de `transcricoes/`
+- `Pronta` indica um resultado validado em `.tkpt` ou `.txt`, conforme o modo
 - `Falhou` preserva o áudio em `transcricoes/audio/`; use **Retranscrever áudio…**
 - O primeiro processamento pode demorar mais por causa do download dos modelos
 
@@ -412,15 +520,16 @@ Se acontecer, feche `pythonw.exe` no Gerenciador de Tarefas e apague
 - Legendas CC ativas (modo Tactiq)?
 - Firewall bloqueando `127.0.0.1:5051`?
 
-### Assistente não abre
+### A Central ou o Assistente não abre
 
-- Ollama rodando? (`ollama serve`)
-- Porta ocupada — veja log; app tenta portas alternativas
+- Menu → **Abrir Transkriptor**; se nada aparecer, veja `transkriptor.log` (porta ocupada — o app tenta portas alternativas)
+- A Central abre, mas o Assistente diz "Ollama não respondeu": Ollama rodando? (`ollama serve`); depois **Tentar de novo**
 - Aguarde até 10 s no primeiro acesso
 
 ### Transcrições ilegíveis ou erro ao abrir arquivo
 
-- Abra o `.txt` principal; `.tkpt` é apenas a cópia criptografada adicional
+- Abra `.tkpt` pelo assistente local; `.txt` é legível apenas no modo compatível
+  ou quando foi exportado explicitamente
 - Chave DPAPI inválida: verifique se está no mesmo usuário Windows que criou os arquivos
 - Reinicie o app após trocar de conta Windows
 
@@ -442,14 +551,14 @@ Transkriptor/
 ├── transcricao_core.py      # Captura leve; IA opcional fora da reunião
 ├── fila_processamento.py    # Jobs atômicos pending/processing/ready/failed
 ├── processador_reuniao.py   # Subprocesso Whisper/diarização
-├── retranscritor.py         # Geração do .txt principal
+├── retranscritor.py         # Geração do texto exportável
 ├── assistente.py            # Interface web + Ollama
 ├── diarizador.py            # Separação de vozes
 ├── identificador_voz.py     # Perfil VOCÊ + vozes conhecidas
 ├── meet_bridge.py           # WebSocket Meet
 ├── correlacionador.py       # Nomes ↔ segmentos
 ├── extension/meet/          # Extensão Chrome (+ README de instalação)
-├── transcricoes/            # Resultados .txt e cópias .tkpt opcionais
+├── transcricoes/            # Resultados protegidos ou compatíveis
 ├── _modelo_voz/             # Perfil (.enc) e vozes conhecidas
 └── docs/                    # Documentação
 ```
@@ -462,7 +571,6 @@ Desenvolvedores podem validar a instalação:
 
 ```bash
 python scripts/verificar_fase.py --fase all
-python scripts/verificar_fase.py --fase v1.5-estatico
 python -m pytest tests/ -v --tb=short
 ```
 
@@ -474,7 +582,7 @@ python scripts/verificar_recursos_gravacao.py --pid 12345 --duracao 600
 ```
 
 Ele exige crescimento menor que 100 MB, CPU média menor que 10% de um núcleo e
-um único ícone pystray. Documentação SDD atual em `docs/sdd/v1.5/`.
+um único ícone pystray. Documentação SDD: remediação em `docs/sdd/v1.8/`; interface (Central e design system) em `docs/sdd/v1.9/`.
 
 ---
 
@@ -488,11 +596,23 @@ um único ícone pystray. Documentação SDD atual em `docs/sdd/v1.5/`.
 | Ollama | Servidor local para modelos de linguagem (assistente) |
 | ECAPA | Modelo de embedding de voz usado na identificação |
 | CC / Legendas | Closed Captions do Google Meet |
-| `.txt` | Resultado principal legível, em UTF-8 |
-| `.tkpt` | Cópia criptografada adicional (AES-GCM) |
+| `.txt` | Resultado compatível ou exportação explícita, legível em UTF-8 |
+| `.tkpt` | Resultado principal protegido; também pode ser cópia do modo compatível |
+| `.tks` | Áudio protegido em stream TKAS/1 |
 | `.enc` | Perfil de voz e vozes conhecidas criptografados |
 | DPAPI | Proteção da chave mestra pelo Windows (por usuário) |
+| Central | A interface principal (Início, Reuniões, Assistente, Participantes, Configurações, Diagnóstico), local em 127.0.0.1 |
+| Reunião | Item da lista, com data, duração e estado; a transcrição é o texto produzido dela |
+| Transcrição | O texto produzido de uma reunião (não o nome do item) |
+| Falante 1, 2… | Voz separada pela diarização ainda sem nome |
+| Participante | Pessoa identificada pelo Meet ou por você |
+| VOCÊ | Você, identificado pelo perfil de voz |
+| Identificação pendente | Falante sem evidência suficiente para receber um nome |
+| Sugestão | Nome proposto para um falante, com origem (legendas, voz conhecida) e confiança |
+| Protegida / Legível | Resultado cifrado (`.tkpt`) / em texto claro (`.txt`) |
+| Separar vozes | A diarização, como aparece nos menus e badges |
+| Estados | Aguardando reunião · Gravando · Processando reunião · Separando vozes · Pausado · Erro — os mesmos na bandeja, no ícone e na Central |
 
 ---
 
-*Transkriptor v1.5 — Manual do usuário — 2026*
+*Transkriptor — Manual do usuário — 2026*

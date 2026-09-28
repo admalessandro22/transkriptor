@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """Núcleo de transcrição: captura loopback + faster-whisper + diarização.
-
 Salva o áudio em disco (WAV temporário) e os segmentos com timestamps
 durante a reunião, e ao final roda a diarização (separação de falantes)
 em uma thread dedicada para não bloquear o monitor de Meet.
@@ -22,6 +21,8 @@ import soundcard as sc
 from captura_leve import CapturaLeveMixin
 from com_audio import com_inicializada
 from recuperacao_sessao import registrar_wavs_abertos, selar_transcritor
+from politica_privacidade import ProtectionMode, modo_efetivo
+from status_seguro import emitir_evento
 
 from config import (
     SAMPLE_RATE,
@@ -39,7 +40,6 @@ from config import (
     MIN_DISCO_LIVRE_GB,
     PASTA_AUDIO,  # reexport para monkeypatch em testes
 )
-
 logger = logging.getLogger(__name__)
 
 
@@ -90,7 +90,7 @@ class Transcritor(CapturaLeveMixin):
             from crypto_storage import chave_disponivel, criptografia_ativa
 
             criptografar = criptografia_ativa() and chave_disponivel()
-        self.criptografar = criptografar
+        self.criptografar = bool(criptografar or modo_efetivo() == ProtectionMode.PROTECTED)
         self.titulo_reuniao = titulo_reuniao
         self._centroides_por_rotulo_ultima: dict = {}
 
@@ -134,8 +134,8 @@ class Transcritor(CapturaLeveMixin):
             self.on_status(f"Carregando modelo {modelo} ({device}, auto)...")
             try:
                 self._modelo = WhisperModel(modelo, device=device, compute_type=ctype)
-            except Exception as e:
-                logger.warning("Falha Whisper %s/%s: %s; small/cpu", modelo, device, e)
+            except Exception:
+                logger.warning(emitir_evento("modelo_fallback_cpu"))
                 self.on_status("Falha no modelo GPU — carregando small em CPU...")
                 self._modelo = WhisperModel("small", device="cpu", compute_type="int8")
             self.on_status("Modelo pronto.")
@@ -307,11 +307,11 @@ class Transcritor(CapturaLeveMixin):
 
     def _rodar_diarizacao(self, caminho_saida, caminho_wav):
         from diarizacao_final import rodar_diarizacao
-        rodar_diarizacao(self, caminho_saida, caminho_wav)
+        return rodar_diarizacao(self, caminho_saida, caminho_wav)
 
     def _preservar_audios(self, *caminhos):
-        from diarizacao_final import preservar_audios
-        return preservar_audios(self.criptografar, *caminhos, pasta_audio=PASTA_AUDIO)
+        from diarizacao_final import preservar_audios_transcritor
+        return preservar_audios_transcritor(self, caminhos, PASTA_AUDIO)
 
     def _checar_disco_livre(self):
         try:
@@ -361,13 +361,13 @@ class Transcritor(CapturaLeveMixin):
             return
         try:
             self._carregar_modelo()
-        except Exception as e:
+        except Exception:
             self._somente_audio = True
             self._modelo = None
             self.on_status(
                 "Transcrição indisponível — gravando somente áudio para retranscrição"
             )
-            logger.warning("Whisper indisponível; modo somente áudio: %s", e)
+            logger.warning(emitir_evento("modelo_indisponivel"))
             self._thread_proc = threading.Thread(
                 target=self._processar_somente_audio, daemon=True
             )
@@ -419,7 +419,7 @@ class Transcritor(CapturaLeveMixin):
                 try:
                     os.remove(c)
                 except OSError:
-                    logger.warning("Falha ao apagar arquivo descartado %s", c)
+                    logger.warning(emitir_evento("audio_descarte_falhou"))
 
     def stop(self):
         if not self.rodando:

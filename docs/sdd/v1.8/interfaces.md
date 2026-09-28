@@ -24,9 +24,17 @@ class SessaoReuniao:
 
 def criar_sessao(meeting_key: str, consented_at_utc: str, policy_id: str) -> SessaoReuniao: ...
 def validar_envelope(evento: Mapping[str, object], sessao: SessaoReuniao) -> dict[str, object]: ...
+
+class SessoesAtivas:
+    def vincular(self, connection_id: str, tab_id: str, sessao: SessaoReuniao) -> None: ...
+    def aceitar_evento(self, connection_id: str, evento: Mapping[str, object]) -> dict[str, object]: ...
 ```
 
-O envelope tem exatamente os campos de `spec.md`. `event_id`, `session_id`, `connection_id`, `tab_id`, `meeting_key` são strings não vazias; `seq >= 0`; tamanhos obedecem à spec. `caption_revision` maior substitui revisão anterior do mesmo `caption_id`; eventos duplicados são idempotentes por `event_id`.
+O WebSocket pode ser único, mas `connection_id` é lógico e exclusivo por aba. O servidor vincula `session_id` e `meeting_key` após consentimento e rejeita evento que tente substituí-los. O cliente envia seus relógios; o bridge acrescenta `received_monotonic_ns=time.monotonic_ns()` no recebimento. Apenas o envelope canônico persistido inclui esse campo de servidor.
+
+Emenda de 22/09/2026, aprovada na retomada: `hello` contém `connection_id`, `tab_id`, `meeting_hint` normalizado, `active: bool`, `client_wall_ms` e `client_monotonic_ms`. É sinal efêmero, sem legenda/nome. `MeetBridge.registrar_hello` mantém o estado por conexão em memória; `hint_ativo_unico() -> str | None` só retorna um código se o conjunto de salas ativas tiver cardinalidade 1. `definir_sessao_ativa(sessao, store, *, meeting_hint)` exige esse código inequívoco para habilitar nomes. `iniciar_conexao_logica(connection_id, tab_id, client_wall_ms, *, meeting_hint)` devolve a sessão do servidor somente para aba/código vinculados. Se não houver correspondência, não persiste conteúdo. `registrar_envelope` acrescenta o relógio monotônico do servidor e só confirma a sequência após `EventStore.descarregar(forcar=True)`.
+
+O envelope canônico tem exatamente os campos de `spec.md`. `event_id`, `session_id`, `connection_id`, `tab_id`, `meeting_key` são strings não vazias; `seq >= 0`; tamanhos obedecem à spec. `caption_revision` maior substitui revisão anterior do mesmo `caption_id`; eventos duplicados são idempotentes por `event_id`.
 
 ```python
 # artefatos.py — criado em B2
@@ -41,6 +49,20 @@ class ArtifactRef:
 class ArtifactCipher(Protocol):
     def seal(self, plaintext: bytes, destination: Path) -> ArtifactRef: ...
     def open(self, ref: ArtifactRef, root: Path) -> bytes: ...
+
+# resultado_pipeline.py — materializado nas Tasks 5–6 da remediação
+@dataclass(frozen=True)
+class ResultadoProcessamento:
+    txt_path: Path
+    segmentos: tuple[SegmentoResultado, ...]
+    atribuicoes: Mapping[str, Mapping[str, object]]
+    stage_status: Mapping[str, StageState]
+    warnings: tuple[str, ...]
+
+# resultado_storage.py — materializado na Task 8 da remediação
+class ResultadoStorage:
+    def save(self, meeting_id: str, payload: Mapping[str, object]) -> ArtifactRef: ...
+    def load(self, ref: ArtifactRef) -> dict[str, object]: ...
 
 # eventos_meet_store.py — criado em D4 e importa os contratos acima
 

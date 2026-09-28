@@ -94,7 +94,7 @@ def _audios(pasta_audio: Path) -> list[Path]:
         caminho
         for caminho in pasta_audio.iterdir()
         if caminho.is_file()
-        and (caminho.name.lower().endswith(".wav") or caminho.name.lower().endswith(".wav.enc"))
+        and caminho.name.lower().endswith((".wav", ".wav.enc", ".tks"))
     )
 
 

@@ -25,6 +25,7 @@ def _sessao(meeting="reuniao-a", consentida="2026-09-19T20:00:00Z"):
 
 def _envelope(sessao, *, seq=0, event_id="e1", conexao="c1", aba="t1", wall_ms=None, kind="caption"):
     return {
+        "schema_version": 1,
         "event_id": event_id,
         "session_id": sessao.session_id,
         "connection_id": conexao,
@@ -49,6 +50,61 @@ def test_duas_abas_nao_se_encerram():
     assert registro.ativa("c1") is False
     ev = _envelope(s2, seq=0, event_id="e-b", conexao="c2", aba="aba-2")
     assert registro.aceitar_evento("c2", ev)["event_id"] == "e-b"
+
+
+def test_duas_abas_no_mesmo_socket_mantem_estado_independente():
+    sessao = _sessao()
+    registro = SessoesAtivas()
+    registro.vincular("c1", "aba-1", sessao)
+    registro.vincular("c2", "aba-2", sessao)
+    assert registro.aceitar_evento("c1", _envelope(sessao, conexao="c1", aba="aba-1"))["seq"] == 0
+    assert registro.aceitar_evento("c2", _envelope(sessao, conexao="c2", aba="aba-2", event_id="e2"))["seq"] == 0
+    with pytest.raises(EnvelopeRejeitado, match="aba"):
+        registro.aceitar_evento("c1", _envelope(sessao, seq=1, event_id="e3", conexao="c1", aba="aba-2"))
+    with pytest.raises(EnvelopeRejeitado, match="sessão"):
+        registro.aceitar_evento("c1", _envelope(_sessao("outra"), seq=1, event_id="e4", conexao="c1", aba="aba-1"))
+
+
+def test_inicio_real_do_mixin_vincula_sessao_ao_hint_unico(tmp_path, monkeypatch):
+    import threading
+    from types import SimpleNamespace
+
+    import app_ciclo_reuniao
+    import config
+    from app_ciclo_reuniao import CicloReuniaoMixin
+    from meet_bridge import MeetBridge
+
+    monkeypatch.setattr(config, "PASTA_TRANSCRICOES", str(tmp_path))
+    monkeypatch.setattr(app_ciclo_reuniao, "PASTA_TRANSCRICOES", str(tmp_path))
+    monkeypatch.setattr(app_ciclo_reuniao, "Watchdog", lambda *a, **k: SimpleNamespace(start=lambda: None))
+    monkeypatch.setattr(app_ciclo_reuniao, "notificar", lambda *a, **k: None)
+
+    class App(CicloReuniaoMixin):
+        def __init__(self):
+            self._lock = threading.Lock()
+            self.deteccao_ativa = True
+            self.detector = SimpleNamespace(fontes_da_reuniao=["extensao"],
+                                            chave_reuniao_atual=lambda: "chave-opaca",
+                                            titulo_reuniao_atual=lambda: None)
+            self.meet_bridge = MeetBridge()
+            self.meet_bridge.registrar_hello({"tipo": "hello", "connection_id": "c1",
+                                              "tab_id": "aba-1", "meeting_hint": "abc-defg-hij", "active": True})
+            self.transcritor = None
+
+        def _status(self, _mensagem):
+            pass
+
+        def _construir_transcritor(self):
+            return SimpleNamespace(start=lambda: None, rodando=True)
+
+        def _atualizar_tooltip(self):
+            pass
+
+    app = App()
+    app._iniciar_transcricao_interno()
+    assert app._sessao_ativa is not None
+    assert app.meet_bridge._sessao_ativa.session_id == app._sessao_ativa.session_id
+    assert app.meet_bridge._meeting_hint_ativo == "abc-defg-hij"
 
 
 def test_evento_antigo_nao_entra_sessao():
@@ -80,6 +136,15 @@ def test_evento_antes_do_consentimento_descartado():
     ev = _envelope(sessao, wall_ms=1_700_000_000_000)
     with pytest.raises(EnvelopeRejeitado):
         validar_envelope(ev, sessao)
+
+
+def test_envelope_v1_rejeita_versao_ausente_ou_desconhecida():
+    sessao = _sessao()
+    evento = _envelope(sessao)
+    for versao in (None, 2, "1"):
+        candidato = {**evento, "schema_version": versao}
+        with pytest.raises(EnvelopeRejeitado, match="schema_version"):
+            validar_envelope(candidato, sessao)
 
 
 def test_primeiro_frame_fixa_instante_zero():

@@ -30,6 +30,7 @@ from crypto_storage import (
     recuperar_orfaos_wav,
 )
 from config import (
+    ARQUIVO_PAREAMENTO_MEET,
     ARQUIVO_PERFIL_VOZ,
     ARQUIVO_PERFIL_VOZ_ENC,
     ARQUIVO_VOZES_CONHECIDAS,
@@ -111,13 +112,13 @@ class AppTranskriptor(CicloReuniaoMixin, ProcessamentoReuniaoMixin, MenuBandejaM
             )
             if vozes:
                 logging.info("Migrados %d arquivos de voz legados para .enc", vozes)
-            orfaos_enc = recuperar_orfaos_wav(PASTA_AUDIO)
-            if orfaos_enc:
-                logging.info("Criptografados %d audios orfaos em PASTA_AUDIO", orfaos_enc)
         if "criptografar_transcricoes" not in cfg:
             _atualizar_config_user(
                 criptografar_transcricoes=self.criptografar_transcricoes
             )
+        orfaos_enc = recuperar_orfaos_wav(PASTA_AUDIO)
+        if orfaos_enc:
+            logging.info("Criptografados %d audios orfaos em PASTA_AUDIO", orfaos_enc)
         tem_perfil = perfil_existe(ARQUIVO_PERFIL_VOZ, ARQUIVO_PERFIL_VOZ_ENC)
         antes = cfg.get("identificar_minha_voz")
         self.identificar_minha_voz, cfg = _resolver_identificar_minha_voz(cfg, tem_perfil)
@@ -142,7 +143,7 @@ class AppTranskriptor(CicloReuniaoMixin, ProcessamentoReuniaoMixin, MenuBandejaM
         if not meet_token:
             meet_token = secrets.token_urlsafe(24)
             _atualizar_config_user(meet_bridge_token=meet_token)
-        self.meet_bridge = MeetBridge(token=meet_token, pareador=Pareador())
+        self.meet_bridge = MeetBridge(token=meet_token, pareador=Pareador(arquivo=ARQUIVO_PAREAMENTO_MEET))
         self.convite_pareamento_meet = self.meet_bridge.pareador.gerar_convite()
         sincronizar_token_extensao(meet_token, BASE_DIR)
         # FR-9.B1: fusão de fontes. Qualquer uma mantém a reunião viva; assim
@@ -359,7 +360,7 @@ class AppTranskriptor(CicloReuniaoMixin, ProcessamentoReuniaoMixin, MenuBandejaM
         self.icone = pystray.Icon(
             "Transkriptor",
             icon=criar_imagem(),
-            title=f"Transkriptor {VERSAO} - Aguardando Meet",
+            title=f"Transkriptor {VERSAO} - Aguardando reunião",
             menu=self._menu(),
         )
         configurar_icone(self.icone)

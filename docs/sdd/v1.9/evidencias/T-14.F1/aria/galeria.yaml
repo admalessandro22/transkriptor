@@ -1,0 +1,131 @@
+- main:
+  - heading "Galeria de componentes" [level=1]
+  - paragraph:
+    - text: Todos os componentes
+    - code: tk-*
+    - text: em todos os estados. Dados sintéticos.
+  - button "Mudar para tema escuro":
+    - img
+    - text: Alternar tema
+  - region "Botão":
+    - heading "Botão" [level=2]
+    - button "Gravar esta reunião"
+    - button "Secundário"
+    - button "Contorno"
+    - button "Silencioso"
+    - button "Apagar perfil"
+    - button "Desabilitado" [disabled]
+    - button "Carregando"
+    - button "Pequeno"
+    - button "Copiar":
+      - img
+  - region "Campo":
+    - heading "Campo" [level=2]
+    - text: Nome corrigido
+    - textbox "Nome corrigido":
+      - /placeholder: "Ex.: Maria Silva"
+    - text: Vale só para esta reunião. Nome corrigido
+    - textbox "Nome corrigido" [invalid]: A
+    - text: Nome muito curto. Use pelo menos 2 letras. Desabilitado
+    - textbox "Desabilitado" [disabled]: Sem edição
+    - text: Modelo
+    - combobox "Modelo":
+      - option "llama3.1:8b" [selected]
+      - option "qwen2.5:7b"
+    - img
+    - text: Buscar
+    - img
+    - searchbox "Buscar"
+    - text: Pergunta
+    - textbox "Pergunta":
+      - /placeholder: Pergunte algo sobre a reunião
+  - region "Listbox":
+    - heading "Listbox" [level=2]
+    - listbox "Reuniões":
+      - option "22/09/2026 · 10:03 Protegida 31 min · Separada por vozes · Com sua voz" [selected]
+      - option "18/09/2026 · 15:30 Legível 48 min"
+      - option "11/09/2026 · 09:00 Protegida 12 min · Processando"
+    - listbox "Carregando"
+    - list "Vazia":
+      - listitem: Nenhuma reunião ainda. A primeira aparece aqui depois de gravada.
+    - list "Sem resultado":
+      - listitem: Nenhuma reunião combina com o filtro.
+    - list "Erro":
+      - listitem:
+        - text: Não foi possível carregar a lista.
+        - button "Tentar de novo"
+  - region "Badges de estado e proteção":
+    - heading "Badges de estado e proteção" [level=2]
+    - text: Aguardando reunião Gravando Processando Separando vozes Pausado Erro
+    - img
+    - text: Protegida
+    - img
+    - text: Legível
+    - img
+    - text: Com sua voz
+  - region "Barra de estado":
+    - heading "Barra de estado" [level=2]
+    - text: Aguardando reunião Gravando · Google Meet Processando reunião Separando vozes Pausado Erro · veja o diagnóstico Central sem bandeja
+  - region "Toast":
+    - heading "Toast" [level=2]
+    - button "Info"
+    - button "Sucesso"
+    - button "Aviso"
+    - button "Erro"
+  - region "Diálogo":
+    - heading "Diálogo" [level=2]
+    - button "Confirmação"
+    - button "Ação de perigo"
+    - status
+  - region "Painel lateral":
+    - heading "Painel lateral" [level=2]
+    - button "Abrir painel"
+  - region "Skeleton":
+    - heading "Skeleton" [level=2]
+  - region "Estado vazio":
+    - heading "Estado vazio" [level=2]
+    - img
+    - heading "Nenhuma reunião ainda" [level=3]
+    - paragraph: Entre numa reunião do Meet ou do Zoom. O Transkriptor pergunta antes de gravar.
+    - button "Abrir diagnóstico"
+    - img
+    - heading "Nada combina com o filtro" [level=3]
+    - paragraph: Tente outra data ou limpe a busca.
+    - button "Limpar filtro"
+    - img
+    - heading "Não foi possível carregar" [level=3]
+    - paragraph: A Central não conseguiu falar com o aplicativo.
+    - button "Tentar de novo"
+  - region "Linha de dados":
+    - heading "Linha de dados" [level=2]
+    - text: 22/09/2026 · 10:03 · Reunião de planejamento 31 min Processando 18/09/2026 · 15:30 48 min Legível 11/09/2026 · 09:00 · Um título bem mais longo do que caberia nesta coluna para provar o corte com reticências 12 min
+    - button "Abrir"
+  - region "Progresso":
+    - heading "Progresso" [level=2]
+    - progressbar "Transcrevendo"
+    - text: Transcrevendo · 62%
+    - progressbar "Gerando resposta"
+    - text: O modelo está pensando… 12 s
+  - region "Chips de intenção":
+    - heading "Chips de intenção" [level=2]
+    - button "Resumir reunião" [pressed]:
+      - img
+      - text: Resumir reunião
+    - button "Pontos principais":
+      - img
+      - text: Pontos principais
+    - button "Tarefas e ações":
+      - img
+      - text: Tarefas e ações
+    - button "Decisões":
+      - img
+      - text: Decisões
+    - button "Próximos passos":
+      - img
+      - text: Próximos passos
+    - button "Pendências e riscos" [disabled]:
+      - img
+      - text: Pendências e riscos
+  - region "Cartão":
+    - heading "Cartão" [level=2]
+    - text: Agora Aguardando Nenhuma reunião à vista Última reunião 22/09 · 10:03 Processando Proteção Protegida Resultados cifrados em repouso

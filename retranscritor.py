@@ -179,7 +179,7 @@ def _texto_transcricao(linhas: list[str], metadados: dict, duracao: float) -> st
     return "\n".join(cabecalho + linhas + ["", "=== Fim ===", ""])
 
 
-def retranscrever(
+def _retranscrever_resultado(
     caminho_audio: str,
     *,
     pasta_saida: str | None = None,
@@ -198,10 +198,13 @@ def retranscrever(
     usar_vozes_conhecidas: bool = True,
     rotulo_usuario: str | None = None,
     eventos_meet: list | None = None,
+    clock_uncertainty_ms: int = 0,
+    materializar_legado: bool = False,
     **_kwargs,
-) -> str:
-    """Transcreve áudio retido e entrega `.txt` UTF-8 atômico como principal."""
+):
+    """Transcreve as fontes e devolve os segmentos com origem verificável."""
     from crypto_storage import nome_base_transcricao
+    from resultado_pipeline import ResultadoProcessamento, criar_segmentos
 
     on_status = on_status or (lambda _m: None)
     pasta = str(Path(pasta_saida or PASTA_TRANSCRICOES).resolve())
@@ -215,7 +218,7 @@ def retranscrever(
     # T-13.C2/C3: STT por fonte em blocos (nunca readframes(total)) com
     # origem temporal explícita e fusão cronológica; sem mic, só loopback.
     import audio_fontes
-    from audio_reader import AudioSource, inspect_audio, iter_audio_16k
+    from audio_reader import AudioSource, inspect_audio
 
     modelo = _carregar_modelo(modelo_whisper, pasta, on_status, modelo_nome)
     bloco_seg = float(chunk or CHUNK_SEGUNDOS)
@@ -256,25 +259,58 @@ def retranscrever(
     metadados = dict(metadados or {})
     texto_final = _texto_transcricao(linhas, metadados, duracao)
     caminho_final = Path(pasta) / f"{base}.txt"
-    _escrever_texto_atomico(caminho_final, texto_final)
+    from politica_privacidade import ProtectionMode, modo_efetivo
 
-    if diarizar and segmentos:
+    protegido = Path(caminho_audio).suffix.lower() == ".tks" or modo_efetivo() == ProtectionMode.PROTECTED
+    if materializar_legado:
+        if protegido:
+            from crypto_storage import salvar_transcricao
+
+            caminho_final = caminho_final.with_suffix(".tkpt")
+            salvar_transcricao(str(caminho_final), texto_final)
+        else:
+            _escrever_texto_atomico(caminho_final, texto_final)
+
+    diarizados = []
+    if diarizar and segmentos and protegido:
+        from audio_trechos import extrair_trechos, selecionar_trechos_por_fonte
+        from diarizacao_final import rodar_diarizacao
+
+        trechos_lb = extrair_trechos(Path(caminho_audio), AudioSource.LOOPBACK, segmentos)
+        trechos_mic = (extrair_trechos(Path(caminho_mic), AudioSource.MICROPHONE, segmentos)
+                       if caminho_mic else None)
+        trechos_por_origem = selecionar_trechos_por_fonte(
+            [s.source for s in fundidos], trechos_lb, trechos_mic,
+        )
+        transcritor = Transcritor(
+            pasta_saida=pasta, diarizar_ao_final=True, capturar_mic=False,
+            identificar_voz=identificar_voz,
+            rotulo_usuario=rotulo_usuario or ROTULO_USUARIO,
+            eventos_meet=list(eventos_meet or []),
+            usar_vozes_conhecidas=usar_vozes_conhecidas,
+            criptografar=True, on_status=on_status,
+        )
+        transcritor._segmentos = segmentos
+        transcritor._preservar_audios = lambda *_caminhos: []
+        diarizados = rodar_diarizacao(
+            transcritor, str(caminho_final), None,
+            trechos_audio=trechos_por_origem, trechos_mic=trechos_mic,
+            trechos_loopback=trechos_lb,
+            materializar=False,
+        ) or []
+    if diarizar and segmentos and not protegido:
+        from audio_trechos import extrair_trechos, selecionar_trechos_por_fonte
+        from diarizacao_final import rodar_diarizacao
+
+        trechos_lb = extrair_trechos(Path(caminho_audio), AudioSource.LOOPBACK, segmentos)
+        trechos_mic = (extrair_trechos(Path(caminho_mic), AudioSource.MICROPHONE, segmentos)
+                       if caminho_mic else None)
+        trechos_por_origem = selecionar_trechos_por_fonte(
+            [s.source for s in fundidos], trechos_lb, trechos_mic,
+        )
         with tempfile.TemporaryDirectory(prefix="diarizacao_", dir=pasta) as tmp_dir:
             temporario_txt = Path(tmp_dir) / f"{base}.txt"
-            temporario_wav = Path(tmp_dir) / f"{base}_audio.wav"
             temporario_txt.write_text(texto_final, encoding="utf-8")
-            # WAV temporário em streaming (blocos 16 kHz); sem waveform completo.
-            with wave.open(str(temporario_wav), "wb") as wav:
-                wav.setnchannels(1)
-                wav.setsampwidth(2)
-                wav.setframerate(SAMPLE_RATE)
-                for bloco in iter_audio_16k(
-                    Path(caminho_audio), AudioSource.LOOPBACK, bloco_seg
-                ):
-                    if bloco.samples.size:
-                        wav.writeframes(
-                            (bloco.samples * 32767).astype(np.int16).tobytes()
-                        )
             transcritor = Transcritor(
                 pasta_saida=tmp_dir,
                 diarizar_ao_final=True,
@@ -289,15 +325,19 @@ def retranscrever(
             transcritor._segmentos = segmentos
             transcritor._caminho_wav_mic_salvo = caminho_mic
             transcritor._preservar_audios = lambda *_caminhos: []
-            transcritor._rodar_diarizacao(str(temporario_txt), str(temporario_wav))
+            diarizados = rodar_diarizacao(
+                transcritor, str(temporario_txt), None,
+                trechos_audio=trechos_por_origem, trechos_mic=trechos_mic,
+                trechos_loopback=trechos_lb,
+            ) or []
             temporario_diar = Path(tmp_dir) / f"{base}_diarizado.txt"
-            if temporario_diar.is_file():
+            if materializar_legado and temporario_diar.is_file():
                 _escrever_texto_atomico(
                     Path(pasta) / temporario_diar.name,
                     temporario_diar.read_text(encoding="utf-8"),
                 )
 
-    if gerar_copia_tkpt:
+    if gerar_copia_tkpt and materializar_legado and not protegido:
         try:
             from crypto_storage import salvar_transcricao
 
@@ -306,4 +346,23 @@ def retranscrever(
             logger.warning("Cópia TKPT indisponível (%s)", type(exc).__name__)
 
     on_status(f"Retranscrição concluída: {caminho_final.name}")
-    return str(caminho_final)
+    from correlacionador import atribuir_segmentos
+
+    atribuicoes = atribuir_segmentos(
+        fundidos, eventos_meet or (), clock_uncertainty_ms=clock_uncertainty_ms,
+    )
+    estruturados, avisos = criar_segmentos(fundidos, diarizados, atribuicoes)
+    if diarizar and segmentos and not diarizados:
+        avisos = (*avisos, "diarizacao_falhou")
+    return ResultadoProcessamento(caminho_final, estruturados, avisos, gerar_copia_tkpt)
+
+
+def retranscrever_resultado(caminho_audio: str, **kwargs):
+    """API do worker: não materializa TXT antes do JSON canônico."""
+    return _retranscrever_resultado(caminho_audio, **kwargs)
+
+
+def retranscrever(caminho_audio: str, **kwargs) -> str:
+    """API pública de compatibilidade para retranscrição avulsa."""
+    resultado = _retranscrever_resultado(caminho_audio, materializar_legado=True, **kwargs)
+    return str(resultado.txt_path)

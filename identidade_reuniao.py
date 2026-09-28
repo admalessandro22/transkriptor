@@ -33,6 +33,20 @@ class Atribuicao:
     score: float | None
     evidence_ids: tuple[str, ...]
     status: AssignmentStatus
+    calibration_version: str | None = None
+
+
+def serializar_atribuicao(atribuicao: Atribuicao) -> dict[str, object]:
+    """Preserva a evidência sem converter sugestão em confirmação."""
+    return {
+        "status": atribuicao.status.value,
+        "participant_id": atribuicao.participant_id,
+        "display_name": atribuicao.display_name,
+        "source": atribuicao.source,
+        "confidence": atribuicao.score,
+        "evidence_event_ids": list(atribuicao.evidence_ids),
+        "calibration_version": atribuicao.calibration_version,
+    }
 
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
@@ -103,8 +117,8 @@ def _id_evento(ev: Mapping) -> str:
     return ""
 
 
-def _desconhecida(source: str) -> Atribuicao:
-    return Atribuicao(None, None, source, None, (), AssignmentStatus.UNKNOWN)
+def _desconhecida(source: str, calibration_version: str | None) -> Atribuicao:
+    return Atribuicao(None, None, source, None, (), AssignmentStatus.UNKNOWN, calibration_version)
 
 
 def resolver_atribuicao(
@@ -121,7 +135,6 @@ def resolver_atribuicao(
     pendência, nunca o nome mais frequente. Fora do modo automático calibrado,
     o teto é SUGGESTED (só manual confirma).
     """
-    del calibration_version  # versão registrada na evidência; comportamento fixo
     inicio_ms = int(getattr(segmento, "start_ms", 0))
     fim_ms = int(getattr(segmento, "end_ms", inicio_ms))
     texto = str(getattr(segmento, "text", "") or "")
@@ -153,10 +166,11 @@ def resolver_atribuicao(
                 1.0,
                 (_id_evento(ev),) if _id_evento(ev) else (),
                 AssignmentStatus.CONFIRMED,
+                calibration_version,
             )
 
     if sobreposto:
-        return _desconhecida("overlap")
+        return _desconhecida("overlap", calibration_version)
 
     # 2-3. Entry oficial e legendas: candidatos com tempo e léxico.
     candidatos: list[tuple[float, str | None, str, str, str]] = []
@@ -184,23 +198,23 @@ def resolver_atribuicao(
                 (escore, ev.get("participant_id"), nome, "caption", _id_evento(ev))
             )
     if not candidatos:
-        return _desconhecida("caption" if any(_tipo(e) == "caption" for e in eventos) else "unknown")
+        return _desconhecida("caption" if any(_tipo(e) == "caption" for e in eventos) else "unknown", calibration_version)
     candidatos.sort(key=lambda c: c[0], reverse=True)
     melhor, segundo = candidatos[0], candidatos[1] if len(candidatos) > 1 else None
     if segundo is not None and (melhor[0] - segundo[0]) <= IDENTIDADE_EPSILON_EMPATE:
-        return Atribuicao(None, None, melhor[3], round(melhor[0], 3), (), AssignmentStatus.CONFLICT)
+        return Atribuicao(None, None, melhor[3], round(melhor[0], 3), (), AssignmentStatus.CONFLICT, calibration_version)
     nomes = {c[2] for c in candidatos if abs(c[0] - melhor[0]) <= IDENTIDADE_EPSILON_EMPATE}
     if len(nomes) > 1:
-        return Atribuicao(None, None, melhor[3], round(melhor[0], 3), (), AssignmentStatus.CONFLICT)
+        return Atribuicao(None, None, melhor[3], round(melhor[0], 3), (), AssignmentStatus.CONFLICT, calibration_version)
     mesmo_nome = [c for c in candidatos if c[2] == melhor[2]]
     ids = {c[1] for c in mesmo_nome if c[1]}
     if len(ids) > 1:
-        return Atribuicao(None, None, melhor[3], round(melhor[0], 3), (), AssignmentStatus.CONFLICT)
+        return Atribuicao(None, None, melhor[3], round(melhor[0], 3), (), AssignmentStatus.CONFLICT, calibration_version)
     pid = melhor[1]
     evidencias = tuple(c[4] for c in mesmo_nome if c[4])
     if MODO_AUTO_NOMES:
-        return Atribuicao(pid, melhor[2], melhor[3], round(melhor[0], 3), evidencias, AssignmentStatus.CONFIRMED)
-    return Atribuicao(pid, melhor[2], melhor[3], round(melhor[0], 3), evidencias, AssignmentStatus.SUGGESTED)
+        return Atribuicao(pid, melhor[2], melhor[3], round(melhor[0], 3), evidencias, AssignmentStatus.CONFIRMED, calibration_version)
+    return Atribuicao(pid, melhor[2], melhor[3], round(melhor[0], 3), evidencias, AssignmentStatus.SUGGESTED, calibration_version)
 
 
 def avaliar_atribuicoes(pares: Sequence[tuple[Atribuicao, str | None]]) -> dict:

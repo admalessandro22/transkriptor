@@ -34,6 +34,15 @@ def _esperar_worker(worker, timeout):
 class ProcessamentoReuniaoMixin:
     """Integra captura encerrada, fila durável e um worker serial."""
 
+    @staticmethod
+    def _agendar_resumo(job):
+        try:
+            from central_resumos import agendar_concluida
+
+            agendar_concluida(job)
+        except Exception as exc:  # o resumo não invalida a transcrição pronta
+            logger.warning("Falha ao agendar resumo automático (%s)", type(exc).__name__)
+
     def _definir_estado_processamento(self, estado, job_id=None):
         with self._lock:
             self._estado_processamento = estado
@@ -45,6 +54,11 @@ class ProcessamentoReuniaoMixin:
         return getattr(self, "_estado_processamento", None) == "Processando"
 
     def _preparar_processamento(self):
+        import app_estado_ui
+
+        # O resumo pode ser agendado antes de a Central ser aberta. O provedor
+        # precisa existir para que ele não dispute recursos com captura/worker.
+        app_estado_ui.registrar_provedor(lambda: app_estado_ui.snapshot(self))
         recuperados = self.fila.recuperar_interrompidos()
         if recuperados:
             logger.info("Jobs interrompidos recuperados: %d", recuperados)
@@ -57,6 +71,9 @@ class ProcessamentoReuniaoMixin:
             ultimo = max(jobs, key=lambda job: (job.atualizado_em, job.id))
             self._definir_estado_processamento(mapa.get(ultimo.estado), ultimo.id)
         self._despachar_proximo_job()
+        for job in jobs:
+            if job.estado == "ready":
+                self._agendar_resumo(job)
 
     def _despachar_proximo_job(self):
         falha_inicio = False
@@ -276,6 +293,7 @@ class ProcessamentoReuniaoMixin:
                 self._estado_processamento = "Falhou"
         self._atualizar_tooltip()
         if pronto:
+            self._agendar_resumo(job)
             notificar(
                 "Transkriptor",
                 f"Transcrição pronta: {Path(job.resultado).name}",
@@ -300,13 +318,13 @@ class ProcessamentoReuniaoMixin:
         mic = None
         for caminho in caminhos:
             nome = Path(caminho).name.lower()
-            if "_mic.wav" in nome:
+            if nome.endswith(("_mic.wav", "_mic.wav.enc", "_mic.tks")):
                 mic = caminho
             elif principal is None:
                 principal = caminho
         return principal, mic
 
-    def _enfileirar_reuniao(self, transcritor, caminho_saida):
+    def _enfileirar_reuniao(self, transcritor, caminho_saida, *, eventos_refs=()):
         audios = list(getattr(transcritor, "audios_preservados", None) or [])
         audio, mic = self._separar_audios(audios)
         if not audio or not caminho_saida:
@@ -340,7 +358,12 @@ class ProcessamentoReuniaoMixin:
         base_saida = Path(caminho_saida).stem
         # T-13.D5: snapshot da sessão + refs seladas + preferências congeladas.
         sessao_dict = None
-        eventos_refs: list[dict] = []
+        import dataclasses
+
+        refs_dict = [
+            dataclasses.asdict(ref) if dataclasses.is_dataclass(ref) else dict(ref)
+            for ref in eventos_refs
+        ]
         sessao = getattr(self, "_sessao_ativa", None)
         if sessao is not None:
             sessao_dict = {
@@ -352,14 +375,6 @@ class ProcessamentoReuniaoMixin:
                 "offset_ms": getattr(sessao, "offset_ms", 0.0),
                 "relogio_incerto": bool(getattr(sessao, "relogio_incerto", True)),
             }
-        store = getattr(self, "_eventos_store", None)
-        if store is not None:
-            try:
-                import dataclasses
-
-                eventos_refs = [dataclasses.asdict(r) for r in store.seal()]
-            except Exception:  # noqa: BLE001 — sem refs, worker segue sem nomes
-                eventos_refs = []
         preferencias = {
             "rotulo_usuario": getattr(transcritor, "rotulo_usuario", None),
             "usar_vozes_conhecidas": bool(
@@ -372,7 +387,7 @@ class ProcessamentoReuniaoMixin:
             base_saida,
             metadados,
             sessao=sessao_dict,
-            eventos_refs=eventos_refs,
+            eventos_refs=refs_dict,
             preferencias=preferencias,
         )
         self._definir_estado_processamento("Em fila", job_id)

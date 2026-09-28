@@ -107,3 +107,25 @@ def test_calibracao_publica_metricas():
     assert rel["precisao_seletiva"] == 1.0
     assert 0.0 < rel["cobertura_elegivel"] <= 1.0
     assert "abstencoes" in rel and rel["abstencoes"] >= 1
+
+
+def test_sugestao_nao_nomeia_automaticamente_mas_chega_ao_json():
+    from identidade_reuniao import serializar_atribuicao
+    from resultado_pipeline import criar_segmentos
+
+    seg = _seg("bom dia a todos")
+    atr = resolver_atribuicao(
+        seg, [_legenda("Ana", "bom dia a todos", pid="p1", eid="e1")],
+        clock_uncertainty_ms=0, calibration_version="corpus-v1",
+    )
+    assert atr.status is AssignmentStatus.SUGGESTED
+    dados = serializar_atribuicao(atr)
+    assert dados == {
+        "status": "suggested", "participant_id": "p1", "display_name": "Ana",
+        "source": "caption", "confidence": 1.0,
+        "evidence_event_ids": ["e1"], "calibration_version": "corpus-v1",
+    }
+    segmentos, avisos = criar_segmentos((seg,), atribuicoes={"s1": dados})
+    assert segmentos[0].assignment == dados
+    assert segmentos[0].speaker_cluster_id == "FALANTE_00"
+    assert avisos == ()

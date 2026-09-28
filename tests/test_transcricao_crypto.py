@@ -19,8 +19,22 @@ def test_transcritor_grava_tkpt_sem_plaintext_em_disco(chave_teste, tmp_path, mo
     assert "linha sensivel" in ler_transcricao(caminho.split("\\")[-1].split("/")[-1], str(tmp_path))
 
 
-def test_transcritor_modo_legacy_txt_quando_crypto_off(tmp_path):
+def test_transcritor_modo_legacy_txt_quando_crypto_off(tmp_path, chave_teste):
     t = Transcritor(pasta_saida=str(tmp_path), diarizar_ao_final=False, criptografar=False)
     t._abrir_arquivo()
     assert t._caminho_saida.endswith(".txt")
     assert not isinstance(t._arq, io.StringIO)
+
+
+def test_transcritor_protegido_ignora_flag_legada_desligada(tmp_path, chave_teste):
+    import config_user
+
+    config_user.atualizar(protection_mode="protected", criptografar_transcricoes=False)
+    t = Transcritor(pasta_saida=str(tmp_path), diarizar_ao_final=False, criptografar=False)
+    t._abrir_arquivo()
+    assert t._caminho_saida.endswith(".tkpt")
+    assert isinstance(t._arq, io.StringIO)
+    t._arq.write("conteudo sensivel")
+    t._finalizar_arquivo_texto()
+    assert not list(tmp_path.glob("*.txt"))
+    assert b"conteudo sensivel" not in (tmp_path / __import__("pathlib").Path(t._caminho_saida).name).read_bytes()

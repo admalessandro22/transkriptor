@@ -9,23 +9,30 @@ import threading
 from ctypes import wintypes
 
 from config import TIMEOUT_AVISO_GRAVACAO_SEG
+from consentimento_controles import (
+    ajustar_janela,
+    ativar_dpi_na_thread,
+    atualizar_contagem,
+    carregar_icone,
+    criar_controles,
+    dpi_do_sistema,
+    fundo_de_texto,
+    liberar,
+    restaurar_dpi_na_thread,
+)
+from consentimento_layout import layout_consentimento  # noqa: F401 (contrato UX-14.E3)
 from transkriptor_acoes import IDNO, IDYES, MB_TIMEDOUT, resposta_autoriza_gravacao
 
 logger = logging.getLogger(__name__)
 
 TITULO_DIALOGO = "Transkriptor — confirmar gravação"
-_MENSAGEM_DIALOGO = (
-    "O Transkriptor detectou uma reunião.\r\n\r\n"
-    "Quer gravar o áudio e gerar a transcrição em texto?\r\n\r\n"
-    "A captura só começa depois de escolher Sim.\r\n"
-    "Não ou ausência de resposta não gravam esta reunião."
-)
 _ID_COUNTDOWN = 1003
 
 _WM_CLOSE = 0x0010
 _WM_DESTROY = 0x0002
 _WM_COMMAND = 0x0111
 _WM_TIMER = 0x0113
+_WM_CTLCOLORSTATIC = 0x0138
 _BN_CLICKED = 0
 _ID_SIM = 1001
 _ID_NAO = 1002
@@ -129,21 +136,6 @@ def _configurar_user32(user32):
     user32.RegisterClassW.restype = wintypes.ATOM
     user32.UnregisterClassW.argtypes = [wintypes.LPCWSTR, wintypes.HINSTANCE]
     user32.UnregisterClassW.restype = wintypes.BOOL
-    user32.CreateWindowExW.argtypes = [
-        wintypes.DWORD,
-        wintypes.LPCWSTR,
-        wintypes.LPCWSTR,
-        wintypes.DWORD,
-        ctypes.c_int,
-        ctypes.c_int,
-        ctypes.c_int,
-        ctypes.c_int,
-        wintypes.HWND,
-        wintypes.HMENU,
-        wintypes.HINSTANCE,
-        wintypes.LPVOID,
-    ]
-    user32.CreateWindowExW.restype = wintypes.HWND
     user32.GetMessageW.argtypes = [
         ctypes.POINTER(wintypes.MSG),
         wintypes.HWND,
@@ -169,119 +161,22 @@ def _configurar_user32(user32):
         pass
 
 
-def _criar_controles(user32, hwnd, hinstance, timeout_seg: int = 30):
-    from ctypes import wintypes as _wt
-    # Tipografia Segoe UI para o diálogo (melhor legibilidade em HiDPI)
-    try:
-        gdi32 = ctypes.windll.gdi32
-        gdi32.CreateFontW.argtypes = [
-            ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
-            wintypes.DWORD, wintypes.DWORD, wintypes.DWORD, wintypes.DWORD, wintypes.DWORD,
-            wintypes.DWORD, wintypes.DWORD, wintypes.DWORD, wintypes.LPCWSTR,
-        ]
-        gdi32.CreateFontW.restype = wintypes.HFONT
-        hfont = gdi32.CreateFontW(-15, 0, 0, 0, 400, 0, 0, 0, 0, 0, 0, 0, 0, "Segoe UI")
-        hfont_small = gdi32.CreateFontW(-12, 0, 0, 0, 400, 0, 0, 0, 0, 0, 0, 0, 0, "Segoe UI")
-    except Exception:
-        hfont = None
-        hfont_small = None
+def _criar_janela_consentimento(
+    timeout_seg: int, resultado: dict, concluido, parar, fontes=(), dpi: int | None = None
+) -> None:
+    """Executa uma janela Win32 própria, sempre no topo, sem owner modal.
 
-    estilo_texto = _WS_CHILD | _WS_VISIBLE | _SS_LEFT
-    estilo_botao = _WS_CHILD | _WS_VISIBLE | _WS_TABSTOP
-    # Mensagem principal — janela maior para respiro
-    hstatic = user32.CreateWindowExW(
-        0,
-        "STATIC",
-        _MENSAGEM_DIALOGO,
-        estilo_texto,
-        22,
-        18,
-        472,
-        118,
-        hwnd,
-        None,
-        hinstance,
-        None,
-    )
-    # Countdown — atualização a cada segundo
-    hcount = user32.CreateWindowExW(
-        0,
-        "STATIC",
-        f"Esta janela fecha automaticamente em {int(timeout_seg)}s (Não gravar).",
-        estilo_texto | 0x00000002,  # SS_CENTERIMAGE-like align left with muted hint
-        22,
-        138,
-        472,
-        18,
-        hwnd,
-        ctypes.c_void_p(_ID_COUNTDOWN),
-        hinstance,
-        None,
-    )
-    if hfont and hstatic:
-        user32.SendMessageW(hstatic, 0x0030, hfont, 1)  # WM_SETFONT
-    if hfont_small and hcount:
-        user32.SendMessageW(hcount, 0x0030, hfont_small, 1)
-    # Botões — Sim primário maior, Não secundário
-    sim = user32.CreateWindowExW(
-        0,
-        "BUTTON",
-        "●  Sim, gravar reunião",
-        estilo_botao | _BS_DEFPUSHBUTTON,
-        22,
-        166,
-        224,
-        36,
-        hwnd,
-        ctypes.c_void_p(_ID_SIM),
-        hinstance,
-        None,
-    )
-    nao = user32.CreateWindowExW(
-        0,
-        "BUTTON",
-        "Não gravar",
-        estilo_botao,
-        258,
-        166,
-        132,
-        36,
-        hwnd,
-        ctypes.c_void_p(_ID_NAO),
-        hinstance,
-        None,
-    )
-    if hfont and sim:
-        user32.SendMessageW(sim, 0x0030, hfont, 1)
-    if hfont and nao:
-        user32.SendMessageW(nao, 0x0030, hfont, 1)
-    # Dica de privacidade
-    hhint = user32.CreateWindowExW(
-        0,
-        "STATIC",
-        "Nada é gravado antes do Sim. O áudio fica local em transcrições/audio.",
-        estilo_texto,
-        22,
-        210,
-        472,
-        16,
-        hwnd,
-        None,
-        hinstance,
-        None,
-    )
-    if hfont_small and hhint:
-        user32.SendMessageW(hhint, 0x0030, hfont_small, 1)
-    if sim:
-        user32.SetFocus(sim)
-    return hcount
-
-
-def _criar_janela_consentimento(timeout_seg: int, resultado: dict, concluido, parar) -> None:
-    """Executa uma janela Win32 própria, sempre no topo, sem owner modal."""
+    UX-14.E3: a thread vira ciente de DPI (só ela), o layout é escalado por
+    `layout_consentimento`, o ícone do produto vai na classe e a contagem tem
+    barra de progresso. Cada um desses recursos, ao falhar, cai no anterior.
+    """
     user32 = ctypes.windll.user32
     kernel32 = ctypes.windll.kernel32
     _configurar_user32(user32)
+    dpi_anterior = ativar_dpi_na_thread(user32)
+    if dpi is None:
+        dpi = dpi_do_sistema(user32)
+    layout = layout_consentimento(dpi)
     kernel32.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
     kernel32.GetModuleHandleW.restype = wintypes.HINSTANCE
     hinstance = kernel32.GetModuleHandleW(None)
@@ -299,7 +194,8 @@ def _criar_janela_consentimento(timeout_seg: int, resultado: dict, concluido, pa
 
     import time as _time
     inicio = _time.monotonic()
-    contexto["hcount"] = None
+    contexto["controles"] = {}
+    timeout_ms = max(1, int(timeout_seg)) * 1000
 
     @_WNDPROC
     def proc(hwnd, mensagem, wparam, lparam):
@@ -324,16 +220,14 @@ def _criar_janela_consentimento(timeout_seg: int, resultado: dict, concluido, pa
                 finalizar(MB_TIMEDOUT)
                 return 0
             if timer_id == _ID_TIMER_CANCELAR:
-                # Atualizar countdown a cada ~50ms, mas só mudar texto quando o segundo virar
-                hcount = contexto.get("hcount")
-                if hcount:
-                    restante = max(0, int(timeout_seg) - int(_time.monotonic() - inicio))
-                    try:
-                        txt = f"Esta janela fecha automaticamente em {restante}s (Não gravar)."
-                        user32.SetWindowTextW(hcount, txt)
-                    except Exception:
-                        pass
+                restante_ms = max(0, timeout_ms - int((_time.monotonic() - inicio) * 1000))
+                atualizar_contagem(user32, contexto["controles"], restante_ms)
                 return 0
+        elif mensagem == _WM_CTLCOLORSTATIC:
+            # Só cor de fundo dos textos; não muda nenhuma porta de saída.
+            pincel = fundo_de_texto(user32, wparam)
+            if pincel:
+                return pincel
         elif mensagem == _WM_DESTROY:
             user32.KillTimer(hwnd, _ID_TIMER_CANCELAR)
             user32.KillTimer(hwnd, _ID_TIMER_TIMEOUT)
@@ -348,7 +242,7 @@ def _criar_janela_consentimento(timeout_seg: int, resultado: dict, concluido, pa
         cbClsExtra=0,
         cbWndExtra=0,
         hInstance=hinstance,
-        hIcon=None,
+        hIcon=carregar_icone(user32, layout["icone"]["largura"]),
         hCursor=cursor,
         hbrBackground=user32.GetSysColorBrush(5),  # COLOR_WINDOW
         lpszMenuName=None,
@@ -357,14 +251,18 @@ def _criar_janela_consentimento(timeout_seg: int, resultado: dict, concluido, pa
     if not user32.RegisterClassW(ctypes.byref(classe_registro)):
         raise ctypes.WinError()
     try:
-        largura, altura = 520, 272
+        estilo = _WS_OVERLAPPED | _WS_CAPTION | _WS_SYSMENU
+        estilo_ex = _WS_EX_TOPMOST | _WS_EX_TOOLWINDOW
+        largura, altura = ajustar_janela(
+            user32, layout["janela"]["largura"], layout["janela"]["altura"], estilo, estilo_ex
+        )
         x = max(0, (user32.GetSystemMetrics(0) - largura) // 2)
         y = max(0, (user32.GetSystemMetrics(1) - altura) // 2)
         hwnd = user32.CreateWindowExW(
-            _WS_EX_TOPMOST | _WS_EX_TOOLWINDOW,
+            estilo_ex,
             classe,
             TITULO_DIALOGO,
-            _WS_OVERLAPPED | _WS_CAPTION | _WS_SYSMENU,
+            estilo,
             x,
             y,
             largura,
@@ -377,7 +275,9 @@ def _criar_janela_consentimento(timeout_seg: int, resultado: dict, concluido, pa
         if not hwnd:
             raise ctypes.WinError()
         contexto["hwnd"] = hwnd
-        contexto["hcount"] = _criar_controles(user32, hwnd, hinstance, timeout_seg)
+        contexto["controles"] = criar_controles(
+            user32, hwnd, hinstance, timeout_seg, fontes, dpi, _ID_SIM, _ID_NAO, _ID_COUNTDOWN
+        )
         user32.ShowWindow(hwnd, _SW_SHOW)
         user32.UpdateWindow(hwnd)
         user32.SetWindowPos(
@@ -410,19 +310,21 @@ def _criar_janela_consentimento(timeout_seg: int, resultado: dict, concluido, pa
             if user32.IsWindow(hwnd):
                 user32.DestroyWindow(hwnd)
         user32.UnregisterClassW(classe, hinstance)
+        liberar(contexto.get("controles") or {})
+        restaurar_dpi_na_thread(user32, dpi_anterior)
         if not concluido.is_set():
             resultado["valor"] = 0
             concluido.set()
 
 
-def _mostrar_dialogo(timeout_seg: int) -> int:
+def _mostrar_dialogo(timeout_seg: int, fontes=(), dpi: int | None = None) -> int:
     """Mostra uma confirmação sempre visível, mas não modal para o Windows."""
     resultado = {"valor": MB_TIMEDOUT}
     concluido = threading.Event()
     parar = threading.Event()
     janela = threading.Thread(
         target=_criar_janela_consentimento,
-        args=(timeout_seg, resultado, concluido, parar),
+        args=(timeout_seg, resultado, concluido, parar, tuple(fontes or ()), dpi),
         daemon=True,
         name="Transkriptor-DialogoConsentimento",
     )
@@ -436,10 +338,16 @@ def _mostrar_dialogo(timeout_seg: int) -> int:
     return int(resultado["valor"])
 
 
-def pedir_consentimento(timeout_seg: int = TIMEOUT_AVISO_GRAVACAO_SEG) -> bool:
-    """Retorna True exclusivamente para a resposta Sim do diálogo."""
+def pedir_consentimento(timeout_seg: int = TIMEOUT_AVISO_GRAVACAO_SEG, fontes=()) -> bool:
+    """Retorna True exclusivamente para a resposta Sim do diálogo.
+
+    `fontes` são os nomes das fontes do detector (ex.: "titulo", "microfone");
+    só viram rótulos fixos no diálogo, nunca título de janela nem nome.
+    """
     try:
-        return resposta_autoriza_gravacao(_mostrar_dialogo(timeout_seg))
+        # Sem fontes chama como na v1.8: dublês antigos aceitam um argumento só.
+        extra = {"fontes": tuple(fontes)} if fontes else {}
+        return resposta_autoriza_gravacao(_mostrar_dialogo(timeout_seg, **extra))
     except Exception:
         logger.exception("Diálogo de consentimento indisponível; captura bloqueada")
         return False

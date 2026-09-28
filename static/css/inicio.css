@@ -1,0 +1,16 @@
+/* Página Início (SDD v1.9, T-14.D1). Só tokens --tk-*. */
+.inicio__acoes { display: flex; gap: var(--tk-space-2); flex-wrap: wrap; }
+.inicio__cartoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--tk-space-4); }
+.inicio__cartao { position: relative; padding-left: var(--tk-space-5); }
+.inicio__cartao::before { content: ''; position: absolute; left: var(--tk-space-4); top: calc(var(--tk-space-4) + 4px); width: 8px; height: 8px; border-radius: 50%; background: var(--tk-border-strong); }
+.inicio__cartao .tk-card__titulo { padding-left: var(--tk-space-3); }
+#inicio-estado[data-estado="aguardando"]::before { background: var(--tk-state-idle); }
+#inicio-estado[data-estado="gravando"]::before { background: var(--tk-state-recording); box-shadow: 0 0 0 4px var(--tk-accent-soft); }
+#inicio-estado[data-estado="processando"]::before { background: var(--tk-state-processing); }
+#inicio-estado[data-estado="separando_vozes"]::before { background: var(--tk-state-diarizing); }
+#inicio-estado[data-estado="pausado"]::before { background: var(--tk-state-paused); }
+#inicio-estado[data-estado="erro"]::before { background: var(--tk-state-error); }
+#inicio-estado[data-estado="erro"] .tk-card__valor { color: var(--tk-state-error-text); }
+#inicio-estado[data-estado="gravando"] .tk-card__valor { color: var(--tk-state-recording-text); }
+#inicio-estado[data-estado="pausado"] .tk-card__valor { color: var(--tk-state-paused-text); }
+.inicio__recentes { display: flex; flex-direction: column; gap: var(--tk-space-3); }

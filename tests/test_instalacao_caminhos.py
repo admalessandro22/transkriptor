@@ -81,6 +81,25 @@ def test_processo_ativo_detecta_gravacao():
     assert processo_ativo(vazio) is False
 
 
+def test_desinstalador_consulta_linha_de_comando_e_falha_fechado():
+    from scripts.instalar_helper import processo_ativo
+
+    comandos = []
+
+    def falha(cmd):
+        comandos.append(cmd)
+
+        class R:
+            returncode = 1
+            stdout = ""
+            stderr = "sem acesso"
+
+        return R()
+
+    assert processo_ativo(falha) is True
+    assert "Get-CimInstance" in " ".join(comandos[0])
+
+
 def test_alvos_desinstalacao_exatos_sem_apagar_dados(tmp_path, monkeypatch):
     import scripts.instalar_helper as helper
 
@@ -113,7 +132,7 @@ def test_versao_extensao_gerada_de_config():
     import config
     from scripts.sincronizar_versao_extensao import versao_extensao_para
 
-    assert versao_extensao_para(config.VERSAO) == "1.7.0"
+    assert versao_extensao_para(config.VERSAO) == "1.9.0"
     assert versao_extensao_para("2.3.4") == "2.3.0"
 
 

@@ -5,32 +5,36 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-CSS = REPO / "static" / "assistente.css"
 HTML = REPO / "templates" / "assistente.html"
+# v1.9 (T-14.B3/F2): a entrada legada static/assistente.css foi removida; o CSS
+# vive em static/css/*.css e os contratos abaixo valem para o conjunto.
+CSS_MODULOS = tuple(sorted((REPO / "static" / "css").glob("*.css")))
+
+
+def _css_total() -> str:
+    return "".join(p.read_text(encoding="utf-8") for p in CSS_MODULOS)
 
 
 def test_tokens_em_root_sem_hex_solto():
-    css = CSS.read_text(encoding="utf-8")
-    assert ":root" in css
-    assert "--bg-base" in css
-    assert "--violet" in css
-    assert "--gold" in css
-    assert "--shadow-" in css
-    assert "--radius-" in css
-    # Nenhum hex fora de :root exceto glows permitidos já é difícil checar,
-    # mas garantir que tokens existem cobre UX-11.A1
-    assert css.count("--bg-base") >= 1
+    """Migrado na v1.9 (T-14.A1): os tokens vivem em static/css/tokens.css,
+    gerado de design/tokens.json; assistente.css só importa e consome `--tk-*`.
+    A ausência de cor literal fora de tokens.css é coberta por
+    tests/test_design_tokens.py::test_sem_hex_fora_de_tokens_css."""
+    tokens = (REPO / "static" / "css" / "tokens.css").read_text(encoding="utf-8")
+    assert ":root" in tokens
+    for token in ("--tk-bg-1", "--tk-accent", "--tk-text-1", "--tk-elev-", "--tk-radius-", "--tk-state-recording"):
+        assert token in tokens
+    assert "var(--tk-" in _css_total()
 
 
 def test_sem_bounce_ou_elastic():
-    css = CSS.read_text(encoding="utf-8").lower()
+    css = _css_total().lower()
     assert "bounce" not in css, "bounce easing proibido por UX-11.A2"
     assert "elastic" not in css
 
 
 def test_prefers_reduced_motion_presente():
-    css = CSS.read_text(encoding="utf-8")
-    assert "prefers-reduced-motion" in css
+    assert "prefers-reduced-motion" in _css_total()
 
 
 def test_detect_zero_warnings():
@@ -45,7 +49,7 @@ def test_detect_zero_warnings():
     if detect is None:
         # Se detect não instalado no runner, apenas checar bounce já cobre UX-11.A2
         return
-    for alvo in ["templates/assistente.html", "static/assistente.css"]:
+    for alvo in ["templates/assistente.html", "static/css/assistente.css", "static/css/components.css"]:
         result = subprocess.run(
             ["node", str(detect), "--json", alvo],
             capture_output=True, text=True, cwd=REPO

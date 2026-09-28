@@ -50,6 +50,17 @@ def test_bootstrap_atualiza_sem_apagar_chaves_concorrentes(tmp_path, monkeypatch
     }
 
 
+def test_bootstrap_primeira_gravacao_fixa_modo_protegido(tmp_path, monkeypatch):
+    import app_bootstrap
+    from politica_privacidade import ProtectionMode, modo_efetivo
+
+    caminho = tmp_path / "config_user.json"
+    monkeypatch.setattr(config_user, "CONFIG_USER_FILE", str(caminho))
+    app_bootstrap.atualizar_config_user(identificar_minha_voz=False)
+    assert config_user.carregar()["protection_mode"] == "protected"
+    assert modo_efetivo() == ProtectionMode.PROTECTED
+
+
 def test_escrita_atomica_usa_replace(tmp_path, monkeypatch):
     """FR-6.5: escrita via tmp + os.replace (sem deixar JSON parcial)."""
     caminho = tmp_path / "config_user.json"

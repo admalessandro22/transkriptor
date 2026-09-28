@@ -18,7 +18,9 @@ mantido durante toda a thread, conserta.
 from __future__ import annotations
 
 import ast
+import os
 import threading
+from functools import lru_cache
 from pathlib import Path
 
 import pytest
@@ -78,8 +80,8 @@ USAR_CORRECAO = {usar_correcao!r}
 resultado = []
 
 def alvo():
-    derrubar_com()
     try:
+        derrubar_com()
         if USAR_CORRECAO:
             from com_audio import com_inicializada
             with com_inicializada():
@@ -111,8 +113,56 @@ def _rodar_repro(usar_correcao: bool) -> str:
     return saida.stdout.strip().splitlines()[-1] if saida.stdout.strip() else saida.stderr
 
 
+@lru_cache(maxsize=1)
+def _estado_loopback() -> str:
+    """Só ABSENT quando a enumeração confirma zero alto-falantes."""
+    import subprocess
+    import sys as _sys
+
+    script = """
+import soundcard as sc
+print('PRESENT' if sc.all_speakers() else 'ABSENT')
+"""
+    try:
+        saida = subprocess.run(
+            [_sys.executable, "-c", script], capture_output=True, text=True,
+            timeout=15, cwd=str(RAIZ),
+        )
+    except subprocess.TimeoutExpired:
+        return "ERROR_TIMEOUT"
+    estado = saida.stdout.strip()
+    return estado if saida.returncode == 0 and estado in ("PRESENT", "ABSENT") else "ERROR"
+
+
+def _exigir_loopback() -> None:
+    estado = _estado_loopback()
+    if estado == "PRESENT":
+        return
+    if estado == "ABSENT" and os.environ.get("GITHUB_ACTIONS") == "true":
+        pytest.skip("runner Windows sem alto-falante; gate físico permanece pendente")
+    pytest.fail(f"sonda de loopback: {estado}; regressão ou dispositivo indisponível")
+
+
+def test_runner_sem_loopback_registra_skip_em_vez_de_falha_de_com(monkeypatch):
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setitem(globals(), "_estado_loopback", lambda: "ABSENT")
+    monkeypatch.setitem(globals(), "_rodar_repro", lambda usar_correcao: "SEM RESULTADO")
+    with pytest.raises(pytest.skip.Exception):
+        test_reproduz_a_falha_de_com_desbalanceada()
+    with pytest.raises(pytest.skip.Exception):
+        test_com_inicializada_conserta_a_thread_desbalanceada()
+
+
+def test_runner_com_erro_na_sonda_nao_oculta_falha_de_com(monkeypatch):
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setitem(globals(), "_estado_loopback", lambda: "ERROR")
+    with pytest.raises(pytest.fail.Exception, match="sonda"):
+        _exigir_loopback()
+
+
 def test_reproduz_a_falha_de_com_desbalanceada():
     """Prova que o sintoma de produção é este, e não falha de dispositivo."""
+    _exigir_loopback()
     resultado = _rodar_repro(usar_correcao=False)
 
     assert "0x800401f0" in resultado.lower(), (
@@ -122,6 +172,7 @@ def test_reproduz_a_falha_de_com_desbalanceada():
 
 def test_com_inicializada_conserta_a_thread_desbalanceada():
     """Mesma sequência, agora com o contexto que a correção instala."""
+    _exigir_loopback()
     resultado = _rodar_repro(usar_correcao=True)
 
     assert resultado == "OK", f"loopback ainda falhou com com_inicializada: {resultado}"

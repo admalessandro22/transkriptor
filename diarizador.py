@@ -181,6 +181,7 @@ def reforcar_rotulo_por_mic(
     sample_rate=SAMPLE_RATE,
     rms_loopback_por_segmento=None,
     margem_anti_eco=MARGEM_ANTI_ECO,
+    trechos_mic=None,
 ):
     """Força rótulo do usuário quando há energia no mic (FR-5.6).
 
@@ -189,14 +190,15 @@ def reforcar_rotulo_por_mic(
     Guarda D6: rótulo já confirmado (nome próprio, não `FALANTE_XX`) nunca é
     trocado por energia — conflito vira pendência nas camadas de identidade.
     """
-    if not caminho_mic:
+    if not caminho_mic and trechos_mic is None:
         return resultado
     reforcado = []
     for i, (rot, start, end, texto) in enumerate(resultado):
         if not str(rot).startswith("FALANTE"):
             reforcado.append((rot, start, end, texto))
             continue
-        trecho = ler_trecho_wav(caminho_mic, start, end, sample_rate)
+        trecho = (trechos_mic[i] if trechos_mic is not None and i < len(trechos_mic)
+                  else ler_trecho_wav(caminho_mic, start, end, sample_rate))
         rms_mic = _rms(trecho)
         if rms_mic < limiar_rms:
             reforcado.append((rot, start, end, texto))
@@ -212,15 +214,17 @@ def reforcar_rotulo_por_mic(
 
 
 def _normalizar_segmentos(segmentos):
-    """BUG-09: normaliza segmentos sobrepostos e clampa limites."""
+    """Clampa intervalos inválidos sem apagar a sobreposição entre fontes.
+
+    Os trechos de áudio já chegam extraídos por segmento. Deslocar o início
+    para depois da fala anterior altera a chave temporal do resultado e
+    impede vincular o rótulo ao segmento original.
+    """
     normalizados = []
-    end_anterior = 0.0
     for start, end, texto in segmentos:
-        start = max(start, end_anterior)
+        start = max(0.0, float(start))
         end = max(end, start + 0.001)
-        if start < end:
-            normalizados.append((start, end, texto))
-            end_anterior = end
+        normalizados.append((start, end, texto))
     return normalizados
 
 
@@ -238,6 +242,7 @@ def diarizar(
     eventos_meet=None,
     vozes_conhecidas=None,
     retornar_centroides=False,
+    trechos_loopback=None,
 ):
     """Separa os segmentos por falante.
 
@@ -278,7 +283,7 @@ def diarizar(
     if not segmentos:
         return ([], {}) if retornar_centroides else []
 
-    # BUG-09: normaliza segmentos sobrepostos
+    # Mantém os tempos de falas sobrepostas para o resultado estruturado.
     segmentos = _normalizar_segmentos(segmentos)
     if not segmentos:
         return ([], {}) if retornar_centroides else []
@@ -289,8 +294,13 @@ def diarizar(
         while len(trechos_audio) < len(segmentos):
             trechos_audio.append(np.array([], dtype=np.float32))
 
-    # RMS do loopback por segmento (guarda anti-eco FR-5.6)
-    rms_loopback = [_rms(t) for t in trechos_audio[: len(segmentos)]]
+    # A guarda anti-eco precisa do loopback original mesmo quando o embedding
+    # de um segmento é extraído do microfone.
+    if trechos_loopback is not None and len(trechos_loopback) != len(segmentos):
+        raise ValueError("trechos de loopback não correspondem aos segmentos")
+    rms_loopback = [_rms(t) for t in (
+        trechos_loopback if trechos_loopback is not None else trechos_audio[: len(segmentos)]
+    )]
 
     status("Carregando modelo de vozes...")
     encoder = _carregar_encoder()

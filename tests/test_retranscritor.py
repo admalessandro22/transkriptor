@@ -28,7 +28,7 @@ def _escrever_wav(path: Path, segundos=1.0, sr=16000):
     return path
 
 
-def test_retranscrever_wav_gera_transcricao_e_diarizada(tmp_path, monkeypatch):
+def test_retranscrever_wav_gera_transcricao_e_diarizada(tmp_path, monkeypatch, chave_teste):
     pasta_tr = tmp_path / "tr"
     pasta_audio = tmp_path / "audio"
     pasta_tr.mkdir()
@@ -100,7 +100,7 @@ def test_listar_audios_inclui_data_e_duracao(tmp_path, monkeypatch):
 
 
 def test_retranscrever_nome_deterministico_txt_e_escrita_atomica(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, chave_teste
 ):
     import retranscritor
 
@@ -134,7 +134,7 @@ def test_retranscrever_nome_deterministico_txt_e_escrita_atomica(
     assert not list(pasta_tr.glob("*.tmp"))
 
 
-def test_retranscricao_sinaliza_lacuna_estimada(tmp_path):
+def test_retranscricao_sinaliza_lacuna_estimada(tmp_path, chave_teste):
     pasta = tmp_path / "tr"
     pasta.mkdir()
     wav = _escrever_wav(tmp_path / "reuniao-2.wav", segundos=0.2)

@@ -8,7 +8,7 @@ Isso evita magic numbers espalhados e facilita ajustes.
 import os
 
 # ---- Versão do produto (fonte única) ----
-VERSAO = "1.7.0"
+VERSAO = "1.9.0"
 
 # ---- Caminhos ----
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -98,6 +98,12 @@ CAPTURAR_MIC = True
 DURACAO_CADASTRO_SEG = 20
 LIMIAR_RMS_MIC = 0.05
 MARGEM_ANTI_ECO = 1.5
+APRENDIZADO_VOZ_AMOSTRAS_MAX = 8
+APRENDIZADO_VOZ_TRECHO_MAX_MS = 6000
+APRENDIZADO_VOZ_TRECHO_MIN_MS = 1500
+APRENDIZADO_VOZ_TOTAL_MIN_MS = 4000
+APRENDIZADO_VOZ_MIN_AMOSTRAS = 2
+APRENDIZADO_VOZ_FRACAO_COHERENTE = 0.75
 
 # ---- Ollama / Assistente ----
 OLLAMA_URL = "http://localhost:11434"
@@ -118,6 +124,8 @@ CHAT_CONTEUDO_MAX_CHARS = 4000
 CHAT_MAX_CONCORRENTES = 2
 RESUMO_MAX_RODADAS = 3
 RESUMO_MAX_CHAMADAS = 8
+RESUMO_RETRY_TENTATIVAS = 2
+RESUMO_RETRY_ESPERA_SEG = 10
 
 # ---- Monitor de Meet ----
 EXIGIR_JANELA_VISIVEL = False
@@ -138,6 +146,14 @@ FATOR_TRAVAMENTO_MONITOR = 3        # 3 x INTERVALO_MONITOR_MEET = 15 s
 # Portão do consentimento: se a pergunta morrer sem responder, o portão precisa
 # reabrir sozinho — senão uma falha cega todas as reuniões seguintes.
 LIMITE_PORTAO_CONSENTIMENTO_SEG = TIMEOUT_AVISO_GRAVACAO_SEG + 30
+
+# Diálogo de consentimento (UX-14.E3): geometria base em 96 dpi, escalada por
+# consentimento_layout.layout_consentimento(dpi). Botão primário >= 36 px (alvo de toque).
+CONSENTIMENTO_DPI_BASE = 96
+CONSENTIMENTO_LARGURA_BASE = 520
+CONSENTIMENTO_MARGEM_BASE = 22
+CONSENTIMENTO_BOTAO_ALTURA_MIN = 36
+CONSENTIMENTO_ICONE_BASE = 32
 # ---- Aviso de gravação (FR-2.9 / FR-9.4) ----
 PERGUNTAR_ANTES_DE_GRAVAR = True    # diálogo Sim/Não ao detectar reunião
 
@@ -157,7 +173,8 @@ MEET_WS_EVENTOS_POR_SEG = 20           # taxa sustentada por conexão
 MEET_WS_BURST = 40                     # rajada máxima por conexão
 MEET_WS_MAX_CONEXOES = 4               # conexões autenticadas simultâneas
 MEET_CONVITE_SEG = 300                 # validade do convite de pareamento
-MEET_SESSAO_SEG = 12 * 3600            # validade da credencial da sessão
+MEET_SESSAO_SEG = 90 * 24 * 3600       # validade da credencial; renovada a cada uso
+ARQUIVO_PAREAMENTO_MEET = os.path.join(DIR_MODELO_VOZ, "meet_pareamento.json")  # só hashes
 
 # ---- Spool de eventos Meet (SEC-13.D4) ----
 MEET_EVENTOS_BUFFER = 500             # eventos em RAM antes do dreno

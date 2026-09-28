@@ -13,6 +13,7 @@ Ver `tests/test_ciclo_reuniao_sem_deadlock.py` e `tests/test_lock_sem_callback.p
 
 from __future__ import annotations
 
+import functools
 import logging
 import threading
 import time
@@ -150,7 +151,10 @@ class CicloReuniaoMixin:
                 )
                 self._eventos_store = _store
                 ponte = getattr(self, "meet_bridge", None)
-                if ponte is not None and hasattr(ponte, "definir_store"):
+                if ponte is not None and hasattr(ponte, "definir_sessao_ativa"):
+                    hint = ponte.hint_ativo_unico()
+                    ponte.definir_sessao_ativa(self._sessao_ativa, _store, meeting_hint=hint)
+                elif ponte is not None and hasattr(ponte, "definir_store"):
                     ponte.definir_store(_store)
             except Exception:  # noqa: BLE001
                 logger.debug("Spool de eventos indisponível", exc_info=True)
@@ -159,11 +163,18 @@ class CicloReuniaoMixin:
             logger.debug("Sessão da reunião indisponível", exc_info=True)
             self._sessao_ativa = None
             self._eventos_store = None
-        if titulo:
-            # Slug já sanitizado (ex: Reuniao_Bolsistas_PROINOVE)
-            self._status(f"Reunião detectada ({fontes}) — {titulo}. Iniciando gravação...")
-        else:
-            self._status(f"Reunião detectada ({fontes}). Iniciando gravação...")
+        # O título fica no estado da detecção; o log recebe apenas fontes
+        # conhecidas, nunca texto derivado da janela.
+        self._status("Reunião detectada. Iniciando gravação...")
+        from status_seguro import FONTES_REUNIAO, emitir_evento
+
+        fontes_log = sorted(
+            set(getattr(detector, "fontes_da_reuniao", None) or []) & FONTES_REUNIAO
+        )
+        logger.info(
+            emitir_evento("meeting_detected", fontes=",".join(fontes_log))
+            if fontes_log else emitir_evento("meeting_detected")
+        )
         self.transcritor = self._construir_transcritor()
         try:
             from pathlib import Path as _Path
@@ -221,7 +232,9 @@ class CicloReuniaoMixin:
     def _erro_critico(self, msg):
         self._em_erro = True
         self._instante_erro = time.monotonic()
-        logging.error("Erro critico: %s", msg)
+        from status_seguro import emitir_evento
+
+        logging.error(emitir_evento("erro_critico"))
         self._status(f"ERRO CRITICO: {msg}")
         notificar("Transkriptor", f"Erro crítico: {msg}. Veja o log.")
         self._atualizar_tooltip()
@@ -246,19 +259,25 @@ class CicloReuniaoMixin:
                 if self.modo_legendas_meet and not t.eventos_meet:
                     notificar(
                         "Transkriptor",
-                        "Ative legendas no Meet para identificar participantes",
+                        "Nenhum nome recebido do Meet — recarregue a aba e confira o pareamento da extensão",
                     )
+            eventos_refs = ()
             try:
                 _store = getattr(self, "_eventos_store", None)
                 if _store is not None:
-                    _refs = _store.seal()
-                    logger.info("Eventos Meet selados: %d segmento(s).", len(_refs))
+                    eventos_refs = _store.seal()
+                    logger.info("Eventos Meet selados: %d segmento(s).", len(eventos_refs))
             except Exception:  # noqa: BLE001
                 logger.debug("Selo de eventos indisponível", exc_info=True)
             finally:
                 self._eventos_store = None
                 ponte = getattr(self, "meet_bridge", None)
-                if ponte is not None and hasattr(ponte, "definir_store"):
+                if ponte is not None and hasattr(ponte, "definir_sessao_ativa"):
+                    try:
+                        ponte.definir_sessao_ativa(None, None)
+                    except Exception:  # noqa: BLE001
+                        pass
+                elif ponte is not None and hasattr(ponte, "definir_store"):
                     try:
                         ponte.definir_store(None)
                     except Exception:  # noqa: BLE001
@@ -268,7 +287,7 @@ class CicloReuniaoMixin:
                 if self.transcritor is t:
                     self.transcritor = None
             if caminho:
-                self._enfileirar_reuniao(t, caminho)
+                self._enfileirar_reuniao(t, caminho, eventos_refs=eventos_refs)
             self._atualizar_tooltip()
 
     def _em_thread(self, alvo, nome):
@@ -305,9 +324,13 @@ class CicloReuniaoMixin:
     def _pedir_e_iniciar(self):
         """Solicita consentimento antes de abrir dispositivo ou arquivo de áudio."""
         try:
-            perguntar = getattr(self, "_pedir_consentimento", None) or pedir_consentimento
-            autorizado = bool(perguntar())
             detector = getattr(self, "detector", None)
+            perguntar = getattr(self, "_pedir_consentimento", None)
+            if perguntar is None:
+                # UX-14.E3: o diálogo mostra a fonte detectada (rótulo fixo por fonte).
+                fontes = tuple(getattr(detector, "fontes_da_reuniao", None) or ())
+                perguntar = functools.partial(pedir_consentimento, fontes=fontes)
+            autorizado = bool(perguntar())
             reuniao_ainda_ativa = bool(
                 detector is not None and getattr(detector, "reuniao_ativa", False)
             )

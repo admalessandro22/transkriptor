@@ -12,7 +12,7 @@ REPO = Path(__file__).resolve().parent.parent
 def test_versao_config_bate_com_pyproject():
     pyproject = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
     assert config.VERSAO == pyproject["project"]["version"]
-    assert config.VERSAO == "1.7.0"
+    assert config.VERSAO == "1.9.0"
 
 
 def test_transkriptor_pyw_sem_versao_hardcoded():
@@ -29,7 +29,9 @@ def test_transkriptor_pyw_sem_versao_hardcoded():
 
 def test_instalar_bat_le_versao_de_config():
     bat = (REPO / "instalar.bat").read_text(encoding="utf-8")
-    assert "from config import VERSAO" in bat
+    helper = (REPO / "scripts" / "instalar_helper.py").read_text(encoding="utf-8")
+    assert "instalar_helper.py --version" in bat
+    assert '"config.py"' in helper and '["VERSAO"]' in helper
     assert re.search(r"Instalando Transkriptor 1\.2\.\d", bat) is None
 
 

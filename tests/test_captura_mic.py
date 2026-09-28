@@ -43,7 +43,8 @@ def test_abrir_arquivo_sem_mic_nao_cria_wav_mic(tmp_path):
     assert t._wav_mic is None
 
 
-def test_stop_fecha_mic_apos_thread_mic(tmp_path, monkeypatch):
+def test_stop_fecha_mic_apos_thread_mic(tmp_path, monkeypatch, chave_teste):
+    # Configuração existente sem protection_mode preserva o modo compatible.
     pasta_audio = tmp_path / "audio"
     monkeypatch.setattr("transcricao_core.PASTA_AUDIO", str(pasta_audio))
     monkeypatch.setattr("config.PASTA_AUDIO", str(pasta_audio))

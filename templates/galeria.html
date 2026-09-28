@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark light">
+<title>Transkriptor · Galeria</title>
+<link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/galeria.css') }}">
+</head>
+<body>
+<main class="galeria" id="galeria">
+  <header class="galeria__cabecalho">
+    <div>
+      <h1 class="tk-type-xl">Galeria de componentes</h1>
+      <p class="tk-subtle">Todos os componentes <code>tk-*</code> em todos os estados. Dados sintéticos.</p>
+    </div>
+    <button type="button" class="tk-btn tk-btn--secondary" id="tema-toggle" data-tema-toggle aria-pressed="false">
+      <svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-sun"/></svg>
+      <span>Alternar tema</span>
+    </button>
+  </header>
+
+  <section class="galeria__secao" data-componente="tk-btn" aria-labelledby="sec-btn">
+    <h2 id="sec-btn" class="tk-label">Botão</h2>
+    <div class="galeria__linha">
+      <button type="button" class="tk-btn tk-btn--primary">Gravar esta reunião</button>
+      <button type="button" class="tk-btn">Secundário</button>
+      <button type="button" class="tk-btn tk-btn--secondary">Contorno</button>
+      <button type="button" class="tk-btn tk-btn--quiet">Silencioso</button>
+      <button type="button" class="tk-btn tk-btn--danger">Apagar perfil</button>
+      <button type="button" class="tk-btn tk-btn--primary" disabled>Desabilitado</button>
+      <button type="button" class="tk-btn tk-btn--primary is-loading" aria-busy="true">Carregando</button>
+      <button type="button" class="tk-btn tk-btn--sm">Pequeno</button>
+      <button type="button" class="tk-btn tk-btn--icon" aria-label="Copiar"><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-copy"/></svg></button>
+    </div>
+  </section>
+
+  <section class="galeria__secao" data-componente="tk-field" aria-labelledby="sec-field">
+    <h2 id="sec-field" class="tk-label">Campo</h2>
+    <div class="galeria__grade">
+      <div class="tk-field"><label for="g-f1">Nome corrigido</label><input id="g-f1" type="text" placeholder="Ex.: Maria Silva"><span class="tk-field__dica">Vale só para esta reunião.</span></div>
+      <div class="tk-field is-invalid"><label for="g-f2">Nome corrigido</label><input id="g-f2" type="text" value="A" aria-invalid="true" aria-describedby="g-f2-erro"><span class="tk-field__erro" id="g-f2-erro">Nome muito curto. Use pelo menos 2 letras.</span></div>
+      <div class="tk-field"><label for="g-f3">Desabilitado</label><input id="g-f3" type="text" value="Sem edição" disabled></div>
+      <div class="tk-field"><label for="g-f4">Modelo</label><div class="tk-select-wrap"><select id="g-f4"><option>llama3.1:8b</option><option>qwen2.5:7b</option></select><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-chevron-down"/></svg></div></div>
+      <div class="tk-field"><label for="g-f5">Buscar</label><div class="tk-search"><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-search"/></svg><input id="g-f5" type="search" placeholder="Filtrar reuniões"></div></div>
+      <div class="tk-field"><label for="g-f6">Pergunta</label><textarea id="g-f6" placeholder="Pergunte algo sobre a reunião"></textarea></div>
+    </div>
+  </section>
+
+  <section class="galeria__secao" data-componente="tk-listbox" aria-labelledby="sec-listbox">
+    <h2 id="sec-listbox" class="tk-label">Listbox</h2>
+    <div class="galeria__grade">
+      <ul class="tk-listbox" role="listbox" aria-label="Reuniões" tabindex="0" aria-activedescendant="g-op1">
+        <li role="option" id="g-op1" aria-selected="true" class="is-active"><span class="tk-listbox__titulo">22/09/2026 · 10:03</span><span class="tk-badge tk-badge-protect tk-badge-protect--protegida">Protegida</span><span class="tk-listbox__meta">31 min · Separada por vozes · <span class="tk-badge tk-badge-protect--voce">Com sua voz</span></span></li>
+        <li role="option" id="g-op2" aria-selected="false"><span class="tk-listbox__titulo">18/09/2026 · 15:30</span><span class="tk-badge tk-badge-protect tk-badge-protect--legivel">Legível</span><span class="tk-listbox__meta">48 min</span></li>
+        <li role="option" id="g-op3" aria-selected="false"><span class="tk-listbox__titulo">11/09/2026 · 09:00</span><span class="tk-badge tk-badge-protect tk-badge-protect--protegida">Protegida</span><span class="tk-listbox__meta">12 min · Processando</span></li>
+      </ul>
+      <ul class="tk-listbox" role="listbox" aria-label="Carregando"><li class="tk-skeleton tk-skeleton--card" aria-hidden="true"></li><li class="tk-skeleton tk-skeleton--card" aria-hidden="true"></li></ul>
+      <ul class="tk-listbox is-empty" role="list" aria-label="Vazia"><li class="tk-listbox__estado">Nenhuma reunião ainda. A primeira aparece aqui depois de gravada.</li></ul>
+      <ul class="tk-listbox is-empty" role="list" aria-label="Sem resultado"><li class="tk-listbox__estado">Nenhuma reunião combina com o filtro.</li></ul>
+      <ul class="tk-listbox is-error" role="list" aria-label="Erro"><li class="tk-listbox__estado">Não foi possível carregar a lista. <button type="button" class="tk-btn tk-btn--sm">Tentar de novo</button></li></ul>
+    </div>
+  </section>
+
+  <section class="galeria__secao" data-componente="tk-badge" aria-labelledby="sec-badge">
+    <h2 id="sec-badge" class="tk-label">Badges de estado e proteção</h2>
+    <div class="galeria__linha">
+      <span class="tk-badge tk-badge-state" data-estado="aguardando">Aguardando reunião</span>
+      <span class="tk-badge tk-badge-state" data-estado="gravando">Gravando</span>
+      <span class="tk-badge tk-badge-state" data-estado="processando">Processando</span>
+      <span class="tk-badge tk-badge-state" data-estado="separando_vozes">Separando vozes</span>
+      <span class="tk-badge tk-badge-state" data-estado="pausado">Pausado</span>
+      <span class="tk-badge tk-badge-state" data-estado="erro">Erro</span>
+      <span class="tk-badge tk-badge-protect tk-badge-protect--protegida"><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-shield-check"/></svg>Protegida</span>
+      <span class="tk-badge tk-badge-protect tk-badge-protect--legivel"><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-unlock"/></svg>Legível</span>
+      <span class="tk-badge tk-badge-protect tk-badge-protect--voce"><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-user"/></svg>Com sua voz</span>
+    </div>
+  </section>
+
+  <section class="galeria__secao" data-componente="tk-statusbar" aria-labelledby="sec-status">
+    <h2 id="sec-status" class="tk-label">Barra de estado</h2>
+    <div class="galeria__linha">
+      <span class="tk-statusbar" data-estado="aguardando"><span class="tk-statusbar__ponto"></span>Aguardando reunião</span>
+      <span class="tk-statusbar" data-estado="gravando"><span class="tk-statusbar__ponto"></span>Gravando · Google Meet</span>
+      <span class="tk-statusbar" data-estado="processando"><span class="tk-statusbar__ponto"></span>Processando reunião</span>
+      <span class="tk-statusbar" data-estado="separando_vozes"><span class="tk-statusbar__ponto"></span>Separando vozes</span>
+      <span class="tk-statusbar" data-estado="pausado"><span class="tk-statusbar__ponto"></span>Pausado</span>
+      <span class="tk-statusbar" data-estado="erro"><span class="tk-statusbar__ponto"></span>Erro · veja o diagnóstico</span>
+      <span class="tk-statusbar" data-estado="indisponivel"><span class="tk-statusbar__ponto"></span>Central sem bandeja</span>
+    </div>
+  </section>
+
+  <section class="galeria__secao" data-componente="tk-toast" aria-labelledby="sec-toast">
+    <h2 id="sec-toast" class="tk-label">Toast</h2>
+    <div class="galeria__linha">
+      <button type="button" class="tk-btn" data-toast="info">Info</button>
+      <button type="button" class="tk-btn" data-toast="success">Sucesso</button>
+      <button type="button" class="tk-btn" data-toast="warning">Aviso</button>
+      <button type="button" class="tk-btn" data-toast="error">Erro</button>
+    </div>
+    <div class="galeria__toasts-estaticos" aria-hidden="true">
+      <div class="tk-toast tk-toast--info"><svg class="tk-icon tk-toast__icone"><use href="{{ url_for('static', filename='icones.svg') }}#i-info"/></svg><div><div class="tk-toast__titulo">Prompt carregado</div><div class="tk-toast__texto">Edite se quiser e pressione Enviar.</div></div><button type="button" class="tk-btn tk-btn--quiet tk-btn--sm tk-btn--icon tk-toast__fechar" aria-label="Fechar aviso" tabindex="-1"><svg class="tk-icon tk-icon--sm"><use href="{{ url_for('static', filename='icones.svg') }}#i-x"/></svg></button></div>
+      <div class="tk-toast tk-toast--success"><svg class="tk-icon tk-toast__icone"><use href="{{ url_for('static', filename='icones.svg') }}#i-check"/></svg><div><div class="tk-toast__titulo">Correção salva</div><div class="tk-toast__texto">Revisão 4.</div></div><button type="button" class="tk-btn tk-btn--quiet tk-btn--sm tk-btn--icon tk-toast__fechar" aria-label="Fechar aviso" tabindex="-1"><svg class="tk-icon tk-icon--sm"><use href="{{ url_for('static', filename='icones.svg') }}#i-x"/></svg></button></div>
+      <div class="tk-toast tk-toast--warning"><svg class="tk-icon tk-toast__icone"><use href="{{ url_for('static', filename='icones.svg') }}#i-alert"/></svg><div><div class="tk-toast__titulo">Transcrição longa</div><div class="tk-toast__texto">A resposta será consolidada em blocos.</div></div><button type="button" class="tk-btn tk-btn--quiet tk-btn--sm tk-btn--icon tk-toast__fechar" aria-label="Fechar aviso" tabindex="-1"><svg class="tk-icon tk-icon--sm"><use href="{{ url_for('static', filename='icones.svg') }}#i-x"/></svg></button></div>
+      <div class="tk-toast tk-toast--error"><svg class="tk-icon tk-toast__icone"><use href="{{ url_for('static', filename='icones.svg') }}#i-alert"/></svg><div><div class="tk-toast__titulo">Ollama não respondeu</div><div class="tk-toast__texto">Inicie o Ollama e tente de novo.</div></div><button type="button" class="tk-btn tk-btn--quiet tk-btn--sm tk-btn--icon tk-toast__fechar" aria-label="Fechar aviso" tabindex="-1"><svg class="tk-icon tk-icon--sm"><use href="{{ url_for('static', filename='icones.svg') }}#i-x"/></svg></button></div>
+    </div>
+  </section>
+
+  <section class="galeria__secao" data-componente="tk-dialog" aria-labelledby="sec-dialog">
+    <h2 id="sec-dialog" class="tk-label">Diálogo</h2>
+    <div class="galeria__linha">
+      <button type="button" class="tk-btn" id="abrir-dialogo">Confirmação</button>
+      <button type="button" class="tk-btn tk-btn--danger" id="abrir-dialogo-perigo">Ação de perigo</button>
+      <span class="tk-subtle" id="dialogo-resultado" role="status"></span>
+    </div>
+  </section>
+
+  <section class="galeria__secao" data-componente="tk-panel" aria-labelledby="sec-panel">
+    <h2 id="sec-panel" class="tk-label">Painel lateral</h2>
+    <div class="galeria__linha">
+      <button type="button" class="tk-btn" id="abrir-painel">Abrir painel</button>
+    </div>
+    <aside class="tk-panel" id="painel-demo" hidden aria-hidden="true" role="dialog" aria-modal="false" aria-labelledby="painel-demo-titulo">
+      <div class="tk-panel__cabecalho"><h2 class="tk-panel__titulo" id="painel-demo-titulo">Participantes</h2><button type="button" class="tk-btn tk-btn--quiet tk-btn--icon" id="fechar-painel" aria-label="Fechar painel"><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-x"/></svg></button></div>
+      <div class="tk-panel__corpo"><p>Conteúdo do painel com um <a href="#galeria">link</a> e um campo.</p><div class="tk-field"><label for="g-p1">Nome</label><input id="g-p1" type="text"></div></div>
+      <div class="tk-panel__rodape"><button type="button" class="tk-btn tk-btn--secondary" id="painel-cancelar">Cancelar</button><button type="button" class="tk-btn tk-btn--primary">Salvar</button></div>
+    </aside>
+  </section>
+
+  <section class="galeria__secao" data-componente="tk-skeleton" aria-labelledby="sec-skeleton">
+    <h2 id="sec-skeleton" class="tk-label">Skeleton</h2>
+    <div class="galeria__coluna" aria-busy="true"><span class="tk-skeleton tk-skeleton--titulo"></span><span class="tk-skeleton tk-skeleton--linha"></span><span class="tk-skeleton tk-skeleton--linha"></span><span class="tk-skeleton tk-skeleton--card"></span></div>
+  </section>
+
+  <section class="galeria__secao" data-componente="tk-empty" aria-labelledby="sec-empty">
+    <h2 id="sec-empty" class="tk-label">Estado vazio</h2>
+    <div class="galeria__grade">
+      <div class="tk-empty"><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-mic"/></svg><h3 class="tk-empty__titulo">Nenhuma reunião ainda</h3><p class="tk-empty__texto">Entre numa reunião do Meet ou do Zoom. O Transkriptor pergunta antes de gravar.</p><button type="button" class="tk-btn tk-btn--primary">Abrir diagnóstico</button></div>
+      <div class="tk-empty"><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-search"/></svg><h3 class="tk-empty__titulo">Nada combina com o filtro</h3><p class="tk-empty__texto">Tente outra data ou limpe a busca.</p><button type="button" class="tk-btn">Limpar filtro</button></div>
+      <div class="tk-empty"><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-alert"/></svg><h3 class="tk-empty__titulo">Não foi possível carregar</h3><p class="tk-empty__texto">A Central não conseguiu falar com o aplicativo.</p><button type="button" class="tk-btn">Tentar de novo</button></div>
+    </div>
+  </section>
+
+  <section class="galeria__secao" data-componente="tk-row" aria-labelledby="sec-row">
+    <h2 id="sec-row" class="tk-label">Linha de dados</h2>
+    <div class="tk-rows">
+      <div class="tk-row is-selected"><span class="tk-row__principal">22/09/2026 · 10:03 · Reunião de planejamento</span><span class="tk-row__meta">31 min</span><span class="tk-badge tk-badge-state" data-estado="processando">Processando</span></div>
+      <div class="tk-row"><span class="tk-row__principal">18/09/2026 · 15:30</span><span class="tk-row__meta">48 min</span><span class="tk-badge tk-badge-protect tk-badge-protect--legivel">Legível</span></div>
+      <div class="tk-row"><span class="tk-row__principal">11/09/2026 · 09:00 · Um título bem mais longo do que caberia nesta coluna para provar o corte com reticências</span><span class="tk-row__meta">12 min</span><button type="button" class="tk-btn tk-btn--sm tk-btn--quiet">Abrir</button></div>
+    </div>
+  </section>
+
+  <section class="galeria__secao" data-componente="tk-progress" aria-labelledby="sec-progress">
+    <h2 id="sec-progress" class="tk-label">Progresso</h2>
+    <div class="galeria__coluna">
+      <div class="tk-progress-linha"><div class="tk-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="62" aria-label="Transcrevendo"><div class="tk-progress__barra galeria__barra-62"></div></div><span class="tk-progress-linha__rotulo">Transcrevendo · 62%</span></div>
+      <div class="tk-progress-linha"><div class="tk-progress tk-progress--indeterminado" role="progressbar" aria-label="Gerando resposta"><div class="tk-progress__barra"></div></div><span class="tk-progress-linha__rotulo">O modelo está pensando… 12 s</span></div>
+    </div>
+  </section>
+
+  <section class="galeria__secao" data-componente="tk-chip" aria-labelledby="sec-chip">
+    <h2 id="sec-chip" class="tk-label">Chips de intenção</h2>
+    <div class="tk-chips">
+      <button type="button" class="tk-chip is-active" aria-pressed="true"><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-file-text"/></svg>Resumir reunião</button>
+      <button type="button" class="tk-chip"><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-list"/></svg>Pontos principais</button>
+      <button type="button" class="tk-chip"><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-check"/></svg>Tarefas e ações</button>
+      <button type="button" class="tk-chip"><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-shield"/></svg>Decisões</button>
+      <button type="button" class="tk-chip"><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-chevron-right"/></svg>Próximos passos</button>
+      <button type="button" class="tk-chip" disabled><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-alert"/></svg>Pendências e riscos</button>
+    </div>
+  </section>
+
+  <section class="galeria__secao" data-componente="tk-card" aria-labelledby="sec-card">
+    <h2 id="sec-card" class="tk-label">Cartão</h2>
+    <div class="galeria__grade">
+      <div class="tk-card"><span class="tk-card__titulo">Agora</span><span class="tk-card__valor">Aguardando</span><span class="tk-subtle">Nenhuma reunião à vista</span></div>
+      <div class="tk-card"><span class="tk-card__titulo">Última reunião</span><span class="tk-card__valor">22/09 · 10:03</span><span class="tk-badge tk-badge-state" data-estado="processando">Processando</span></div>
+      <div class="tk-card"><span class="tk-card__titulo">Proteção</span><span class="tk-card__valor">Protegida</span><span class="tk-subtle">Resultados cifrados em repouso</span></div>
+    </div>
+  </section>
+</main>
+<script type="module" src="{{ url_for('static', filename='js/galeria.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,131 @@
+{
+  "gerado_em": "2026-09-24T16:35:47.628Z",
+  "analises": [
+    {
+      "rotulo": "assistente · dark",
+      "passes": 45,
+      "incompletas": 1,
+      "violacoes": []
+    },
+    {
+      "rotulo": "assistente · forced-colors + reduced-motion",
+      "passes": 45,
+      "incompletas": 1,
+      "violacoes": []
+    },
+    {
+      "rotulo": "assistente · light",
+      "passes": 45,
+      "incompletas": 1,
+      "violacoes": []
+    },
+    {
+      "rotulo": "configuracoes · dark",
+      "passes": 40,
+      "incompletas": 0,
+      "violacoes": []
+    },
+    {
+      "rotulo": "configuracoes · forced-colors + reduced-motion",
+      "passes": 40,
+      "incompletas": 0,
+      "violacoes": []
+    },
+    {
+      "rotulo": "configuracoes · light",
+      "passes": 40,
+      "incompletas": 0,
+      "violacoes": []
+    },
+    {
+      "rotulo": "diagnostico · dark",
+      "passes": 36,
+      "incompletas": 0,
+      "violacoes": []
+    },
+    {
+      "rotulo": "diagnostico · forced-colors + reduced-motion",
+      "passes": 36,
+      "incompletas": 0,
+      "violacoes": []
+    },
+    {
+      "rotulo": "diagnostico · light",
+      "passes": 36,
+      "incompletas": 0,
+      "violacoes": []
+    },
+    {
+      "rotulo": "galeria · dark",
+      "passes": 41,
+      "incompletas": 3,
+      "violacoes": []
+    },
+    {
+      "rotulo": "galeria · forced-colors + reduced-motion",
+      "passes": 41,
+      "incompletas": 3,
+      "violacoes": []
+    },
+    {
+      "rotulo": "galeria · light",
+      "passes": 41,
+      "incompletas": 3,
+      "violacoes": []
+    },
+    {
+      "rotulo": "inicio · dark",
+      "passes": 36,
+      "incompletas": 0,
+      "violacoes": []
+    },
+    {
+      "rotulo": "inicio · forced-colors + reduced-motion",
+      "passes": 36,
+      "incompletas": 0,
+      "violacoes": []
+    },
+    {
+      "rotulo": "inicio · light",
+      "passes": 36,
+      "incompletas": 0,
+      "violacoes": []
+    },
+    {
+      "rotulo": "participantes · dark",
+      "passes": 42,
+      "incompletas": 2,
+      "violacoes": []
+    },
+    {
+      "rotulo": "participantes · forced-colors + reduced-motion",
+      "passes": 42,
+      "incompletas": 1,
+      "violacoes": []
+    },
+    {
+      "rotulo": "participantes · light",
+      "passes": 42,
+      "incompletas": 2,
+      "violacoes": []
+    },
+    {
+      "rotulo": "reunioes · dark",
+      "passes": 40,
+      "incompletas": 1,
+      "violacoes": []
+    },
+    {
+      "rotulo": "reunioes · forced-colors + reduced-motion",
+      "passes": 40,
+      "incompletas": 1,
+      "violacoes": []
+    },
+    {
+      "rotulo": "reunioes · light",
+      "passes": 40,
+      "incompletas": 1,
+      "violacoes": []
+    }
+  ]
+}
