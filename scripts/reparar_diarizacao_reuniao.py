@@ -10,7 +10,7 @@ from pathlib import Path
 
 def _diarizar_job(job, dados: dict) -> list[tuple[str, float, float, str]]:
     from audio_reader import AudioSource
-    from audio_trechos import extrair_trechos
+    from audio_trechos import extrair_trechos, selecionar_trechos_por_fonte
     from config import ROTULO_USUARIO
     from diarizacao_final import rodar_diarizacao
     from processador_reuniao import carregar_eventos_job
@@ -29,6 +29,9 @@ def _diarizar_job(job, dados: dict) -> list[tuple[str, float, float, str]]:
         extrair_trechos(Path(job.mic), AudioSource.MICROPHONE, intervalos)
         if job.mic else None
     )
+    trechos_por_origem = selecionar_trechos_por_fonte(
+        [seg["audio_source"] for seg in dados["segmentos"]], trechos_lb, trechos_mic,
+    )
     preferencias = job.preferencias or {}
     transcritor = Transcritor(
         pasta_saida=str(raiz), diarizar_ao_final=True, capturar_mic=False,
@@ -43,12 +46,14 @@ def _diarizar_job(job, dados: dict) -> list[tuple[str, float, float, str]]:
     transcritor._segmentos = intervalos
     transcritor._preservar_audios = lambda *_caminhos: []
     return rodar_diarizacao(
-        transcritor, None, None, trechos_audio=trechos_lb,
-        trechos_mic=trechos_mic, materializar=False,
+        transcritor, None, None, trechos_audio=trechos_por_origem,
+        trechos_mic=trechos_mic, trechos_loopback=trechos_lb,
+        materializar=False,
     ) or []
 
 
-def reparar(raiz: Path, meeting_id: str, *, aplicar: bool = False, diarizar_fn=None) -> dict:
+def reparar(raiz: Path, meeting_id: str, *, aplicar: bool = False,
+            refazer_origens: bool = False, diarizar_fn=None) -> dict:
     from artefatos import criar_referencia, referencia_integra
     from audio_fontes import SegmentoSTT
     from audio_reader import AudioSource
@@ -85,8 +90,11 @@ def reparar(raiz: Path, meeting_id: str, *, aplicar: bool = False, diarizar_fn=N
             else ProtectionMode.COMPATIBLE)
     storage = ResultadoStorage(raiz, modo)
     dados = storage.load(manifesto.segments_ref)
-    if (manifesto.stage_status.get("diarizacao") is not StageState.PARTIAL
-            or "segment_alignment_failed" not in manifesto.warnings):
+    if refazer_origens:
+        if manifesto.stage_status.get("diarizacao") is not StageState.COMPLETE:
+            raise ValueError("refazer origens exige diarização previamente completa")
+    elif (manifesto.stage_status.get("diarizacao") is not StageState.PARTIAL
+          or "segment_alignment_failed" not in manifesto.warnings):
         raise ValueError("reunião não tem falha de alinhamento reparável")
     if dados.get("mapeamento") or dados.get("historico"):
         raise ValueError("resultado com revisão manual exige tratamento específico")
@@ -124,7 +132,7 @@ def reparar(raiz: Path, meeting_id: str, *, aplicar: bool = False, diarizar_fn=N
         {**antigo, "speaker_cluster_id": novo.speaker_cluster_id}
         for antigo, novo in zip(originais, novos)
     ]
-    revisao = "rev-reparo-" + hashlib.sha256(
+    revisao = ("rev-origens-" if refazer_origens else "rev-reparo-") + hashlib.sha256(
         Path(job.manifesto_resultado).read_bytes()
     ).hexdigest()[:12]
     novo_payload["revision"] = revisao
@@ -190,9 +198,12 @@ def main(argv=None) -> int:
     parser.add_argument("--meeting-id", required=True)
     parser.add_argument("--raiz", type=Path, default=Path(PASTA_TRANSCRICOES))
     parser.add_argument("--aplicar", action="store_true")
+    parser.add_argument("--refazer-origens", action="store_true",
+                        help="recalcula rótulos de reunião completa usando a fonte de cada fala")
     args = parser.parse_args(argv)
     try:
-        resultado = reparar(args.raiz, args.meeting_id, aplicar=args.aplicar)
+        resultado = reparar(args.raiz, args.meeting_id, aplicar=args.aplicar,
+                            refazer_origens=args.refazer_origens)
     except Exception as exc:
         print(json.dumps({
             "estado": "recusado", "tipo": type(exc).__name__,

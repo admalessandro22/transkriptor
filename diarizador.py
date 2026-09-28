@@ -242,6 +242,7 @@ def diarizar(
     eventos_meet=None,
     vozes_conhecidas=None,
     retornar_centroides=False,
+    trechos_loopback=None,
 ):
     """Separa os segmentos por falante.
 
@@ -293,8 +294,13 @@ def diarizar(
         while len(trechos_audio) < len(segmentos):
             trechos_audio.append(np.array([], dtype=np.float32))
 
-    # RMS do loopback por segmento (guarda anti-eco FR-5.6)
-    rms_loopback = [_rms(t) for t in trechos_audio[: len(segmentos)]]
+    # A guarda anti-eco precisa do loopback original mesmo quando o embedding
+    # de um segmento é extraído do microfone.
+    if trechos_loopback is not None and len(trechos_loopback) != len(segmentos):
+        raise ValueError("trechos de loopback não correspondem aos segmentos")
+    rms_loopback = [_rms(t) for t in (
+        trechos_loopback if trechos_loopback is not None else trechos_audio[: len(segmentos)]
+    )]
 
     status("Carregando modelo de vozes...")
     encoder = _carregar_encoder()

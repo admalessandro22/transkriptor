@@ -97,7 +97,8 @@ def preservar_audios_transcritor(transcritor, caminhos, pasta_audio: str) -> lis
 
 
 def rodar_diarizacao(transcritor, caminho_saida, caminho_wav, *,
-                    trechos_audio=None, trechos_mic=None, materializar=True):
+                    trechos_audio=None, trechos_mic=None, trechos_loopback=None,
+                    materializar=True):
     """Pós-processamento: separa falantes e escreve versão diarizada do .txt."""
     import numpy as np
 
@@ -147,12 +148,14 @@ def rodar_diarizacao(transcritor, caminho_saida, caminho_wav, *,
                 eventos_meet=transcritor.eventos_meet,
                 vozes_conhecidas=vozes_conhecidas,
                 retornar_centroides=True,
+                trechos_loopback=trechos_loopback,
             )
             if trechos_mic is not None and transcritor.identificar_voz:
                 from diarizador import reforcar_rotulo_por_mic
 
+                referencia_loopback = trechos_loopback if trechos_loopback is not None else trechos_audio
                 rms_loopback = [float(np.sqrt(np.mean(t * t))) if t.size else 0.0
-                                for t in trechos_audio]
+                                for t in referencia_loopback]
                 resultado = reforcar_rotulo_por_mic(
                     resultado, None, limiar_rms=LIMIAR_RMS_MIC,
                     rotulo_usuario=transcritor.rotulo_usuario,

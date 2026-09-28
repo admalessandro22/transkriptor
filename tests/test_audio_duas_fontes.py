@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import numpy as np
+import pytest
 
 from audio_fontes import SegmentoSTT, mesclar_segmentos, transcrever_fonte
 from audio_reader import AudioSource, UnsupportedAudioFormat, inspect_audio, iter_audio
@@ -150,3 +151,51 @@ def test_formato_nao_implementado_rejeitado(tmp_path):
     except UnsupportedAudioFormat:
         return
     raise AssertionError("PCM 8-bit deveria levantar UnsupportedAudioFormat")
+
+
+@pytest.mark.parametrize("protegido", [False, True])
+def test_diarizacao_usa_audio_da_origem_de_cada_fala(tmp_path, monkeypatch, chave_teste, protegido):
+    """O embedding de uma fala do mic não pode vir do loopback simultâneo."""
+    import audio_fontes
+    import diarizador
+    import retranscritor
+    from politica_privacidade import ProtectionMode
+
+    loop = tmp_path / "lb.wav"
+    mic = tmp_path / "mic.wav"
+    for caminho, amplitude in ((loop, 5000), (mic, -5000)):
+        with wave.open(str(caminho), "wb") as wav:
+            wav.setnchannels(1)
+            wav.setsampwidth(2)
+            wav.setframerate(16000)
+            wav.writeframes(np.full(16000 * 2, amplitude, dtype="<i2").tobytes())
+
+    def transcrever(_path, source, **_kwargs):
+        return [SegmentoSTT(source.value, 0, 2000, source,
+                            "fala local" if source == AudioSource.MICROPHONE else "fala remota", False)]
+
+    medias = []
+    referencias_loopback = []
+
+    def diarizar(trechos_audio, segmentos, **_kwargs):
+        medias.extend(float(np.mean(t)) for t in trechos_audio)
+        referencias_loopback.extend(float(np.mean(t)) for t in _kwargs["trechos_loopback"])
+        return ([(f"FALANTE_{i:02d}", s, e, texto)
+                 for i, (s, e, texto) in enumerate(segmentos)], {})
+
+    monkeypatch.setattr(audio_fontes, "transcrever_fonte", transcrever)
+    monkeypatch.setattr(diarizador, "diarizar", diarizar)
+    monkeypatch.setattr("politica_privacidade.modo_efetivo", lambda: (
+        ProtectionMode.PROTECTED if protegido else ProtectionMode.COMPATIBLE
+    ))
+
+    resultado = retranscritor.retranscrever_resultado(
+        str(loop), caminho_mic=str(mic), pasta_saida=str(tmp_path / "saida"),
+        nome_base_saida="origens", modelo_whisper=object(),
+        diarizar=True, identificar_voz=False, usar_vozes_conhecidas=False,
+    )
+
+    assert len(resultado.segmentos) == 2
+    assert medias[0] > 0.1
+    assert medias[1] < -0.1
+    assert referencias_loopback == pytest.approx([medias[0], medias[0]], abs=0.001)

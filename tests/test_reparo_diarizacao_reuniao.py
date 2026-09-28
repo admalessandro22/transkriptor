@@ -6,8 +6,10 @@ import wave
 from dataclasses import replace
 from pathlib import Path
 
+import numpy as np
 import pytest
 
+from audio_reader import AudioSource
 from fila_processamento import FilaProcessamento
 from indice_transcricoes import listar_reunioes
 from resultado_edicao import SegmentoResultado, carregar_segmentos, exportar_txt, salvar_segmentos
@@ -174,3 +176,67 @@ def test_cli_inspeciona_id_especifico_sem_aplicar(tmp_path, capsys):
 
     assert codigo == 0
     assert json.loads(capsys.readouterr().out)["estado"] == "inspecao"
+
+
+def test_reparo_de_origens_exige_opcao_e_preserva_falas(tmp_path):
+    raiz, mid, json_path, txt_path, manifest_path = _reuniao_parcial(tmp_path)
+    reparar(raiz, mid, aplicar=True, diarizar_fn=_rotulos_validos)
+    antes = carregar_segmentos(json_path)
+    rotulos_novos = [
+        ("FALANTE_03", 0.0, 1.0, "fala remota"),
+        ("FALANTE_04", 0.5, 1.5, "fala local"),
+    ]
+
+    with pytest.raises(ValueError, match="não tem falha"):
+        reparar(raiz, mid, aplicar=True, diarizar_fn=lambda *_: rotulos_novos)
+    inspecao = reparar(
+        raiz, mid, refazer_origens=True,
+        diarizar_fn=lambda *_: rotulos_novos,
+    )
+    assert inspecao["estado"] == "inspecao"
+    assert carregar_segmentos(json_path) == antes
+
+    reparado = reparar(
+        raiz, mid, aplicar=True, refazer_origens=True,
+        diarizar_fn=lambda *_: rotulos_novos,
+    )
+
+    depois = carregar_segmentos(json_path)
+    assert reparado["estado"] == "reparado"
+    assert depois["revision"] != antes["revision"]
+    assert [(s["segment_id"], s["start_ms"], s["end_ms"], s["text"])
+            for s in depois["segmentos"]] == [
+        (s["segment_id"], s["start_ms"], s["end_ms"], s["text"])
+        for s in antes["segmentos"]
+    ]
+    assert [s["speaker_cluster_id"] for s in depois["segmentos"]] == ["FALANTE_03", "FALANTE_04"]
+    assert validar_manifesto(manifest_path, raiz)
+    assert txt_path.read_text(encoding="utf-8") == exportar_txt(depois["segmentos"], {})
+
+
+def test_reparo_entrega_ao_diarizador_audio_da_origem(tmp_path, monkeypatch):
+    import audio_trechos
+    import diarizacao_final
+
+    raiz, mid, json_path, _txt_path, _manifest_path = _reuniao_parcial(tmp_path)
+    mic = raiz / "audio" / "mic.wav"
+    mic.write_bytes((raiz / "audio" / "reuniao.wav").read_bytes())
+    job = replace(FilaProcessamento(str(raiz)).obter(mid), mic=str(mic))
+
+    def extrair(_path, fonte, intervalos):
+        sinal = 1.0 if fonte is AudioSource.LOOPBACK else -1.0
+        return [np.full(16000, sinal, dtype=np.float32) for _ in intervalos]
+
+    def diarizar(_transcritor, _saida, _wav, *, trechos_audio,
+                 trechos_loopback, **_kwargs):
+        assert [float(np.mean(t)) for t in trechos_audio] == [1.0, -1.0]
+        assert [float(np.mean(t)) for t in trechos_loopback] == [1.0, 1.0]
+        return [
+            ("FALANTE_01", 0.0, 1.0, "fala remota"),
+            ("FALANTE_02", 0.5, 1.5, "fala local"),
+        ]
+
+    monkeypatch.setattr(audio_trechos, "extrair_trechos", extrair)
+    monkeypatch.setattr(diarizacao_final, "rodar_diarizacao", diarizar)
+
+    assert len(_diarizar_job(job, carregar_segmentos(json_path))) == 2

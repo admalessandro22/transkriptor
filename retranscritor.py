@@ -218,7 +218,7 @@ def _retranscrever_resultado(
     # T-13.C2/C3: STT por fonte em blocos (nunca readframes(total)) com
     # origem temporal explícita e fusão cronológica; sem mic, só loopback.
     import audio_fontes
-    from audio_reader import AudioSource, inspect_audio, iter_audio_16k
+    from audio_reader import AudioSource, inspect_audio
 
     modelo = _carregar_modelo(modelo_whisper, pasta, on_status, modelo_nome)
     bloco_seg = float(chunk or CHUNK_SEGUNDOS)
@@ -273,12 +273,15 @@ def _retranscrever_resultado(
 
     diarizados = []
     if diarizar and segmentos and protegido:
-        from audio_trechos import extrair_trechos
+        from audio_trechos import extrair_trechos, selecionar_trechos_por_fonte
         from diarizacao_final import rodar_diarizacao
 
         trechos_lb = extrair_trechos(Path(caminho_audio), AudioSource.LOOPBACK, segmentos)
         trechos_mic = (extrair_trechos(Path(caminho_mic), AudioSource.MICROPHONE, segmentos)
                        if caminho_mic else None)
+        trechos_por_origem = selecionar_trechos_por_fonte(
+            [s.source for s in fundidos], trechos_lb, trechos_mic,
+        )
         transcritor = Transcritor(
             pasta_saida=pasta, diarizar_ao_final=True, capturar_mic=False,
             identificar_voz=identificar_voz,
@@ -291,26 +294,23 @@ def _retranscrever_resultado(
         transcritor._preservar_audios = lambda *_caminhos: []
         diarizados = rodar_diarizacao(
             transcritor, str(caminho_final), None,
-            trechos_audio=trechos_lb, trechos_mic=trechos_mic,
+            trechos_audio=trechos_por_origem, trechos_mic=trechos_mic,
+            trechos_loopback=trechos_lb,
             materializar=False,
         ) or []
     if diarizar and segmentos and not protegido:
+        from audio_trechos import extrair_trechos, selecionar_trechos_por_fonte
+        from diarizacao_final import rodar_diarizacao
+
+        trechos_lb = extrair_trechos(Path(caminho_audio), AudioSource.LOOPBACK, segmentos)
+        trechos_mic = (extrair_trechos(Path(caminho_mic), AudioSource.MICROPHONE, segmentos)
+                       if caminho_mic else None)
+        trechos_por_origem = selecionar_trechos_por_fonte(
+            [s.source for s in fundidos], trechos_lb, trechos_mic,
+        )
         with tempfile.TemporaryDirectory(prefix="diarizacao_", dir=pasta) as tmp_dir:
             temporario_txt = Path(tmp_dir) / f"{base}.txt"
-            temporario_wav = Path(tmp_dir) / f"{base}_audio.wav"
             temporario_txt.write_text(texto_final, encoding="utf-8")
-            # WAV temporário em streaming (blocos 16 kHz); sem waveform completo.
-            with wave.open(str(temporario_wav), "wb") as wav:
-                wav.setnchannels(1)
-                wav.setsampwidth(2)
-                wav.setframerate(SAMPLE_RATE)
-                for bloco in iter_audio_16k(
-                    Path(caminho_audio), AudioSource.LOOPBACK, bloco_seg
-                ):
-                    if bloco.samples.size:
-                        wav.writeframes(
-                            (bloco.samples * 32767).astype(np.int16).tobytes()
-                        )
             transcritor = Transcritor(
                 pasta_saida=tmp_dir,
                 diarizar_ao_final=True,
@@ -325,7 +325,11 @@ def _retranscrever_resultado(
             transcritor._segmentos = segmentos
             transcritor._caminho_wav_mic_salvo = caminho_mic
             transcritor._preservar_audios = lambda *_caminhos: []
-            diarizados = transcritor._rodar_diarizacao(str(temporario_txt), str(temporario_wav)) or []
+            diarizados = rodar_diarizacao(
+                transcritor, str(temporario_txt), None,
+                trechos_audio=trechos_por_origem, trechos_mic=trechos_mic,
+                trechos_loopback=trechos_lb,
+            ) or []
             temporario_diar = Path(tmp_dir) / f"{base}_diarizado.txt"
             if materializar_legado and temporario_diar.is_file():
                 _escrever_texto_atomico(

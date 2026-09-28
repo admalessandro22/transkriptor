@@ -153,6 +153,22 @@ def test_diarizar_um_segmento_perfil_e_mic_rotula_voce(tmp_path):
     assert resultado[0][0] == "VOCÊ"
 
 
+def test_diarizar_usa_loopback_original_na_guarda_anti_eco(tmp_path):
+    mic = _mic_wav_alto(tmp_path)
+    trecho_mic = np.full(16000, 0.4, dtype=np.float32)
+    trecho_loopback = np.full(16000, 0.1, dtype=np.float32)
+
+    with patch("diarizador._carregar_encoder", return_value=object()):
+        with patch("diarizador._extrair_embedding", return_value=np.ones(192, dtype=np.float32)):
+            resultado = diarizar(
+                [trecho_mic], [(0.0, 1.0, "fala local")],
+                trechos_loopback=[trecho_loopback],
+                caminho_mic_wav=str(mic), identificar_ativo=True,
+            )
+
+    assert resultado[0][0] == "VOCÊ"
+
+
 def test_diarizar_com_perfil_mock_rotula_voce():
     segmentos = [(0.0, 1.0, "a"), (1.0, 2.0, "b")]
     trechos = [np.ones(8000, dtype=np.float32), np.ones(8000, dtype=np.float32)]
