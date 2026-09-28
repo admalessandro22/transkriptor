@@ -423,6 +423,9 @@ export async function exportarTxt() {
 
 /** UX-14.C3 (DU-07): ação separada da correção; cadastra a voz só com confirmação própria. */
 export async function aprenderVoz(cluster) {
+  if (!selReuniao?.value || !dados?.revision) return;
+  const meetingId = selReuniao.value;
+  const expectedRevision = dados.revision;
   const info = estadoDoFalante(cluster, mapaExib, dados.segmentos || []);
   const nome = info.estado === 'confirmado' ? nomeAmigavel(cluster, mapaExib, clusters) : (info.sugestao || '');
   if (!nome || /^Falante \d+$/.test(nome)) {
@@ -437,7 +440,8 @@ export async function aprenderVoz(cluster) {
   });
   if (!ok) return;
   try {
-    const r = await fetch('/api/acoes/aprender-voz', { ...fetchOpts, method: 'POST', headers: apiHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ rotulo: cluster, nome }) });
+    toast('info', 'Analisando a voz', 'Aguarde enquanto a amostra desta reunião é conferida.');
+    const r = await fetch('/api/acoes/aprender-voz', { ...fetchOpts, method: 'POST', headers: apiHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ meeting_id: meetingId, expected_revision: expectedRevision, rotulo: cluster, nome }) });
     const resp = await r.json().catch(() => ({}));
     if (!r.ok) { toast('error', 'Não foi possível aprender a voz', resp.erro || 'Tente de novo.'); return; }
     toast('success', 'Voz aprendida', `${resp.salvo || nome} será reconhecido nas próximas reuniões.`);

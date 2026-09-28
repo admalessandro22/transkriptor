@@ -1,40 +1,22 @@
 # -*- coding: utf-8 -*-
-"""Ações da Central que dependem do aplicativo da bandeja (SDD v1.9).
+"""Ações locais da Central (SDD v1.9).
 
-O Flask roda no mesmo processo da bandeja quando aberto pelo menu; a bandeja
-registra provedores aqui. Sem provedor, cada ação responde 404/503 explicando
-o que falta, nunca finge sucesso. Token, origem e JSON são exigidos pelo
-`before_request` de `assistente.py` para todas as rotas `/api/*`.
+O estado da bandeja depende de um provedor. Aprender voz usa somente a reunião
+escolhida e seu áudio validado, mesmo após reiniciar a bandeja. Token, origem e
+JSON são exigidos pelo `before_request` de `assistente.py` para `/api/*`.
 """
 from __future__ import annotations
 
 import re
-from typing import Callable, Mapping
 
 from flask import Blueprint, jsonify, request
 
-from config import ARQUIVO_VOZES_CONHECIDAS, MAX_NOME_PARTICIPANTE
+from config import ARQUIVO_VOZES_CONHECIDAS, MAX_NOME_PARTICIPANTE, PASTA_TRANSCRICOES
 from politica_privacidade import ProtectionUnavailable
 
 bp = Blueprint("central_api", __name__)
 
-_PROVEDOR_CENTROIDES: Callable[[], Mapping | None] | None = None
 _ROTULO = re.compile(r"^FALANTE_\d{2}$")
-
-
-def registrar_provedor_centroides(fn: Callable[[], Mapping | None] | None) -> None:
-    """A bandeja registra como obter os centroides da última separação de vozes."""
-    global _PROVEDOR_CENTROIDES
-    _PROVEDOR_CENTROIDES = fn
-
-
-def centroides_atuais() -> Mapping | None:
-    if _PROVEDOR_CENTROIDES is None:
-        return None
-    try:
-        return _PROVEDOR_CENTROIDES()
-    except Exception:  # noqa: BLE001 — a Central nunca cai por causa da bandeja
-        return None
 
 
 @bp.route("/api/estado")
@@ -60,17 +42,30 @@ def api_aprender_voz():
     dados = request.get_json(silent=True) or {}
     rotulo = str(dados.get("rotulo", "")).strip().upper()
     nome = str(dados.get("nome", "")).strip()
+    meeting_id = str(dados.get("meeting_id", "")).strip()
+    expected_revision = str(dados.get("expected_revision", "")).strip()
     if not _ROTULO.match(rotulo):
         return jsonify({"erro": "Falante inválido"}), 400
     if len(nome) < 2 or len(nome) > MAX_NOME_PARTICIPANTE:
         return jsonify({"erro": "Nome inválido"}), 400
-    centroides = centroides_atuais()
-    if not centroides:
-        return jsonify({"erro": "Nenhuma separação de vozes recente para aprender. Processe uma reunião com separação de vozes e tente de novo."}), 404
-    if rotulo not in centroides:
-        return jsonify({"erro": "Este falante não está na última separação de vozes."}), 404
+    from central_resumos import _app_ocupado
+    from crypto_storage import ErroDescriptografia
+
+    if _app_ocupado():
+        return jsonify({"erro": "Aguarde terminar a gravação ou o processamento para aprender a voz."}), 409
     try:
-        salvo = persistir_renomeacao_falante(rotulo, nome, centroides, ARQUIVO_VOZES_CONHECIDAS)
+        from aprendizado_voz_reuniao import AprendizadoIndisponivel, embedding_da_reuniao
+
+        embedding = embedding_da_reuniao(
+            meeting_id, rotulo, expected_revision, raiz=PASTA_TRANSCRICOES,
+        )
+        salvo = persistir_renomeacao_falante(
+            rotulo, nome, {rotulo: embedding}, ARQUIVO_VOZES_CONHECIDAS,
+        )
+    except AprendizadoIndisponivel as exc:
+        return jsonify({"erro": str(exc)}), exc.status
+    except ErroDescriptografia:
+        return jsonify({"erro": "Não foi possível abrir o áudio protegido desta reunião."}), 503
     except ValueError as exc:
         return jsonify({"erro": str(exc)}), 400
     except ProtectionUnavailable:

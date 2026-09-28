@@ -65,12 +65,8 @@ def abrir_central(app, pagina: str = "") -> None:
 
 def _registrar_provedores(app) -> None:
     import app_estado_ui
-    import central_api
     import central_config
 
-    central_api.registrar_provedor_centroides(
-        lambda: getattr(getattr(app, "transcritor", None), "_centroides_por_rotulo_ultima", None)
-    )
     app_estado_ui.registrar_provedor(lambda: app_estado_ui.snapshot(app))
     central_config.registrar_app(app)
 

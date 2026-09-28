@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import numpy as np
 import pytest
 
 from assistente import HEADER_TOKEN, app, obter_token_sessao
@@ -17,36 +16,17 @@ def cliente():
     return app.test_client()
 
 
-@pytest.fixture()
-def sem_provedor():
-    import central_api
-
-    central_api.registrar_provedor_centroides(None)
-    yield
-    central_api.registrar_provedor_centroides(None)
-
-
-@pytest.fixture()
-def com_centroides():
-    import central_api
-
-    centroides = {"FALANTE_00": np.ones(192, dtype=np.float32), "FALANTE_01": np.zeros(192, dtype=np.float32)}
-    central_api.registrar_provedor_centroides(lambda: centroides)
-    yield centroides
-    central_api.registrar_provedor_centroides(None)
-
-
 def _headers():
     return {HEADER_TOKEN: obter_token_sessao()}
 
 
-def test_aprender_voz_sem_centroides_404(cliente, sem_provedor):
+def test_aprender_voz_exige_reuniao_e_revisao(cliente):
     resposta = cliente.post("/api/acoes/aprender-voz", json={"rotulo": "FALANTE_00", "nome": "Ana"}, headers=_headers())
-    assert resposta.status_code == 404
-    assert "separação de vozes" in resposta.get_json()["erro"]
+    assert resposta.status_code == 400
+    assert "Reunião" in resposta.get_json()["erro"]
 
 
-def test_aprender_voz_exige_header_secreto(cliente, com_centroides):
+def test_aprender_voz_exige_header_secreto(cliente):
     from assistente import COOKIE_TOKEN
 
     cliente.set_cookie(COOKIE_TOKEN, obter_token_sessao())
@@ -54,36 +34,30 @@ def test_aprender_voz_exige_header_secreto(cliente, com_centroides):
     assert resposta.status_code == 403
 
 
-def test_aprender_voz_valida_entrada(cliente, com_centroides):
+def test_aprender_voz_valida_entrada(cliente):
     assert cliente.post("/api/acoes/aprender-voz", json={"rotulo": "x", "nome": "Ana"}, headers=_headers()).status_code == 400
     assert cliente.post("/api/acoes/aprender-voz", json={"rotulo": "FALANTE_00", "nome": "A"}, headers=_headers()).status_code == 400
-    assert cliente.post("/api/acoes/aprender-voz", json={"rotulo": "FALANTE_07", "nome": "Ana"}, headers=_headers()).status_code == 404
+    assert cliente.post("/api/acoes/aprender-voz", json={"rotulo": "FALANTE_07", "nome": "Ana"}, headers=_headers()).status_code == 400
 
 
-def test_aprender_voz_persiste_no_arquivo_de_vozes(cliente, com_centroides, monkeypatch, tmp_path, chave_teste):
-    import central_api
+def test_aprender_voz_espera_gravacao_ou_processamento(cliente, monkeypatch):
+    import aprendizado_voz_reuniao
+    import central_resumos
 
-    destino = tmp_path / "vozes_conhecidas.json"
-    monkeypatch.setattr(central_api, "ARQUIVO_VOZES_CONHECIDAS", str(destino))
-    resposta = cliente.post("/api/acoes/aprender-voz", json={"rotulo": "FALANTE_00", "nome": "Ana Souza"}, headers=_headers())
-    assert resposta.status_code == 200, resposta.get_json()
-    assert resposta.get_json()["salvo"] == "Ana Souza"
-    assert destino.exists() or (tmp_path / "vozes_conhecidas.enc").exists()
+    monkeypatch.setattr(central_resumos, "_app_ocupado", lambda: True)
+    monkeypatch.setattr(
+        aprendizado_voz_reuniao, "embedding_da_reuniao",
+        lambda *_a, **_k: pytest.fail("não deve carregar áudio durante gravação"),
+    )
+    resposta = cliente.post(
+        "/api/acoes/aprender-voz",
+        json={"meeting_id": "a" * 32, "expected_revision": "rev-1",
+              "rotulo": "FALANTE_00", "nome": "Ana"},
+        headers=_headers(),
+    )
 
-
-def test_aprender_voz_sem_chave_falha_fechado(cliente, com_centroides, monkeypatch, tmp_path):
-    """SEC-13.E1: sem cifra disponível, a biometria não é gravada e a falha é explícita."""
-    import central_api
-
-    from politica_privacidade import ProtectionMode
-
-    monkeypatch.setattr(central_api, "ARQUIVO_VOZES_CONHECIDAS", str(tmp_path / "vozes_conhecidas.json"))
-    monkeypatch.setattr("identificador_voz._usar_criptografia_voz", lambda: False)
-    monkeypatch.setattr("politica_privacidade.modo_efetivo", lambda: ProtectionMode.PROTECTED)
-    resposta = cliente.post("/api/acoes/aprender-voz", json={"rotulo": "FALANTE_00", "nome": "Ana Souza"}, headers=_headers())
-    assert resposta.status_code == 503
-    assert "Proteção indisponível" in resposta.get_json()["erro"]
-    assert not (tmp_path / "vozes_conhecidas.json").exists()
+    assert resposta.status_code == 409
+    assert "terminar" in resposta.get_json()["erro"]
 
 
 def test_corrigir_nome_nao_cadastra_biometria(cliente, monkeypatch, tmp_path):

@@ -56,7 +56,7 @@ test("aprender voz é ação separada, com confirmação própria, e 404 vira pr
   await expect(page.locator("#toast-region .tk-toast--error")).toContainText("separação de vozes");
   expect(ctx.pedidos.filter((p) => p.url.endsWith("/aprender-voz"))).toHaveLength(1);
   const corpo = JSON.parse(ctx.pedidos.find((p) => p.url.endsWith("/aprender-voz")).corpo);
-  expect(corpo).toEqual({ rotulo: "FALANTE_00", nome: "Ana Souza" });
+  expect(corpo).toEqual({ meeting_id: "reuniao-2026-09-22", expected_revision: "rev-3", rotulo: "FALANTE_00", nome: "Ana Souza" });
 
   resposta = { status: 200, body: JSON.stringify({ salvo: "Ana Souza" }) };
   await botao.click();
