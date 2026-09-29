@@ -34,6 +34,8 @@
   /** FR-15.B1: idioma efetivo da legenda e o pedido pelo Meet (só leitura). */
   const PADRAO_IDIOMA = /^[a-z]{2,3}-[A-Z]{2}$/;
   const idiomas = { legenda: null, pedido: null };
+  /** FR-15.B2: dispositivo do próprio usuário; o primeiro valor da página vale. */
+  let proprioEnviado = null;
 
   let ultimoNome = "";
   let ultimoTexto = "";
@@ -185,6 +187,13 @@
         if (nomesRtc.size >= MAX_NOMES && !nomesRtc.has(par.dispositivo)) return;
         nomesRtc.set(par.dispositivo, par.nome);
       });
+      return;
+    }
+    if (msg.tipo === "proprio") {
+      if (proprioEnviado === null && typeof msg.dispositivo === "string" && /^dev-[A-Za-z0-9_-]+$/.test(msg.dispositivo)) {
+        proprioEnviado = msg.dispositivo;
+        canalEnviar({ tipo: "proprio", participant_id: msg.dispositivo, ts_ms: Date.now() });
+      }
       return;
     }
     if (msg.tipo === "idioma") {

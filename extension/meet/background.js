@@ -117,9 +117,10 @@ function montarEnvelope(evento, remetente, agora = {}) {
   if (!estado.session) return null;
   const kind = {
     reuniao: "heartbeat", legenda: "caption", ativo: "speaker_activity",
-    atividade: "speaker_activity", capabilities: "capabilities",
+    atividade: "speaker_activity", capabilities: "capabilities", proprio: "self_device",
   }[evento.tipo];
   if (!kind) return null;
+  if (kind === "self_device" && !/^dev-[A-Za-z0-9_-]+$/.test(evento.participant_id || "")) return null;
   const envelope = {
     schema_version: 1,
     event_id: novoId(),
@@ -134,6 +135,7 @@ function montarEnvelope(evento, remetente, agora = {}) {
   };
   if (kind === "heartbeat") envelope.active = evento.ativa === true;
   if (kind === "capabilities") copiarIdiomas(evento, envelope, ["caption_lang", "lang_requested"]);
+  if (kind === "self_device") envelope.participant_id = evento.participant_id;
   if (kind === "caption" || kind === "speaker_activity") {
     if (typeof evento.participant_id === "string") envelope.participant_id = evento.participant_id;
     if (typeof evento.nome === "string") envelope.display_name = evento.nome;

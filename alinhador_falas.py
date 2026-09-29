@@ -19,7 +19,7 @@ from collections import Counter
 from dataclasses import dataclass, replace
 from typing import Mapping, Sequence
 
-from audio_fontes import PalavraSTT, SegmentoSTT
+from audio_fontes import AudioSource, PalavraSTT, SegmentoSTT
 from config import (
     ALINHAMENTO_ATRASO_PADRAO_MS,
     ALINHAMENTO_CONCORDANCIA_MIN,
@@ -279,9 +279,20 @@ def _idioma_divergente(falas: Sequence[Fala], idioma_transcricao: str | None) ->
     return legenda, legenda.split("-")[0].lower() != idioma_transcricao.split("-")[0].lower()
 
 
+def _atribuicao_propria(falas: Sequence[Fala], proprio: str, rotulo_usuario: str | None) -> Atribuicao:
+    """FR-15.B2: o microfone é a voz do usuário; o nome vem da legenda dele."""
+    dele = [f for f in falas if f.participant_id == proprio]
+    nome = next((f.nome for f in dele if f.nome), None)
+    rotulo = f"{nome} (você)" if nome else (rotulo_usuario or None)
+    evidencias = tuple(sorted({e for f in dele for e in f.evento_ids}))[:20]
+    status = AssignmentStatus.SUGGESTED if rotulo else AssignmentStatus.UNKNOWN
+    return Atribuicao(proprio, rotulo, "meet_proprio", 1.0, evidencias, status, CALIBRACAO_IDENTIDADE_VERSAO)
+
+
 def alinhar_segmentos(
     fundidos: Sequence[SegmentoSTT], eventos: Sequence[Mapping], *, incerteza_ms: float,
-    idioma_transcricao: str | None = None,
+    idioma_transcricao: str | None = None, proprio: str | None = None,
+    rotulo_usuario: str | None = None,
 ) -> ResultadoAlinhamento:
     """Corta os segmentos na troca de falante e sugere o nome de cada um."""
     fundidos = list(fundidos)
@@ -291,16 +302,28 @@ def alinhar_segmentos(
     palavras = [p for s in fundidos for p in s.words]
     if not falas or not palavras:
         return ResultadoAlinhamento(fundidos, {}, None)
+
+    def do_usuario(seg: SegmentoSTT) -> bool:
+        return proprio is not None and seg.source == AudioSource.MICROPHONE
+
+    # O loopback não contém a voz do usuário: a legenda dele não nomeia nada de lá.
+    falas_outros = [f for f in falas if f.participant_id != proprio] if proprio else falas
+    alinhar = [s for s in fundidos if not do_usuario(s)]
     idioma_legenda, divergente = _idioma_divergente(falas, idioma_transcricao)
     if divergente:
         alinhamento = Alinhamento(float(ALINHAMENTO_ATRASO_PADRAO_MS), {}, 0.0, False)
     else:
         alinhamento = estimar_atraso(palavras, falas)
-    por_palavra = atribuir_palavras(palavras, falas, alinhamento, usar_texto=not divergente)
+    por_palavra = atribuir_palavras([p for s in alinhar for p in s.words], falas_outros, alinhamento,
+                                    usar_texto=not divergente)
     confiavel = alinhamento.estimado and alinhamento.concordancia >= ALINHAMENTO_CONCORDANCIA_MIN
     fator = 1.0 if confiavel else ALINHAMENTO_FATOR_SO_TEMPO
     novos, atribuicoes, k = [], {}, 0
     for seg in fundidos:
+        if do_usuario(seg):
+            novos.append(seg)
+            atribuicoes[seg.segment_id] = _atribuicao_propria(falas, proprio, rotulo_usuario)
+            continue
         das = por_palavra[k:k + len(seg.words)]
         k += len(seg.words)
         if not das:
@@ -308,7 +331,7 @@ def alinhar_segmentos(
             continue
         for sub, pares in _cortar(seg, das):
             novos.append(sub)
-            atribuicoes[sub.segment_id] = _atribuicao(pares, falas, fator)
+            atribuicoes[sub.segment_id] = _atribuicao(pares, falas_outros, fator)
     diagnostico = {
         "atraso_global_ms": alinhamento.atraso_global_ms,
         "janelas": len(alinhamento.atrasos_janela),
@@ -321,5 +344,6 @@ def alinhar_segmentos(
         "segmentos_cortados": len(novos) - len(fundidos),
         "idioma_legenda": idioma_legenda,
         "idioma_divergente": divergente,
+        "proprio": proprio is not None,
     }
     return ResultadoAlinhamento(novos, atribuicoes, diagnostico)

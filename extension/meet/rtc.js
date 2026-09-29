@@ -23,6 +23,10 @@
     "https://meet.google.com/$rpc/google.rtc.meetings.v1.MeetingSpaceService/SyncMeetingSpaceCollections";
   const URL_ATUALIZAR_MIDIA =
     "https://meet.google.com/$rpc/google.rtc.meetings.v1.MediaSessionService/UpdateMediaSession";
+  const URL_CRIAR_DISPOSITIVO =
+    "https://meet.google.com/$rpc/google.rtc.meetings.v1.MeetingDeviceService/CreateMeetingDevice";
+  // FR-15.B2: o Meet põe o próprio dispositivo em texto legível nessas chamadas.
+  const PADRAO_DISPOSITIVO = /spaces\/[A-Za-z0-9_-]+\/devices\/([A-Za-z0-9_-]+)/;
   // BCP-47 com região, como o Meet usa nas legendas ("pt-BR", "en-US").
   const PADRAO_IDIOMA = /^[a-z]{2,3}-[A-Z]{2}$/;
   const MAX_TEXTO = 500;
@@ -150,6 +154,11 @@
 
   // ---------- idioma (FR-15.B1, só leitura) ----------
 
+  /** ArrayBuffer de qualquer realm (instanceof falha entre janelas/ambientes). */
+  function ehArrayBuffer(valor) {
+    return Object.prototype.toString.call(valor) === "[object ArrayBuffer]";
+  }
+
   /** Códigos de idioma em folhas de texto, sem olhar os campos em `ignorar`. */
   function idiomasEm(campos, profundidade, ignorar) {
     const achados = [];
@@ -175,8 +184,8 @@
   /** Idioma pedido pelo próprio Meet no corpo do UpdateMediaSession (binário ou base64). */
   function idiomaDoCorpo(corpo) {
     let bytes = null;
-    if (corpo instanceof Uint8Array) bytes = corpo;
-    else if (corpo instanceof ArrayBuffer) bytes = new Uint8Array(corpo);
+    if (ArrayBuffer.isView(corpo)) bytes = new Uint8Array(corpo.buffer, corpo.byteOffset, corpo.byteLength);
+    else if (ehArrayBuffer(corpo)) bytes = new Uint8Array(corpo);
     else if (typeof corpo === "string") {
       try {
         const s = /^[A-Za-z0-9+/=\s]+$/.test(corpo) ? atob(corpo.trim()) : corpo;
@@ -191,6 +200,31 @@
     } catch (_e) {
       return null;
     }
+  }
+
+  // ---------- dispositivo próprio (FR-15.B2) ----------
+
+  /** "spaces/<sala>/devices/88" em texto, bytes ou base64 -> "dev-88"; a sala não sai. */
+  function dispositivoProprioEm(corpo) {
+    let s = null;
+    if (typeof corpo === "string") s = corpo;
+    else if (ArrayBuffer.isView(corpo)) s = new TextDecoder().decode(new Uint8Array(corpo.buffer, corpo.byteOffset, corpo.byteLength));
+    else if (ehArrayBuffer(corpo)) s = new TextDecoder().decode(new Uint8Array(corpo));
+    if (s === null) return null;
+    let m = PADRAO_DISPOSITIVO.exec(s);
+    if (!m && /^[A-Za-z0-9+/=\s]+$/.test(s)) {
+      try {
+        m = PADRAO_DISPOSITIVO.exec(atob(s.trim()));
+      } catch (_e) {}
+    }
+    return m ? "dev-" + m[1] : null;
+  }
+
+  let proprioPublicado = false;
+  function publicarProprio(dispositivo) {
+    if (!dispositivo || proprioPublicado) return;
+    proprioPublicado = true;
+    publicar({ tipo: "proprio", dispositivo });
   }
 
   /** CaptionsV2Packet: 1{1 utterance, 2 versão, 3{3 texto, 6 deviceId}}. */
@@ -376,6 +410,13 @@
           const codigo = idiomaDoCorpo(arguments[1] && arguments[1].body);
           if (codigo) publicar({ tipo: "idioma", codigo, origem: "meet", resultado: "lido" });
         }
+        if (url === URL_COLECOES) publicarProprio(dispositivoProprioEm(arguments[1] && arguments[1].body));
+        if (url === URL_CRIAR_DISPOSITIVO) {
+          promessa
+            .then((resposta) => resposta.clone().text())
+            .then((corpo) => publicarProprio(dispositivoProprioEm(corpo)))
+            .catch(() => {});
+        }
         if (url === URL_COLECOES) {
           promessa
             .then((resposta) => resposta.clone().text())
@@ -396,6 +437,7 @@
     decodificarDispositivo,
     decodificarColecao,
     idiomaDoCorpo,
+    dispositivoProprioEm,
     ackLegenda,
     idDispositivo,
     descompactar,

@@ -252,9 +252,11 @@ def _retranscrever_resultado(
     # T-15.C2: corta na troca de falante antes da diarização (que casa por
     # início/fim/texto) e guarda as sugestões de nome do alinhamento.
     from alinhador_falas import alinhar_segmentos, combinar_atribuicoes
+    from linha_tempo_falas import dispositivo_proprio
 
     alinhado = alinhar_segmentos(fundidos, eventos_meet or (), incerteza_ms=clock_uncertainty_ms,
-                                 idioma_transcricao=idioma)
+                                 idioma_transcricao=idioma, proprio=dispositivo_proprio(eventos_meet or ()),
+                                 rotulo_usuario=rotulo_usuario or ROTULO_USUARIO)
     fundidos = alinhado.fundidos
     linhas = [
         f"[{_timestamp_relativo(s.start_ms / 1000.0)}] {s.text}" for s in fundidos

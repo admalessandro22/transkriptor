@@ -76,3 +76,11 @@ def construir_linha_tempo(eventos: Iterable[Mapping]) -> list[Fala]:
         for fala_id, g in grupos.items()
     ]
     return sorted(falas, key=lambda f: (f.inicio_ms, f.fim_ms, f.fala_id))
+
+
+def dispositivo_proprio(eventos: Iterable[Mapping]) -> str | None:
+    """FR-15.B2: dispositivo do próprio usuário; o primeiro `self_device` vale."""
+    for ev in eventos:
+        if isinstance(ev, Mapping) and ev.get("kind") == "self_device" and isinstance(ev.get("participant_id"), str):
+            return ev["participant_id"]
+    return None

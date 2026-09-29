@@ -25,6 +25,7 @@ TIPOS_ENVELOPE = frozenset(
         "caption",
         "speaker_activity",
         "capabilities",
+        "self_device",  # T-15.B2
     }
 )
 TAMANHO_MAX_ENVELOPE = 4 * 1024
@@ -32,6 +33,7 @@ INCERTEZA_MAX_MS = 1500.0
 VERSOES_ENVELOPE = frozenset({1, 2})
 CANAIS_ORIGEM = frozenset({"captions_v2", "captions", "meet", "dom"})
 PADRAO_IDIOMA = re.compile(r"[a-z]{2,3}-[A-Z]{2}")  # FR-15.B1: "pt-BR", "en-US"
+PADRAO_DISPOSITIVO = re.compile(r"dev-[A-Za-z0-9_-]+")  # FR-15.B2: nunca o id da sala
 
 
 @dataclass(frozen=True)
@@ -122,6 +124,10 @@ def validar_envelope(evento: Mapping, sessao: SessaoReuniao) -> dict:
         raise EnvelopeRejeitado("kind desconhecido")
     if versao == 2 and evento["kind"] == "caption":
         _validar_tempos_fala(evento)
+    if evento["kind"] == "self_device" and not (
+        isinstance(evento.get("participant_id"), str) and PADRAO_DISPOSITIVO.fullmatch(evento["participant_id"])
+    ):
+        raise EnvelopeRejeitado("self_device sem dispositivo válido")
     for campo in ("caption_lang", "lang_requested"):
         valor = evento.get(campo)
         if campo in evento and not (isinstance(valor, str) and PADRAO_IDIOMA.fullmatch(valor)):

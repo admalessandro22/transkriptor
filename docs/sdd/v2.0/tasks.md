@@ -89,9 +89,9 @@ Estados possíveis: `PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `REOPENED` (mes
 
 ### T-15.B2 — identificação do próprio dispositivo
 
-- [ ] **Requisito:** FR-15.B2. **Depende de:** A1. **Estado:** `PENDING`. **Tamanho:** M.
+- [x] **Requisito:** FR-15.B2. **Depende de:** A1. **Estado:** `DONE`; evidência: `evidencias/T-15.B2.md`. **Tamanho:** M.
 - **Arquivos:**
-  - modificar `extension/meet/rtc.js` (request de `SyncMeetingSpaceCollections`, resposta de `CreateMeetingDevice`), `extension/meet/content.js`, `extension/meet/background.js` (`kind=self_device`), `sessao_reuniao.py`, `identidade_reuniao.py`, `diarizacao_final.py`;
+  - modificar `extension/meet/rtc.js` (request de `SyncMeetingSpaceCollections`, resposta de `CreateMeetingDevice`), `extension/meet/content.js`, `extension/meet/background.js` (`kind=self_device`), `sessao_reuniao.py`, `linha_tempo_falas.py` (`dispositivo_proprio`), `alinhador_falas.py` e `retranscritor.py` (emenda: a regra mora no alinhador; `identidade_reuniao.py` e `diarizacao_final.py` não mudaram);
   - criar `tests/js/meet-proprio.test.js`, `tests/test_dispositivo_proprio.py`.
 - **Implementação:**
   - regex de `spaces/…/devices/…` sobre o corpo, convertida para `dev-<n>`, com o primeiro valor da sessão valendo;
