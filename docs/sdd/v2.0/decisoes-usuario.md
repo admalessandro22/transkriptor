@@ -12,7 +12,7 @@ Leitura: "copiar a funcionalidade" = reimplementar a técnica e o comportamento 
 
 | ID | Resposta | Consequência no plano |
 |---|---|---|
-| DP-15-01 | **Sim, seguir transcrição** | `meet_idioma_legenda` padrão `seguir_transcricao`; T-15.B1 liberada |
+| DP-15-01 | **Sim, seguir transcrição** | `meet_idioma_legenda` padrão `seguir_transcricao`. Em 29/09, a leitura foi feita na T-15.B1; a escrita (T-15.B1W) está bloqueada até a captura de tráfego real, porque o formato do comando não é conhecido sem copiar o esquema de terceiros (condição de nova consulta: protocolo não observado) |
 | DP-15-02 | **Sim, desde já** (divergiu da recomendação) | Nome automático com limiares provisórios em `config.py` assim que C2/C3 estiverem prontos; T-15.F1 recalibra. A origem e a confiança ficam visíveis, e a correção manual prevalece. Não depende mais do corpus para ser ativado |
 | DP-15-03 | **Opção ligada por padrão** (divergiu da recomendação) | `meet_capturar_chat` padrão `true`; desligar interrompe a decodificação e a persistência de chat |
 | DP-15-04 | **Sim, opt-in por função** | Emenda DU-02: o texto da transcrição pode ir ao OpenRouter somente para a função escolhida (resumo e/ou chat), após consentimento datado; áudio, voz e biometria nunca saem |

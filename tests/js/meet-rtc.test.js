@@ -69,6 +69,7 @@ describe("rtc.js — legendas e nomes sem CC na tela", () => {
       utterance: 6,
       versao: 9,
       texto: "vamos revisar o cronograma",
+      idioma: null, // T-15.B1: a fixture não traz código de idioma em texto
     });
     expect(JSON.stringify(legenda)).not.toContain("SalaSintetica01");
   });

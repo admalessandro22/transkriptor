@@ -21,6 +21,10 @@
   const CANAL_LEGENDAS = "captions_v2";
   const URL_COLECOES =
     "https://meet.google.com/$rpc/google.rtc.meetings.v1.MeetingSpaceService/SyncMeetingSpaceCollections";
+  const URL_ATUALIZAR_MIDIA =
+    "https://meet.google.com/$rpc/google.rtc.meetings.v1.MediaSessionService/UpdateMediaSession";
+  // BCP-47 com região, como o Meet usa nas legendas ("pt-BR", "en-US").
+  const PADRAO_IDIOMA = /^[a-z]{2,3}-[A-Z]{2}$/;
   const MAX_TEXTO = 500;
   const MAX_NOME = 80;
   const MAX_REABERTURAS = 5;
@@ -144,6 +148,51 @@
     return n && n.length < MAX_NOME ? n : "";
   }
 
+  // ---------- idioma (FR-15.B1, só leitura) ----------
+
+  /** Códigos de idioma em folhas de texto, sem olhar os campos em `ignorar`. */
+  function idiomasEm(campos, profundidade, ignorar) {
+    const achados = [];
+    Object.keys(campos).forEach(function (numero) {
+      if (ignorar && ignorar.has(Number(numero))) return;
+      campos[numero].forEach(function (valor) {
+        if (!(valor instanceof Uint8Array) || !valor.length) return;
+        const s = valor.length <= 16 ? texto(valor) : "";
+        if (PADRAO_IDIOMA.test(s)) {
+          achados.push(s);
+          return;
+        }
+        if (profundidade > 0) {
+          try {
+            achados.push(...idiomasEm(lerProto(valor), profundidade - 1, null));
+          } catch (_e) {}
+        }
+      });
+    });
+    return achados;
+  }
+
+  /** Idioma pedido pelo próprio Meet no corpo do UpdateMediaSession (binário ou base64). */
+  function idiomaDoCorpo(corpo) {
+    let bytes = null;
+    if (corpo instanceof Uint8Array) bytes = corpo;
+    else if (corpo instanceof ArrayBuffer) bytes = new Uint8Array(corpo);
+    else if (typeof corpo === "string") {
+      try {
+        const s = /^[A-Za-z0-9+/=\s]+$/.test(corpo) ? atob(corpo.trim()) : corpo;
+        bytes = Uint8Array.from(s, (ch) => ch.charCodeAt(0) & 255);
+      } catch (_e) {
+        return null;
+      }
+    }
+    if (!bytes) return null;
+    try {
+      return idiomasEm(lerProto(bytes), 6, null)[0] || null;
+    } catch (_e) {
+      return null;
+    }
+  }
+
   /** CaptionsV2Packet: 1{1 utterance, 2 versão, 3{3 texto, 6 deviceId}}. */
   function decodificarLegenda(u) {
     const pacote = lerProto(u);
@@ -160,6 +209,8 @@
       utterance,
       versao: typeof versao === "number" ? versao : 0,
       texto: texto(primeiro(legenda, 3)).slice(0, MAX_TEXTO),
+      // Texto (3) e dispositivo (6) nunca contam como idioma.
+      idioma: idiomasEm(legenda, 3, new Set([3, 6]))[0] || null,
     };
   }
 
@@ -321,6 +372,10 @@
       const promessa = original.apply(this, arguments);
       try {
         const url = typeof recurso === "string" ? recurso : recurso && recurso.url;
+        if (url === URL_ATUALIZAR_MIDIA) {
+          const codigo = idiomaDoCorpo(arguments[1] && arguments[1].body);
+          if (codigo) publicar({ tipo: "idioma", codigo, origem: "meet", resultado: "lido" });
+        }
         if (url === URL_COLECOES) {
           promessa
             .then((resposta) => resposta.clone().text())
@@ -340,6 +395,7 @@
     decodificarLegenda,
     decodificarDispositivo,
     decodificarColecao,
+    idiomaDoCorpo,
     ackLegenda,
     idDispositivo,
     descompactar,

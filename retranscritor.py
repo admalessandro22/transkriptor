@@ -253,7 +253,8 @@ def _retranscrever_resultado(
     # início/fim/texto) e guarda as sugestões de nome do alinhamento.
     from alinhador_falas import alinhar_segmentos, combinar_atribuicoes
 
-    alinhado = alinhar_segmentos(fundidos, eventos_meet or (), incerteza_ms=clock_uncertainty_ms)
+    alinhado = alinhar_segmentos(fundidos, eventos_meet or (), incerteza_ms=clock_uncertainty_ms,
+                                 idioma_transcricao=idioma)
     fundidos = alinhado.fundidos
     linhas = [
         f"[{_timestamp_relativo(s.start_ms / 1000.0)}] {s.text}" for s in fundidos

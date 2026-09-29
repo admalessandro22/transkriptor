@@ -63,24 +63,29 @@ Estados possíveis: `PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `REOPENED` (mes
 
 ## F15.B — paridade de captura com a Tactiq
 
-### T-15.B1 — idioma da legenda alinhado ao da transcrição
+### T-15.B1 — idioma da legenda: leitura, Diagnóstico e peso do texto
 
-- [ ] **Requisito:** FR-15.B1. **Depende de:** A1 e DP-15-01. **Estado:** `PENDING`. **Tamanho:** G.
+- [x] **Requisito:** FR-15.B1. **Depende de:** A1. **Estado:** `DONE`; evidência: `evidencias/T-15.B1.md`. **Tamanho:** M (a escrita saiu para a T-15.B1W).
 - **Arquivos:**
-  - criar `extension/meet/rtc_idioma.js`, `tests/js/meet-idioma.test.js`, `tests/js/fixtures/meet-media-session-v2.bin.json`;
-  - modificar `extension/meet/manifest.json` (ordem dos scripts), `extension/meet/content.js`, `meet_bridge.py` (capabilities), `central_diagnostico.py`, `identidade_reuniao.py` (peso de texto por idioma), `config.py`.
+  - modificar `extension/meet/rtc.js` (`idiomasEm`, `idiomaDoCorpo`, `idioma` na legenda, leitura do `UpdateMediaSession`), `extension/meet/content.js` (capacidade a cada mudança, `caption_lang` na legenda), `extension/meet/background.js` (cópia validada), `sessao_reuniao.py`, `meet_bridge.py` (`idiomas_meet`), `diagnostico.py` e `central_diagnostico.py`, `linha_tempo_falas.py` (`Fala.idioma`), `alinhador_falas.py` e `retranscritor.py` (`idioma_transcricao`);
+  - criar `tests/js/meet-idioma.test.js`, `tests/test_idioma_legenda.py`.
+- **Implementação:** só leitura; códigos `^[a-z]{2,3}-[A-Z]{2}$`; divergência pela base do idioma (`pt` × `en`); `auto` nunca diverge.
+- **RED:** `meet-idioma.test.js` (9 casos, entre eles "a extensão continua só lendo"); `test_idioma_legenda.py` (idioma no envelope, ponte, Diagnóstico, linha do tempo, `test_idioma_divergente_zera_peso_textual`).
+- **Teste final:** `python -m pytest tests/test_idioma_legenda.py tests/test_alinhador_falas.py tests/test_diagnostico.py tests/test_meet_bridge.py -v`; `npx vitest run tests/js/meet-idioma.test.js tests/js/meet-rtc.test.js`; `npm run test:e2e -- diagnostico.spec.js csp.spec.js`.
+- **Aceite:** legenda em `en-US` numa transcrição `pt` gera o aviso no Diagnóstico e alinhamento sem texto (`estimado=False`, confiança menor), mantendo os nomes pelo tempo; nenhum `send` novo na extensão.
+
+### T-15.B1W — pedir ao Meet a legenda no idioma da transcrição
+
+- [ ] **Requisito:** FR-15.B1W. **Depende de:** B1, DP-15-01 e **captura autorizada de tráfego real** numa reunião de teste. **Estado:** `BLOCKED` (formato do comando desconhecido; ver `evidencias/T-15.B1.md`). **Tamanho:** M.
+- **Arquivos:** criar `extension/meet/rtc_idioma.js`, `tests/js/meet-idioma-escrita.test.js`, `tests/js/fixtures/meet-media-session-v1.json` (anonimizada, derivada da captura); modificar `extension/meet/manifest.json`, `extension/meet/content.js`, `central_config.py` (`meet_idioma_legenda`), `config.py`.
 - **Implementação:**
-  - leitura do idioma efetivo por três caminhos: o que o Meet envia no `media-session` (patch de `RTCDataChannel.prototype.send`, só leitura), `UpdateMediaSession` via `fetch` e o XHR legado `media_sessions/modify`;
-  - com `seguir_transcricao`, envio do comando de idioma pela sequência observada (operação +1, dois acks), espera de 5 s e uma reafirmação quando o canal reabre;
-  - sem sucesso, nenhum retry agressivo: o Diagnóstico mostra "Legenda do Meet em <x>; transcrição em <y>".
-- **RED:**
-  - `meet-idioma.test.js::le idioma enviado pelo meet`, `::pedido usa sequencia seguinte`, `::timeout vira resultado timeout`, `::nao_alterar nunca envia`;
-  - `test_identidade_reuniao.py::test_idioma_divergente_zera_peso_textual`.
-- **Teste final:** `python -m pytest tests/test_identidade_reuniao.py tests/test_meet_bridge.py -v`; `npx vitest run tests/js/meet-idioma.test.js tests/js/meet-rtc.test.js`.
-- **Aceite:**
-  - com as fixtures, a sequência de bytes enviada é validada campo a campo pelo decodificador próprio;
-  - com `nao_alterar`, zero chamadas ao `send` original feitas pela extensão;
-  - manual em reunião de teste: legenda muda para `pt-BR` sem efeito visível para os outros participantes.
+  - modo de captura de diagnóstico (desligado por padrão) que registra **localmente**, na reunião de teste, a estrutura (números de campo e tamanhos, sem texto) do pedido de idioma que o próprio Meet envia ao trocar o idioma na interface;
+  - a partir dessa estrutura, gerar o pedido com o código desejado e a sequência seguinte;
+  - esperar confirmação e registrar o resultado;
+  - uma reafirmação quando o canal reabre; nada de retry agressivo.
+- **RED:** `meet-idioma-escrita.test.js::pedido reproduz a estrutura observada`, `::nao_alterar nunca envia`, `::timeout vira resultado timeout`, `::um pedido por reabertura`.
+- **Teste final:** `npx vitest run tests/js/meet-idioma-escrita.test.js tests/js/meet-idioma.test.js`; `python -m pytest tests/test_idioma_legenda.py -v`.
+- **Aceite:** em reunião de teste autorizada, a legenda passa para `pt-BR` sem efeito visível para os outros participantes, e o Diagnóstico mostra o idioma confirmado.
 
 ### T-15.B2 — identificação do próprio dispositivo
 

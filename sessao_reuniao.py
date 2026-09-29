@@ -7,6 +7,7 @@ import datetime
 import hashlib
 import json
 import math
+import re
 import uuid
 from dataclasses import dataclass
 from typing import Mapping
@@ -30,6 +31,7 @@ TAMANHO_MAX_ENVELOPE = 4 * 1024
 INCERTEZA_MAX_MS = 1500.0
 VERSOES_ENVELOPE = frozenset({1, 2})
 CANAIS_ORIGEM = frozenset({"captions_v2", "captions", "meet", "dom"})
+PADRAO_IDIOMA = re.compile(r"[a-z]{2,3}-[A-Z]{2}")  # FR-15.B1: "pt-BR", "en-US"
 
 
 @dataclass(frozen=True)
@@ -120,6 +122,10 @@ def validar_envelope(evento: Mapping, sessao: SessaoReuniao) -> dict:
         raise EnvelopeRejeitado("kind desconhecido")
     if versao == 2 and evento["kind"] == "caption":
         _validar_tempos_fala(evento)
+    for campo in ("caption_lang", "lang_requested"):
+        valor = evento.get(campo)
+        if campo in evento and not (isinstance(valor, str) and PADRAO_IDIOMA.fullmatch(valor)):
+            raise EnvelopeRejeitado(f"{campo} inválido")
     for campo in ("client_wall_ms", "client_monotonic_ms", "received_monotonic_ns"):
         valor = evento.get(campo)
         if not isinstance(valor, (int, float)) or isinstance(valor, bool):

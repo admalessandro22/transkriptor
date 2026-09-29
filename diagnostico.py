@@ -245,12 +245,33 @@ def checar_ambiente():
     return itens
 
 
+def _base_idioma(codigo: str) -> str:
+    return str(codigo or "").split("-")[0].lower()
+
+
+def checar_idioma_legenda(idiomas_meet, idioma_transcricao):
+    """FR-15.B1: legenda do Meet em outro idioma deixa os nomes só pelo tempo."""
+    legenda = (idiomas_meet or {}).get("caption_lang")
+    if not legenda:
+        return []
+    nome = "Idioma da legenda do Meet"
+    if idioma_transcricao in (None, "", "auto") or _base_idioma(legenda) == _base_idioma(idioma_transcricao):
+        return [_item(nome, OK, legenda)]
+    return [_item(
+        nome, AVISO,
+        f"Legenda do Meet em {legenda}; transcrição em {idioma_transcricao}. "
+        "Os nomes usarão só o horário das falas. Ajuste o idioma das legendas no Meet.",
+    )]
+
+
 def coletar(
     detector=None,
     modelo_whisper="auto",
     capturar_mic=True,
     gravando=False,
     transcritor=None,
+    idiomas_meet=None,
+    idioma_transcricao=None,
 ):
     """Roda todas as checagens e devolve a lista de itens."""
     itens = []
@@ -272,6 +293,7 @@ def coletar(
     if transcritor is not None:
         itens += checar_metricas_captura(transcritor)
     itens += checar_modelo_whisper(modelo_whisper)
+    itens += checar_idioma_legenda(idiomas_meet, idioma_transcricao)
     return itens
 
 

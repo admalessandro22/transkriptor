@@ -14,6 +14,14 @@ const RECONECTAR_BASE_MS = 1000;
 const RECONECTAR_MAX_MS = 30000;
 const CHAVE_CREDENCIAL = "meetWsToken";
 const CANAIS_ORIGEM = new Set(["captions_v2", "captions", "meet", "dom"]);
+const PADRAO_IDIOMA = /^[a-z]{2,3}-[A-Z]{2}$/;
+
+/** Copia só códigos BCP-47 válidos (FR-15.B1). */
+function copiarIdiomas(evento, envelope, campos) {
+  for (const campo of campos) {
+    if (typeof evento[campo] === "string" && PADRAO_IDIOMA.test(evento[campo])) envelope[campo] = evento[campo];
+  }
+}
 
 let ws = null;
 let pronto = false;
@@ -125,6 +133,7 @@ function montarEnvelope(evento, remetente, agora = {}) {
     client_monotonic_ms: agora.monotonicMs ?? performance.now(),
   };
   if (kind === "heartbeat") envelope.active = evento.ativa === true;
+  if (kind === "capabilities") copiarIdiomas(evento, envelope, ["caption_lang", "lang_requested"]);
   if (kind === "caption" || kind === "speaker_activity") {
     if (typeof evento.participant_id === "string") envelope.participant_id = evento.participant_id;
     if (typeof evento.nome === "string") envelope.display_name = evento.nome;
@@ -142,6 +151,7 @@ function montarEnvelope(evento, remetente, agora = {}) {
       envelope.caption_started_ms = inicio;
       envelope.caption_last_ms = fim;
       if (CANAIS_ORIGEM.has(evento.origin_channel)) envelope.origin_channel = evento.origin_channel;
+      copiarIdiomas(evento, envelope, ["caption_lang"]);
       // FR-15.A2: amostra página↔parede do mesmo instante, para a ponte converter.
       if (Number.isFinite(evento.page_perf_ms) && Number.isFinite(evento.page_wall_ms)) {
         envelope.page_perf_ms = evento.page_perf_ms;

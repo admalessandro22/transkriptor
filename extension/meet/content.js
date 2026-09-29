@@ -31,6 +31,9 @@
   /** "utterance/dispositivo" -> última revisão ainda não entregue. */
   const falasRtc = new Map();
   let ultimaLegendaRtc = 0;
+  /** FR-15.B1: idioma efetivo da legenda e o pedido pelo Meet (só leitura). */
+  const PADRAO_IDIOMA = /^[a-z]{2,3}-[A-Z]{2}$/;
+  const idiomas = { legenda: null, pedido: null };
 
   let ultimoNome = "";
   let ultimoTexto = "";
@@ -102,6 +105,7 @@
         payload.caption_started_ms = metadados.t_inicio_ms;
         payload.caption_last_ms = metadados.t_ultimo_ms;
         if (metadados.canal) payload.origin_channel = metadados.canal;
+        if (metadados.idioma) payload.caption_lang = metadados.idioma;
         // FR-15.A2: relógio da página e de parede lidos juntos, no envio.
         payload.page_perf_ms = performance.timeOrigin + performance.now();
         payload.page_wall_ms = Date.now();
@@ -158,6 +162,15 @@
     return nomesRtc.get(dispositivo) || nomeNoTile(dispositivo);
   }
 
+  function atualizarIdioma(chave, codigo) {
+    if (typeof codigo !== "string" || !PADRAO_IDIOMA.test(codigo) || idiomas[chave] === codigo) return;
+    idiomas[chave] = codigo;
+    const capacidade = { tipo: "capabilities", ts_ms: Date.now() };
+    if (idiomas.legenda) capacidade.caption_lang = idiomas.legenda;
+    if (idiomas.pedido) capacidade.lang_requested = idiomas.pedido;
+    canalEnviar(capacidade);
+  }
+
   function receberRtc(ev) {
     let msg;
     try {
@@ -174,8 +187,13 @@
       });
       return;
     }
+    if (msg.tipo === "idioma") {
+      atualizarIdioma("pedido", msg.codigo);
+      return;
+    }
     if (msg.tipo === "legenda" && typeof msg.dispositivo === "string" && typeof msg.texto === "string") {
       if (!Number.isInteger(msg.utterance) || !Number.isInteger(msg.versao)) return;
+      atualizarIdioma("legenda", msg.idioma);
       ultimaLegendaRtc = Date.now();
       const id = msg.utterance + "/" + msg.dispositivo;
       const atual = falasRtc.get(id);
@@ -192,6 +210,7 @@
         t_inicio_ms: extremoTempo(Math.min, atual && atual.t_inicio_ms, inicio),
         t_ultimo_ms: extremoTempo(Math.max, atual && atual.t_ultimo_ms, ultimo),
         canal: typeof msg.canal === "string" ? msg.canal : null,
+        idioma: typeof msg.idioma === "string" && PADRAO_IDIOMA.test(msg.idioma) ? msg.idioma : null,
       });
     }
   }
@@ -215,6 +234,7 @@
         t_inicio_ms: fala.t_inicio_ms,
         t_ultimo_ms: fala.t_ultimo_ms,
         canal: fala.canal,
+        idioma: fala.idioma,
       });
     });
   }

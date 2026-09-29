@@ -151,6 +151,7 @@ class MeetBridge:
         self._sessoes_ativas = SessoesAtivas()
         self._sessao_lock = threading.RLock()
         self.relogios = RelogiosConexao()  # T-15.A2
+        self.idiomas_meet: dict = {}  # T-15.B1: último idioma observado (só códigos)
 
     def registrar_hello(self, mensagem: dict) -> None:
         """Guarda só o código de sala/estado em memória; nunca nome ou legenda."""
@@ -233,6 +234,8 @@ class MeetBridge:
             valido = self._sessoes_ativas.aceitar_evento(connection_id, canonico, confirmar=False)
             valido = carimbar_fala(valido, self.relogios.relogio_de(connection_id),
                                    agora_mono_ns=canonico["received_monotonic_ns"], agora_wall_ns=time.time_ns())
+            if valido["kind"] == "capabilities":
+                self.idiomas_meet = {k: valido[k] for k in ("caption_lang", "lang_requested") if k in valido}
             if valido["kind"] == "heartbeat":
                 self.registrar_estado_reuniao(bool(valido.get("active")))
                 self._sessoes_ativas.aceitar_evento(connection_id, valido)

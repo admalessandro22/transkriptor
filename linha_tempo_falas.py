@@ -21,6 +21,7 @@ class Fala:
     fim_ms: int
     texto: str
     evento_ids: tuple[str, ...]
+    idioma: str | None = None  # T-15.B1: idioma da revisão mais nova
 
 
 def _numero(valor: object) -> float | None:
@@ -58,7 +59,7 @@ def construir_linha_tempo(eventos: Iterable[Mapping]) -> list[Fala]:
         fim = _numero(ev.get("ts_fim_sec"))
         revisao = ev.get("caption_revision") if isinstance(ev.get("caption_revision"), int) else -1
         g = grupos.setdefault(fala_id, {"pid": pid, "inicio": inicio, "fim": inicio, "revisao": -2,
-                                        "texto": "", "nome": "", "eventos": []})
+                                        "texto": "", "nome": "", "eventos": [], "idioma": None})
         g["inicio"] = min(g["inicio"], inicio)
         g["fim"] = max(g["fim"], fim if fim is not None else inicio)
         if isinstance(ev.get("event_id"), str):
@@ -66,11 +67,12 @@ def construir_linha_tempo(eventos: Iterable[Mapping]) -> list[Fala]:
         if revisao >= g["revisao"]:
             g["revisao"], g["texto"] = revisao, _texto(ev)
             g["nome"] = _nome(ev) or g["nome"]
+            g["idioma"] = ev.get("caption_lang") if isinstance(ev.get("caption_lang"), str) else g["idioma"]
         elif not g["nome"]:
             g["nome"] = _nome(ev)
     falas = [
         Fala(fala_id, g["pid"], g["nome"] or None, round(g["inicio"] * 1000), round(g["fim"] * 1000),
-             g["texto"], tuple(g["eventos"]))
+             g["texto"], tuple(g["eventos"]), g["idioma"])
         for fala_id, g in grupos.items()
     ]
     return sorted(falas, key=lambda f: (f.inicio_ms, f.fim_ms, f.fala_id))

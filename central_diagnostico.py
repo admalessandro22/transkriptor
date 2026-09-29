@@ -14,7 +14,7 @@ import threading
 
 from flask import Blueprint, Response, jsonify, request
 
-from config import MEET_CONVITE_SEG, MODELO_WHISPER, PASTA_AUDIO, PASTA_TRANSCRICOES
+from config import IDIOMA, MEET_CONVITE_SEG, MODELO_WHISPER, PASTA_AUDIO, PASTA_TRANSCRICOES
 
 bp = Blueprint("central_diagnostico", __name__)
 logger = logging.getLogger(__name__)
@@ -51,6 +51,8 @@ def api_diagnostico():
             capturar_mic=getattr(app, "capturar_mic", True),
             gravando=bool(getattr(app, "_gravando", lambda: False)()),
             transcritor=getattr(app, "transcritor", None),
+            idiomas_meet=getattr(getattr(app, "meet_bridge", None), "idiomas_meet", None),
+            idioma_transcricao=IDIOMA,
         )
         caminho = diagnostico.salvar_relatorio(diagnostico.formatar_texto(itens))
     except Exception as exc:  # noqa: BLE001 — a falha vira item visível, não 500 mudo

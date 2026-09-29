@@ -144,10 +144,11 @@ def estimar_atraso(palavras: Sequence[PalavraSTT], falas: Sequence[Fala]) -> Ali
 # ------------------------------------------------------ palavra a palavra ----
 
 def atribuir_palavras(
-    palavras: Sequence[PalavraSTT], falas: Sequence[Fala], alinhamento: Alinhamento
+    palavras: Sequence[PalavraSTT], falas: Sequence[Fala], alinhamento: Alinhamento,
+    *, usar_texto: bool = True,
 ) -> list[AtribuicaoPalavra]:
     tol, gap = ATRIBUICAO_TOLERANCIA_MS, ATRIBUICAO_GAP_MAX_MS
-    tokens = [{t for t in (_token(x) for x in f.texto.split()) if t} for f in falas]
+    tokens = [{t for t in (_token(x) for x in f.texto.split()) if t} if usar_texto else set() for f in falas]
     inicios = [f.inicio_ms for f in falas]
     maior = max((f.fim_ms - f.inicio_ms for f in falas), default=0)
     saida = []
@@ -269,8 +270,18 @@ def combinar_atribuicoes(
     return saida
 
 
+def _idioma_divergente(falas: Sequence[Fala], idioma_transcricao: str | None) -> tuple[str | None, bool]:
+    """FR-15.B1: legenda noutro idioma não pode ancorar palavra nenhuma."""
+    contagem = Counter(f.idioma for f in falas if f.idioma)
+    legenda = contagem.most_common(1)[0][0] if contagem else None
+    if not legenda or not idioma_transcricao or idioma_transcricao == "auto":
+        return legenda, False
+    return legenda, legenda.split("-")[0].lower() != idioma_transcricao.split("-")[0].lower()
+
+
 def alinhar_segmentos(
-    fundidos: Sequence[SegmentoSTT], eventos: Sequence[Mapping], *, incerteza_ms: float
+    fundidos: Sequence[SegmentoSTT], eventos: Sequence[Mapping], *, incerteza_ms: float,
+    idioma_transcricao: str | None = None,
 ) -> ResultadoAlinhamento:
     """Corta os segmentos na troca de falante e sugere o nome de cada um."""
     fundidos = list(fundidos)
@@ -280,8 +291,12 @@ def alinhar_segmentos(
     palavras = [p for s in fundidos for p in s.words]
     if not falas or not palavras:
         return ResultadoAlinhamento(fundidos, {}, None)
-    alinhamento = estimar_atraso(palavras, falas)
-    por_palavra = atribuir_palavras(palavras, falas, alinhamento)
+    idioma_legenda, divergente = _idioma_divergente(falas, idioma_transcricao)
+    if divergente:
+        alinhamento = Alinhamento(float(ALINHAMENTO_ATRASO_PADRAO_MS), {}, 0.0, False)
+    else:
+        alinhamento = estimar_atraso(palavras, falas)
+    por_palavra = atribuir_palavras(palavras, falas, alinhamento, usar_texto=not divergente)
     confiavel = alinhamento.estimado and alinhamento.concordancia >= ALINHAMENTO_CONCORDANCIA_MIN
     fator = 1.0 if confiavel else ALINHAMENTO_FATOR_SO_TEMPO
     novos, atribuicoes, k = [], {}, 0
@@ -304,5 +319,7 @@ def alinhar_segmentos(
         "palavras_atribuidas": sum(1 for a in por_palavra if a.participant_id),
         "palavras_ambiguas": sum(1 for a in por_palavra if a.ambigua),
         "segmentos_cortados": len(novos) - len(fundidos),
+        "idioma_legenda": idioma_legenda,
+        "idioma_divergente": divergente,
     }
     return ResultadoAlinhamento(novos, atribuicoes, diagnostico)
