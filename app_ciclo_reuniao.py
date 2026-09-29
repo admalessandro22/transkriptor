@@ -67,6 +67,13 @@ class CicloReuniaoMixin:
             relativos.append({**ev, "ts_sec": (ts_ms - inicio) / 1000.0})
         return relativos
 
+    def _sem_nomes_do_meet(self, eventos_legados) -> bool:
+        """G-14: com a ponte pareada a fila legada fica vazia; conta o store."""
+        if not getattr(self, "modo_legendas_meet", False) or eventos_legados:
+            return False
+        store = getattr(self, "_eventos_store", None)
+        return store is None or store.eventos_conteudo == 0
+
     def _iniciar_transcricao(self):
         with self._lock:
             # Pausar enquanto a caixa de consentimento estava aberta não pode
@@ -256,7 +263,7 @@ class CicloReuniaoMixin:
         if t and t.rodando:
             if self.usar_nomes_meet:
                 t.eventos_meet = self._eventos_meet_relativos()
-                if self.modo_legendas_meet and not t.eventos_meet:
+                if self._sem_nomes_do_meet(t.eventos_meet):
                     notificar(
                         "Transkriptor",
                         "Nenhum nome recebido do Meet — recarregue a aba e confira o pareamento da extensão",

@@ -27,6 +27,23 @@ def flags_subprocesso_windows() -> int:
     )
 
 
+def _eventos_no_tempo_do_audio(eventos, sessao) -> tuple[list[dict], int]:
+    """T-15.A2: fala carimbada pela ponte vira ts_sec; a incerteza é a medida.
+
+    Sem nenhum evento carimbado, mantém o comportamento anterior (5 s se o
+    snapshot da sessão marcar relógio incerto).
+    """
+    import math
+
+    from relogio_meet import eventos_no_tempo_do_audio
+
+    sessao = sessao or {}
+    convertidos, medida = eventos_no_tempo_do_audio(eventos, sessao.get("first_frame_monotonic_ns"))
+    if medida is not None:
+        return convertidos, math.ceil(medida)
+    return convertidos, 5000 if sessao.get("relogio_incerto", True) else 0
+
+
 def carregar_eventos_job(job, raiz_transcricoes) -> tuple[list[dict], list[str]]:
     """Carrega eventos das refs do job v2 com hash validado (T-13.D5).
 
@@ -150,6 +167,7 @@ def processar_job(
                 fila.registrar_aviso(job_id, aviso)
             except Exception:
                 logger.error("Falha ao registrar aviso de eventos")
+        eventos_meet, incerteza_ms = _eventos_no_tempo_do_audio(eventos_meet, job.sessao)
         preferencias = dict(job.preferencias or {})
         processamento = retranscritor.retranscrever_resultado(
             job.audio,
@@ -166,7 +184,7 @@ def processar_job(
             usar_vozes_conhecidas=bool(preferencias.get("usar_vozes_conhecidas", True)),
             rotulo_usuario=preferencias.get("rotulo_usuario"),
             eventos_meet=eventos_meet,
-            clock_uncertainty_ms=5000 if (job.sessao or {}).get("relogio_incerto", True) else 0,
+            clock_uncertainty_ms=incerteza_ms,
             on_status=_on_status,
         )
         if fila.obter(job_id).cancel_solicitado:

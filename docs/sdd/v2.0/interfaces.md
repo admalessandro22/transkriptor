@@ -41,22 +41,31 @@ Estende o envelope canônico da v1.8 (`v1.8/spec.md`, "Envelope de evento"). `sc
 
 ## 3. Handshake de relógio
 
+**Emenda de 29/09/2026 (T-15.A2):** a medição passou para a ponte, no relógio monotônico do app. O cliente não mede nada; apenas devolve o próprio relógio de parede. O `anotar_handshake` por sessão foi substituído por relógio por conexão e carimbo por evento. Motivo: a sessão da ponte e a do app são cópias imutáveis distintas, e cada aba tem o próprio relógio.
+
 ```
-background → ponte : {"type":"clock_ping","n":1,"client_wall_ms":…, "client_perf_ms":…}
-ponte → background : {"type":"clock_pong","n":1,"server_monotonic_ns":…, "server_wall_ms":…}
+ponte → background : {"tipo":"relogio_ping","connection_id":…,"n":3}
+background → ponte : {"tipo":"relogio_pong","connection_id":…,"n":3,"client_wall_ms":Date.now()}
 ```
 
-- `client_perf_ms` usa a mesma base de `t_*_ms` (`timeOrigin + now()`). O service worker tem outro `timeOrigin` da página. Por isso o `content.js` envia junto de cada lote `{page_perf_ms, page_wall_ms}`, e o background mede e mantém `delta_pagina_sw` por aba.
-- Para cada amostra: `rtt = t_recebido_pong − t_envio_ping`; `offset = server_monotonic − (t_envio + rtt/2)`.
-- A ponte guarda a amostra de menor RTT por conexão: `sessao_reuniao.anotar_handshake(connection_id, offset_ns, incerteza_ns)`.
-- O worker converte com `ms_audio = (evento_ns + offset_ns − first_frame_monotonic_ns) / 1e6`.
+- **Quando:** 5 pings a 200 ms após o `sessao` e depois 1 a cada 30 s, enquanto o socket vive (`RELOGIO_*` em `config.py`). Um pong só é aceito para `n` pendente e conexão vinculada no mesmo socket.
+- **Amostra** (`relogio_meet.AmostraRelogio`): envio (monotônico e parede do app), recebimento (monotônico) e parede do cliente.
+- **Cálculo:** `rtt = recebido − envio`; `offset_ms = cliente_wall − (envio_wall + rtt/2)`; vale a amostra de menor RTT entre as 20 mais recentes, com `incerteza = rtt/2 + 1 ms`.
+- **Página → parede:** cada legenda leva `page_perf_ms` e `page_wall_ms`, lidos juntos no envio pelo `content.js`, e `cliente_wall(t) = t − (page_perf_ms − page_wall_ms)`.
+- **Carimbo na ponte** (`relogio_meet.carimbar_fala`), com `agora_mono`/`agora_wall` do recebimento: `speech_started_monotonic_ns`, `speech_last_monotonic_ns` e `clock_uncertainty_ms` (= incerteza + 1 ms). Esses campos são **do servidor**: se vierem do cliente, são descartados. Sem relógio, sem amostra da página ou com a fala no futuro além de `RELOGIO_FOLGA_FUTURO_MS`, nada é carimbado.
+- **Worker** (`processador_reuniao._eventos_no_tempo_do_audio`): `ts_sec = (speech_started_monotonic_ns − first_frame_monotonic_ns) / 1e9`. `clock_uncertainty_ms` do job = maior incerteza entre os eventos carimbados, arredondada para cima. Sem nenhum carimbo, mantém o valor legado (5000 se o snapshot marcar relógio incerto). Fala anterior ao primeiro frame fica sem `ts_sec`.
+- **Primeiro frame:** `CapturaLeveMixin.primeiro_frame_monotonic_ns` é marcado no primeiro bloco do loopback, descontada a duração do bloco (o `record()` devolve 1 s). O snapshot do job prefere esse valor ao instante após `start()` (`app_processamento.primeiro_frame_do_job`). O `soundcard` preenche o silêncio do loopback com zeros pelo tempo decorrido (`mediafoundation._record_chunk`), então a linha do tempo não encolhe.
 
 ```python
-# relogio_meet.py (novo)
+# relogio_meet.py
 @dataclass(frozen=True)
-class AmostraRelogio: n: int; envio_ms: float; recebido_ms: float; servidor_ns: int
-def melhor_offset(amostras: Sequence[AmostraRelogio]) -> tuple[int, int]  # (offset_ns, incerteza_ns)
-def para_ms_audio(t_pagina_ms: float, delta_pagina_sw_ms: float, offset_ns: int, primeiro_quadro_ns: int) -> float
+class AmostraRelogio: n: int; envio_mono_ns: int; envio_wall_ns: int; recebido_mono_ns: int; cliente_wall_ms: float
+def melhor_offset(amostras) -> tuple[float, float] | None          # (offset_ms, incerteza_ms)
+def para_monotonic_servidor_ns(t_pagina_ms, *, page_perf_ms, page_wall_ms, offset_ms, agora_mono_ns, agora_wall_ns) -> int
+class RelogiosConexao: iniciar_ping(cid) -> dict; registrar_pong(cid, n, *, cliente_wall_ms); relogio_de(cid); esquecer(cid)
+def carimbar_fala(evento, relogio, *, agora_mono_ns, agora_wall_ns) -> dict
+async def pingar(enviar, relogios, cid) -> None
+def eventos_no_tempo_do_audio(eventos, primeiro_frame_ns) -> tuple[list[dict], float | None]
 ```
 
 ## 4. Linha do tempo e alinhamento

@@ -102,6 +102,7 @@ class EventStore:
         self._ack = -1
         self._proximo_indice = 0
         self._descartes = 0
+        self._conteudos = 0
         self._parcial = False
         self._revogada = False
         self._ultimo_segmento_selado: Path | None = None
@@ -110,6 +111,11 @@ class EventStore:
     @property
     def descartes(self) -> int:
         return self._descartes
+
+    @property
+    def eventos_conteudo(self) -> int:
+        """Legendas/nomes aceitos nesta sessão (G-14: aviso de "nenhum nome")."""
+        return self._conteudos
 
     @property
     def parcial(self) -> bool:
@@ -193,6 +199,7 @@ class EventStore:
             self._aberto_desde = time.monotonic()
         self._aberto.append(linha)
         self._aberto_bytes += len(linha)
+        self._conteudos += 1
         if (
             len(self._aberto) >= MEET_EVENTOS_BUFFER
             or self._aberto_bytes >= MEET_EVENTOS_SEGMENTO_BYTES

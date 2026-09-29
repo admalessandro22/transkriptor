@@ -27,7 +27,7 @@ Estados possíveis: `PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `REOPENED` (mes
 
 ### T-15.A2 — handshake de relógio e conversão para o tempo do áudio
 
-- [ ] **Requisito:** FR-15.A2. **Depende de:** A1. **Estado:** `PENDING`. **Tamanho:** M.
+- [x] **Requisito:** FR-15.A2. **Depende de:** A1. **Estado:** `DONE`; evidência: `evidencias/T-15.A2.md` (suíte completa pós-correção pendente por falta de memória). **Tamanho:** M.
 - **Arquivos:**
   - criar `relogio_meet.py`, `tests/test_relogio_meet.py`, `tests/js/background-relogio.test.js`;
   - modificar `extension/meet/background.js`, `meet_bridge.py`, `sessao_reuniao.py`, `processador_reuniao.py:169`, `identidade_reuniao.py`, `app_ciclo_reuniao.py` (aviso legado G-14), `config.py`.
@@ -41,7 +41,7 @@ Estados possíveis: `PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `REOPENED` (mes
   - `test_relogio_meet.py::test_menor_rtt_define_offset`, `::test_incerteza_meia_rtt`, `::test_conversao_para_ms_audio`, `::test_sem_amostra_relogio_incerto`;
   - `test_identidade_reuniao.py::test_janela_temporal_aplicada_com_relogio_ok`;
   - `test_nomes_meet_worker.py::test_aviso_sem_nomes_le_event_store`.
-- **Teste final:** `python -m pytest tests/test_relogio_meet.py tests/test_identidade_reuniao.py tests/test_nomes_meet_worker.py tests/test_meet_bridge.py tests/test_lock_sem_callback.py -v`; `npx vitest run tests/js/background-relogio.test.js tests/js/background.test.js`.
+- **Teste final:** `python -m pytest tests/test_relogio_meet.py tests/test_identidade_reuniao.py tests/test_nomes_meet_worker.py tests/test_meet_bridge.py tests/test_lock_sem_callback.py tests/test_primeiro_frame.py tests/test_envelope_v2.py tests/test_eventos_meet_store.py -v`; `npx vitest run tests/js/background-relogio.test.js tests/js/background.test.js`; `python scripts/gate_reuniao_real.py --segundos 25` (mexe em captura: `captura_leve.py`).
 - **Aceite:** com atraso simulado de 37 ms e jitter de ±10 ms, o offset estimado erra ≤ 15 ms e `relogio_incerto` fica falso.
 
 ### T-15.A3 — fila pré-sessão, reconexão e consolidação de revisões

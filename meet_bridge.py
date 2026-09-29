@@ -15,6 +15,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from sessao_reuniao import EnvelopeRejeitado, SessaoReuniao, SessoesAtivas
+from relogio_meet import RelogiosConexao, carimbar_fala, pingar
 from meet_pareamento import ConviteInvalido, Pareador
 
 from config import (
@@ -149,6 +150,7 @@ class MeetBridge:
         self._hints: dict[str, dict] = {}
         self._sessoes_ativas = SessoesAtivas()
         self._sessao_lock = threading.RLock()
+        self.relogios = RelogiosConexao()  # T-15.A2
 
     def registrar_hello(self, mensagem: dict) -> None:
         """Guarda só o código de sala/estado em memória; nunca nome ou legenda."""
@@ -229,6 +231,8 @@ class MeetBridge:
             canonico = dict(evento)
             canonico["received_monotonic_ns"] = time.monotonic_ns()
             valido = self._sessoes_ativas.aceitar_evento(connection_id, canonico, confirmar=False)
+            valido = carimbar_fala(valido, self.relogios.relogio_de(connection_id),
+                                   agora_mono_ns=canonico["received_monotonic_ns"], agora_wall_ns=time.time_ns())
             if valido["kind"] == "heartbeat":
                 self.registrar_estado_reuniao(bool(valido.get("active")))
                 self._sessoes_ativas.aceitar_evento(connection_id, valido)
@@ -379,6 +383,7 @@ async def _servidor_ws(bridge: MeetBridge, host: str, porta: int) -> None:
         janela_saldo = float(MEET_WS_BURST)
         janela_ultima = _time.monotonic()
         conexoes_do_socket: set[str] = set()
+        pings: dict[str, asyncio.Future] = {}
         try:
             async for mensagem in websocket:
                 # Token bucket: rajada até BURST, sustentado EVENTOS_POR_SEG.
@@ -412,6 +417,11 @@ async def _servidor_ws(bridge: MeetBridge, host: str, porta: int) -> None:
                     except EnvelopeRejeitado:
                         continue  # antes do consentimento, só heartbeat mínimo
                     await websocket.send(json.dumps(resposta))
+                    if connection_id not in pings:
+                        pings[connection_id] = asyncio.ensure_future(pingar(websocket.send, bridge.relogios, connection_id))
+                    continue
+                if dados.get("tipo") == "relogio_pong" and dados.get("connection_id") in conexoes_do_socket:
+                    bridge.relogios.registrar_pong(dados["connection_id"], dados.get("n"), cliente_wall_ms=dados.get("client_wall_ms"))
                     continue
                 if dados.get("schema_version") == 1 or "event_id" in dados:
                     connection_id = dados.get("connection_id")
@@ -430,8 +440,11 @@ async def _servidor_ws(bridge: MeetBridge, host: str, porta: int) -> None:
         except Exception:
             logger.debug("Cliente WebSocket desconectado", exc_info=True)
         finally:
+            for tarefa in pings.values():
+                tarefa.cancel()
             for connection_id in conexoes_do_socket:
                 bridge.desanexar_sessao(connection_id)
+                bridge.relogios.esquecer(connection_id)
             with bridge._estado_lock:
                 bridge._conexoes_autenticadas = max(0, bridge._conexoes_autenticadas - 1)
 

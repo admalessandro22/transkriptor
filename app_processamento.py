@@ -18,6 +18,12 @@ from worker_liveness import avaliar_inatividade, encerrar_se_lease_valido
 logger = logging.getLogger(__name__)
 
 
+def primeiro_frame_do_job(sessao, transcritor) -> int | None:
+    """T-15.A2: o 1º frame capturado vale mais que o instante do start()."""
+    real = getattr(transcritor, "primeiro_frame_monotonic_ns", None)
+    return real if isinstance(real, int) else sessao.first_frame_monotonic_ns
+
+
 def _esperar_worker(worker, timeout):
     wait = getattr(worker, "wait", None)
     if wait is None:
@@ -371,7 +377,7 @@ class ProcessamentoReuniaoMixin:
                 "meeting_key": sessao.meeting_key,
                 "consented_at_utc": sessao.consented_at_utc,
                 "policy_id": sessao.policy_id,
-                "first_frame_monotonic_ns": sessao.first_frame_monotonic_ns,
+                "first_frame_monotonic_ns": primeiro_frame_do_job(sessao, transcritor),
                 "offset_ms": getattr(sessao, "offset_ms", 0.0),
                 "relogio_incerto": bool(getattr(sessao, "relogio_incerto", True)),
             }

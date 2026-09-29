@@ -85,6 +85,9 @@ def _validar_tempos_fala(evento: Mapping) -> None:
     canal = evento.get("origin_channel")
     if canal is not None and canal not in CANAIS_ORIGEM:
         raise EnvelopeRejeitado("origin_channel desconhecido")
+    for campo in ("page_perf_ms", "page_wall_ms"):  # FR-15.A2: amostra página↔parede
+        if campo in evento and not _tempo_finito(evento[campo]):
+            raise EnvelopeRejeitado(f"{campo} inválido")
 
 
 def validar_envelope(evento: Mapping, sessao: SessaoReuniao) -> dict:

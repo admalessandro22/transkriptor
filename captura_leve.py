@@ -98,6 +98,11 @@ class CapturaLeveMixin:
             self._incrementar_metrica("_falhas_gravacao")
             raise
 
+    @property
+    def primeiro_frame_monotonic_ns(self) -> int | None:
+        """Instante zero do áudio (monotônico), base da hora das falas do Meet."""
+        return getattr(self, "_primeiro_frame_ns", None)
+
     def _incrementar_metrica(self, atributo, quantidade=1):
         with self._metricas_lock:
             setattr(self, atributo, getattr(self, atributo) + quantidade)
@@ -107,6 +112,7 @@ class CapturaLeveMixin:
         agora = time.monotonic()
         with self._metricas_lock:
             self._frames_gravados = 0
+            self._primeiro_frame_ns = None
             self._falhas_captura = 0
             self._falhas_gravacao = 0
             self._blocos_descartados = 0
@@ -135,6 +141,9 @@ class CapturaLeveMixin:
         lacuna_fechada = False
         with self._metricas_lock:
             dados = self._fontes_captura[fonte]
+            if fonte == "loopback" and getattr(self, "_primeiro_frame_ns", None) is None:
+                # T-15.A2: o bloco termina agora; o 1º frame veio `frames` antes.
+                self._primeiro_frame_ns = time.monotonic_ns() - frames * 1_000_000_000 // SAMPLE_RATE
             dados["frames"] += frames
             dados["ultimo_frame_monotonic"] = time.monotonic()
             dados["erros_consecutivos"] = 0

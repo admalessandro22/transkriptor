@@ -129,3 +129,12 @@ def test_sugestao_nao_nomeia_automaticamente_mas_chega_ao_json():
     assert segmentos[0].assignment == dados
     assert segmentos[0].speaker_cluster_id == "FALANTE_00"
     assert avisos == ()
+
+
+def test_janela_temporal_aplicada_com_relogio_ok():
+    """T-15.A2: com relógio medido, legenda fora da janela não casa só pelo texto."""
+    seg = _seg("vamos revisar o cronograma do projeto", inicio_ms=0, fim_ms=1000)
+    longe = [_legenda("Ana", "vamos revisar o cronograma do projeto", ts_sec=300.0)]
+    perto = [_legenda("Ana", "vamos revisar o cronograma do projeto", ts_sec=0.8)]
+    assert resolver_atribuicao(seg, longe, clock_uncertainty_ms=10, calibration_version="a2").display_name is None
+    assert resolver_atribuicao(seg, perto, clock_uncertainty_ms=10, calibration_version="a2").display_name == "Ana"

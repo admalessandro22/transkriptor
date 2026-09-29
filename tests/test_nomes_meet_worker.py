@@ -199,3 +199,68 @@ def test_job_v1_sem_nome_nao_fabrica_participante(chave_teste, tmp_path):
         resultado = processar_job(job_id, modelo_whisper=_modelo_duas_falas(), fila=fila)
     assert visto["eventos_meet"] == []
     assert "Ana" not in Path(resultado).read_text(encoding="utf-8")
+
+
+def test_fala_com_relogio_chega_no_tempo_do_audio(chave_teste, tmp_path):
+    """T-15.A2: evento carimbado pela ponte vira ts_sec relativo ao 1º frame."""
+    import dataclasses
+
+    from eventos_meet_store import EventStore
+    from processador_reuniao import processar_job
+    from sessao_reuniao import criar_sessao
+
+    (tmp_path / "tr").mkdir()
+    audio = _escrever_wav(tmp_path / "tr" / "audio.wav")
+    sessao = criar_sessao("reuniao-a2", CONSENTIDA, "padrao")
+    store = EventStore(tmp_path / "tr" / "eventos_privados", sessao, ancora_refs=tmp_path / "tr")
+    ev = _evento(sessao.session_id, "reuniao-a2", 0, "Ana", "bom dia a todos")
+    primeiro_frame = 111_000_000_000
+    ev.update({"speech_started_monotonic_ns": primeiro_frame + 250_000_000,
+               "speech_last_monotonic_ns": primeiro_frame + 400_000_000,
+               "clock_uncertainty_ms": 6.0})
+    store.append(ev)
+    refs = store.seal()
+    fila = FilaProcessamento(str(tmp_path / "tr"))
+    snapshot = _sessao_snapshot(sessao.session_id, "reuniao-a2")
+    snapshot["relogio_incerto"] = True  # o snapshot antigo não decide mais
+    job_id = fila.enfileirar(
+        str(audio), None, "reuniao-a2", {"origem": "gate", "diarizar": True, "idioma": "pt"},
+        sessao=snapshot, eventos_refs=[dataclasses.asdict(r) for r in refs],
+        preferencias={"rotulo_usuario": "VOCÊ", "usar_vozes_conhecidas": False},
+    )
+    visto, fake = _espiao_diarizar()
+    capturado = {}
+    import identidade_reuniao
+
+    original = identidade_reuniao.resolver_atribuicao
+
+    def _espiao_resolver(*args, **kwargs):
+        capturado["incerteza"] = kwargs.get("clock_uncertainty_ms")
+        return original(*args, **kwargs)
+
+    with patch("diarizador.diarizar", side_effect=fake), \
+            patch("identidade_reuniao.resolver_atribuicao", side_effect=_espiao_resolver):
+        processar_job(job_id, modelo_whisper=_modelo_duas_falas(), fila=fila)
+    eventos = visto["eventos_meet"]
+    assert eventos[0]["ts_sec"] == 0.25
+    assert capturado.get("incerteza") == 6
+
+
+def test_aviso_sem_nomes_le_event_store(chave_teste, tmp_path):
+    """G-14: com a ponte pareada a fila legada fica vazia; o aviso consulta o store."""
+    from app_ciclo_reuniao import CicloReuniaoMixin
+    from eventos_meet_store import EventStore
+    from sessao_reuniao import criar_sessao
+
+    sessao = criar_sessao("reuniao-g14", CONSENTIDA, "padrao")
+    store = EventStore(tmp_path / "eventos", sessao)
+    ciclo = CicloReuniaoMixin()
+    ciclo.modo_legendas_meet = True
+    ciclo._eventos_store = store
+    assert ciclo._sem_nomes_do_meet([]) is True
+    store.append(_evento(sessao.session_id, "reuniao-g14", 0, "Ana", "bom dia"))
+    assert ciclo._sem_nomes_do_meet([]) is False
+    ciclo._eventos_store = None
+    assert ciclo._sem_nomes_do_meet([{"nome": "Ana"}]) is False
+    ciclo.modo_legendas_meet = False
+    assert ciclo._sem_nomes_do_meet([]) is False

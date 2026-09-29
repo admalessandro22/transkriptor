@@ -166,3 +166,22 @@ def test_job_log_sem_conteudo(chave_teste, tmp_path, caplog):
         store.descarregar(forcar=True)
     combinado = "\n".join(r.getMessage() for r in caplog.records)
     assert "fala sintética 0" not in combinado
+
+
+def test_conta_eventos_de_conteudo(chave_teste, tmp_path):
+    """G-14: o app pergunta ao store se chegou legenda/nome nesta sessão."""
+    import time as _time
+
+    from eventos_meet_store import EventStore
+    from sessao_reuniao import criar_sessao
+
+    sessao = criar_sessao("reuniao-conta", "2026-09-19T20:00:00Z", "padrao")
+    store = EventStore(tmp_path / "ev", sessao)
+    base = {"schema_version": 1, "session_id": sessao.session_id, "connection_id": "c1",
+            "tab_id": "t1", "meeting_key": sessao.meeting_key, "client_wall_ms": 1_789_848_060_000,
+            "client_monotonic_ms": 1, "received_monotonic_ns": _time.monotonic_ns()}
+    assert store.eventos_conteudo == 0
+    store.append({**base, "event_id": "h", "seq": 0, "kind": "heartbeat"})
+    assert store.eventos_conteudo == 0
+    store.append({**base, "event_id": "c", "seq": 1, "kind": "caption", "text": "x"})
+    assert store.eventos_conteudo == 1

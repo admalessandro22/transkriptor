@@ -208,6 +208,13 @@ IDENTIDADE_COBERTURA_MIN = 0.80       # cobertura elegível p/ modo automático
 CALIBRACAO_IDENTIDADE_VERSAO = "d6-1"
 MODO_AUTO_NOMES = False               # sem corpus não há nome automático
 INCERTEZA_TEMPO_MAX_MS = 1500         # acima disso, tempo sozinho não nomeia
+# T-15.A2 — relógio da extensão: ping/pong ponte↔background por conexão.
+RELOGIO_PINGS_INICIAIS = 5            # rajada ao vincular a aba
+RELOGIO_INTERVALO_INICIAL_S = 0.2     # espaço entre pings da rajada
+RELOGIO_INTERVALO_S = 30.0            # depois, um ping a cada 30 s
+RELOGIO_AMOSTRAS_MAX = 20             # amostras recentes por conexão
+RELOGIO_PINGS_PENDENTES_MAX = 8       # pings sem resposta guardados
+RELOGIO_FOLGA_FUTURO_MS = 1000        # fala "no futuro" além disso: relógio ruim, não carimba
 
 # ---- Worker pós-reunião (FR-13.B3) ----
 # Orçamentos injetáveis; não derivam da duração da reunião.

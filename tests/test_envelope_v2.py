@@ -82,3 +82,12 @@ def test_schema_desconhecida_rejeitada():
     s = _sessao()
     with pytest.raises(EnvelopeRejeitado, match="schema_version"):
         validar_envelope(_envelope(s, schema=3), s)
+
+
+@pytest.mark.parametrize("campo", ["page_perf_ms", "page_wall_ms"])
+def test_amostra_pagina_invalida_rejeitada(campo):
+    """T-15.A2: amostra página↔parede, se presente, é número finito."""
+    s = _sessao()
+    ev = _envelope(s, caption_started_ms=1.0, caption_last_ms=2.0, **{campo: float("nan")})
+    with pytest.raises(EnvelopeRejeitado, match=campo):
+        validar_envelope(ev, s)

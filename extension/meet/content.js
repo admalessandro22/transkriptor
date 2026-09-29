@@ -102,6 +102,9 @@
         payload.caption_started_ms = metadados.t_inicio_ms;
         payload.caption_last_ms = metadados.t_ultimo_ms;
         if (metadados.canal) payload.origin_channel = metadados.canal;
+        // FR-15.A2: relógio da página e de parede lidos juntos, no envio.
+        payload.page_perf_ms = performance.timeOrigin + performance.now();
+        payload.page_wall_ms = Date.now();
       }
     }
     canalEnviar(payload);

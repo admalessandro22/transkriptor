@@ -142,9 +142,25 @@ function montarEnvelope(evento, remetente, agora = {}) {
       envelope.caption_started_ms = inicio;
       envelope.caption_last_ms = fim;
       if (CANAIS_ORIGEM.has(evento.origin_channel)) envelope.origin_channel = evento.origin_channel;
+      // FR-15.A2: amostra página↔parede do mesmo instante, para a ponte converter.
+      if (Number.isFinite(evento.page_perf_ms) && Number.isFinite(evento.page_wall_ms)) {
+        envelope.page_perf_ms = evento.page_perf_ms;
+        envelope.page_wall_ms = evento.page_wall_ms;
+      }
     }
   }
   return envelope;
+}
+
+/** FR-15.A2: a ponte mede ida-e-volta; o background só devolve o relógio de parede. */
+function responderRelogio(msg, agoraWall) {
+  if (!msg || msg.tipo !== "relogio_ping" || !Number.isInteger(msg.n)) return null;
+  for (const estado of abas.values()) {
+    if (estado.connectionId === msg.connection_id) {
+      return { tipo: "relogio_pong", n: msg.n, connection_id: msg.connection_id, client_wall_ms: agoraWall };
+    }
+  }
+  return null;
 }
 
 function enviarPonte(mensagem) {
@@ -241,6 +257,8 @@ function conectar() {
           registrarPareamento("confirmado");
         }
         if (msg && msg.tipo === "sessao") aceitarSessao(msg);
+        const pong = responderRelogio(msg, Date.now());
+        if (pong) enviarPonte(pong);
       } catch (_e) {}
     };
   });
@@ -306,6 +324,7 @@ if (typeof module !== "undefined" && module.exports) {
     aceitarSessao,
     atrasoReconexao,
     montarEnvelope,
+    responderRelogio,
     registrarPareamento,
     estadoPareamento,
     tratarFechamento,
