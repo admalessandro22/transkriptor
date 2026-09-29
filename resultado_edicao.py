@@ -28,6 +28,7 @@ class SegmentoResultado:
     speaker_cluster_id: str
     overlap: bool = False
     assignment: Mapping[str, object] | None = None
+    words: tuple = ()  # PalavraSTT (FR-15.C1); vazio em resultados antigos
 
 
 def _hora_curta(ms: int) -> str:
@@ -95,6 +96,7 @@ def montar_payload(
     """Monta o canônico em memória para persistência aberta ou cifrada."""
     serializados = []
     for seg in segmentos:
+        palavras = _palavras_serializadas(seg)
         if isinstance(seg, SegmentoResultado):
             serializados.append(
                 {
@@ -121,6 +123,8 @@ def montar_payload(
                     "assignment": dict(seg["assignment"]) if seg.get("assignment") is not None else None,
                 }
             )
+        if palavras:
+            serializados[-1]["words"] = palavras
     dados = {
         "schema_version": VERSAO_SEGMENTOS,
         "revision": "rev-1",
@@ -129,6 +133,35 @@ def montar_payload(
         "historico": [],
     }
     return dados
+
+
+def _palavras_serializadas(seg) -> list[dict]:
+    """FR-15.C1: palavras só entram no JSON quando existem (antigo segue igual)."""
+    if isinstance(seg, SegmentoResultado):
+        return [{"w": p.w, "ini_ms": int(p.ini_ms), "fim_ms": int(p.fim_ms), "prob": float(p.prob)}
+                for p in seg.words]
+    palavras = seg.get("words")
+    return [dict(p) for p in palavras] if isinstance(palavras, list) else []
+
+
+def _palavras_validas(palavras: object) -> bool:
+    if not isinstance(palavras, list):
+        return False
+    for p in palavras:
+        if (
+            not isinstance(p, dict) or not isinstance(p.get("w"), str) or not p["w"]
+            or type(p.get("ini_ms")) is not int or type(p.get("fim_ms")) is not int
+            or not 0 <= p["ini_ms"] <= p["fim_ms"]
+            or not isinstance(p.get("prob"), (int, float)) or isinstance(p.get("prob"), bool)
+        ):
+            return False
+    return True
+
+
+def sem_palavras(dados: dict) -> dict:
+    """Cópia para leitura na Central: palavras só servem ao alinhamento no worker."""
+    return {**dados, "segmentos": [{k: v for k, v in seg.items() if k != "words"}
+                                   for seg in dados.get("segmentos") or []]}
 
 
 def carregar_segmentos(path: Path) -> dict:
@@ -159,6 +192,7 @@ def validar_dados_segmentos(dados: object) -> dict:
             or not isinstance(seg["text"], str)
             or not isinstance(seg["speaker_cluster_id"], str)
             or (seg.get("assignment") is not None and not isinstance(seg["assignment"], dict))
+            or ("words" in seg and not _palavras_validas(seg["words"]))
         ):
             raise ValueError("segmento estruturado inválido")
     dados.setdefault("mapeamento", {})

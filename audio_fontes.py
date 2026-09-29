@@ -13,6 +13,16 @@ from config import AUDIO_BLOCO_MAX_SEG, ECO_SIMILARIDADE_MIN
 
 
 @dataclass(frozen=True)
+class PalavraSTT:
+    """Palavra com tempo absoluto no áudio (FR-15.C1), base do alinhamento."""
+
+    w: str
+    ini_ms: int
+    fim_ms: int
+    prob: float
+
+
+@dataclass(frozen=True)
 class SegmentoSTT:
     segment_id: str
     start_ms: int
@@ -20,6 +30,24 @@ class SegmentoSTT:
     source: AudioSource
     text: str
     overlap: bool
+    words: tuple[PalavraSTT, ...] = ()
+
+
+def _palavras(segmento, base_ms: int) -> tuple[PalavraSTT, ...]:
+    """Palavras do faster-whisper no tempo do arquivo; vazias são descartadas."""
+    brutas = getattr(segmento, "words", None)
+    if not isinstance(brutas, (list, tuple)):
+        return ()
+    saida = []
+    for palavra in brutas:
+        texto = str(getattr(palavra, "word", "")).strip()
+        if not texto:
+            continue
+        ini = base_ms + int(float(getattr(palavra, "start", 0.0)) * 1000)
+        fim = base_ms + int(float(getattr(palavra, "end", 0.0)) * 1000)
+        prob = float(getattr(palavra, "probability", 0.0) or 0.0)
+        saida.append(PalavraSTT(texto, max(0, ini), max(max(0, ini), fim), round(prob, 4)))
+    return tuple(saida)
 
 
 def _normalizar_lexico(texto: str) -> list[str]:
@@ -73,7 +101,8 @@ def transcrever_fonte(
         base_ms = int(bloco.start_frame * 1000 / info.sample_rate)
         avisar(f"transcribe:{bloco.start_frame}")
         encontrados, _info = model.transcribe(
-            bloco.samples, language=None if idioma == "auto" else idioma
+            bloco.samples, language=None if idioma == "auto" else idioma,
+            word_timestamps=True,
         )
         for seg_idx, segmento in enumerate(list(encontrados)):
             texto = str(getattr(segmento, "text", "")).strip()
@@ -89,6 +118,7 @@ def transcrever_fonte(
                     source=source,
                     text=texto,
                     overlap=False,
+                    words=_palavras(segmento, base_ms),
                 )
             )
     return segmentos
@@ -120,6 +150,7 @@ def mesclar_segmentos(
                 source=seg.source,
                 text=seg.text,
                 overlap=sobreposto or seg.overlap,
+                words=seg.words,
             )
         )
     return aceitos

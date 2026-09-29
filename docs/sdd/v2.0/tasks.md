@@ -146,8 +146,8 @@ Estados possíveis: `PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `REOPENED` (mes
 
 ### T-15.C1 — tempos por palavra no Whisper
 
-- [ ] **Requisito:** FR-15.C1. **Depende de:** autorização. **Estado:** `PENDING`. **Tamanho:** P.
-- **Arquivos:** modificar `audio_fontes.py:75`, `resultado_pipeline.py`, `resultado_storage.py`; criar `tests/test_palavras_whisper.py`.
+- [x] **Requisito:** FR-15.C1. **Depende de:** autorização. **Estado:** `DONE`; evidência: `evidencias/T-15.C1.md`. **Tamanho:** P.
+- **Arquivos:** modificar `audio_fontes.py:75`, `resultado_pipeline.py`, `resultado_edicao.py` (classe canônica e payload; emenda: `resultado_storage.py` não precisou mudar), `assistente.py` (leitura sem palavras); criar `tests/test_palavras_whisper.py`.
 - **Implementação:** `word_timestamps=True`; persistir `words` compactas; leitura retrocompatível; medir o custo de tempo em CPU (evidência).
 - **RED:** `test_palavras_whisper.py::test_segmento_tem_palavras`, `::test_resultado_antigo_sem_palavras_carrega`, `::test_texto_do_segmento_inalterado`.
 - **Teste final:** `python -m pytest tests/test_palavras_whisper.py tests/test_resultado_pipeline.py tests/test_processador_reuniao.py -v`; `python scripts/gate_reuniao_real.py --segundos 25`.

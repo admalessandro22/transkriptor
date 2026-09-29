@@ -428,6 +428,7 @@ from resultado_edicao import (
     exportar_txt,
     format_segment_txt,
     salvar_segmentos,
+    sem_palavras,
 )
 
 

@@ -45,6 +45,7 @@ def criar_segmentos(
             speaker_cluster_id=rotulo,
             overlap=segmento.overlap,
             assignment=(atribuicoes or {}).get(segmento.segment_id),
+            words=segmento.words,
         ))
     if any(por_chave.values()):
         alinhamento_falhou = True

@@ -203,20 +203,20 @@ def api_resultado_reuniao(meeting_id: str):
 
 def _carregar_resultado_reuniao(meeting_id: str) -> tuple[dict | None, int]:
     """Carrega o resultado aberto ou cifrado; (dados, 200) ou (None, código HTTP)."""
-    from resultado_reuniao import carregar_segmentos
+    from resultado_reuniao import carregar_segmentos, sem_palavras
 
     protegido = _resultado_protegido(meeting_id)
     if protegido:
         storage, manifesto = protegido
         try:
-            return storage.load(manifesto.segments_ref), 200
+            return sem_palavras(storage.load(manifesto.segments_ref)), 200
         except ValueError:
             return None, 422
     caminho = _caminho_resultado(meeting_id)
     if caminho is None or not caminho.is_file():
         return None, 404
     try:
-        return carregar_segmentos(caminho), 200
+        return sem_palavras(carregar_segmentos(caminho)), 200
     except ValueError:
         return None, 422
 
