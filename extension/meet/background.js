@@ -13,6 +13,7 @@ const PONTE_URL = "ws://127.0.0.1:5051";
 const RECONECTAR_BASE_MS = 1000;
 const RECONECTAR_MAX_MS = 30000;
 const CHAVE_CREDENCIAL = "meetWsToken";
+const CANAIS_ORIGEM = new Set(["captions_v2", "captions", "meet", "dom"]);
 
 let ws = null;
 let pronto = false;
@@ -133,6 +134,15 @@ function montarEnvelope(evento, remetente, agora = {}) {
     if (typeof evento.caption_id === "string") envelope.caption_id = evento.caption_id;
     if (Number.isInteger(evento.caption_revision)) envelope.caption_revision = evento.caption_revision;
     if (typeof evento.texto === "string") envelope.text = evento.texto;
+    // FR-15.A1: o tempo da fala vem da página; client_wall_ms é só o do envio.
+    const inicio = evento.caption_started_ms;
+    const fim = evento.caption_last_ms;
+    if (Number.isFinite(inicio) && Number.isFinite(fim) && fim >= inicio) {
+      envelope.schema_version = 2;
+      envelope.caption_started_ms = inicio;
+      envelope.caption_last_ms = fim;
+      if (CANAIS_ORIGEM.has(evento.origin_channel)) envelope.origin_channel = evento.origin_channel;
+    }
   }
   return envelope;
 }

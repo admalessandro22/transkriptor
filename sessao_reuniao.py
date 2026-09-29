@@ -6,6 +6,7 @@ import dataclasses
 import datetime
 import hashlib
 import json
+import math
 import uuid
 from dataclasses import dataclass
 from typing import Mapping
@@ -27,6 +28,8 @@ TIPOS_ENVELOPE = frozenset(
 )
 TAMANHO_MAX_ENVELOPE = 4 * 1024
 INCERTEZA_MAX_MS = 1500.0
+VERSOES_ENVELOPE = frozenset({1, 2})
+CANAIS_ORIGEM = frozenset({"captions_v2", "captions", "meet", "dom"})
 
 
 @dataclass(frozen=True)
@@ -63,11 +66,33 @@ def criar_sessao(
     )
 
 
+def _tempo_finito(valor: object) -> bool:
+    return (
+        isinstance(valor, (int, float))
+        and not isinstance(valor, bool)
+        and math.isfinite(valor)
+    )
+
+
+def _validar_tempos_fala(evento: Mapping) -> None:
+    """Schema 2 (FR-15.A1): legenda traz o intervalo da fala medido na página."""
+    inicio = evento.get("caption_started_ms")
+    fim = evento.get("caption_last_ms")
+    if not _tempo_finito(inicio):
+        raise EnvelopeRejeitado("caption_started_ms inválido")
+    if not _tempo_finito(fim) or fim < inicio:
+        raise EnvelopeRejeitado("caption_last_ms inválido")
+    canal = evento.get("origin_channel")
+    if canal is not None and canal not in CANAIS_ORIGEM:
+        raise EnvelopeRejeitado("origin_channel desconhecido")
+
+
 def validar_envelope(evento: Mapping, sessao: SessaoReuniao) -> dict:
-    """Valida envelope `schema_version=1` contra a sessão; recusa sem adivinhar."""
+    """Valida envelope `schema_version` 1 ou 2 contra a sessão; recusa sem adivinhar."""
     if not isinstance(evento, Mapping):
         raise EnvelopeRejeitado("envelope não é objeto")
-    if type(evento.get("schema_version")) is not int or evento["schema_version"] != 1:
+    versao = evento.get("schema_version")
+    if type(versao) is not int or versao not in VERSOES_ENVELOPE:
         raise EnvelopeRejeitado("schema_version desconhecida")
     try:
         serializado = json.dumps(dict(evento), ensure_ascii=False)
@@ -90,6 +115,8 @@ def validar_envelope(evento: Mapping, sessao: SessaoReuniao) -> dict:
         raise EnvelopeRejeitado("seq inválida")
     if evento.get("kind") not in TIPOS_ENVELOPE:
         raise EnvelopeRejeitado("kind desconhecido")
+    if versao == 2 and evento["kind"] == "caption":
+        _validar_tempos_fala(evento)
     for campo in ("client_wall_ms", "client_monotonic_ms", "received_monotonic_ns"):
         valor = evento.get(campo)
         if not isinstance(valor, (int, float)) or isinstance(valor, bool):

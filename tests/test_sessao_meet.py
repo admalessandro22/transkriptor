@@ -141,7 +141,8 @@ def test_evento_antes_do_consentimento_descartado():
 def test_envelope_v1_rejeita_versao_ausente_ou_desconhecida():
     sessao = _sessao()
     evento = _envelope(sessao)
-    for versao in (None, 2, "1"):
+    # A versão 2 passou a existir na v2.0 (FR-15.A1; ver test_envelope_v2.py).
+    for versao in (None, 3, "1", True):
         candidato = {**evento, "schema_version": versao}
         with pytest.raises(EnvelopeRejeitado, match="schema_version"):
             validar_envelope(candidato, sessao)

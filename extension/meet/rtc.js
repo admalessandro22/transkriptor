@@ -194,6 +194,47 @@
       .filter(Boolean);
   }
 
+  // ---------- horário da fala (FR-15.A1) ----------
+
+  const MAX_TEMPOS = 512;
+
+  /** Época em ms no relógio monotônico da página, com resolução sub-ms. */
+  function agoraPagina() {
+    return performance.timeOrigin + performance.now();
+  }
+
+  /** "utterance/dispositivo" -> início da fala; ordem de inserção = recência. */
+  function novoRegistroTempos() {
+    return new Map();
+  }
+
+  /** O primeiro pacote de cada fala define o início; revisões só avançam o fim. */
+  function carimbarLegenda(registro, legenda, agoraMs) {
+    const id = legenda.utterance + "/" + legenda.dispositivo;
+    let inicio = registro.get(id);
+    if (inicio === undefined) {
+      inicio = agoraMs;
+      if (registro.size >= MAX_TEMPOS) registro.delete(registro.keys().next().value);
+    } else {
+      registro.delete(id);
+    }
+    registro.set(id, inicio);
+    return Object.assign({}, legenda, { t_inicio_ms: inicio, t_ultimo_ms: agoraMs });
+  }
+
+  /** Decodifica, confirma e publica um pacote do canal com o horário da chegada. */
+  async function tratarPacoteLegenda(dados, deps) {
+    const chegada = deps.agora();
+    const u = await bytesDe(dados);
+    const legenda = u && decodificarLegenda(u);
+    if (!legenda) return;
+    try {
+      deps.enviarAck(ackLegenda(legenda.utterance, legenda.versao));
+    } catch (_e) {}
+    const carimbada = carimbarLegenda(deps.registro, legenda, chegada);
+    deps.publicar(Object.assign({ tipo: "legenda", canal: CANAL_LEGENDAS }, carimbada));
+  }
+
   // ---------- ponte com o content script ----------
 
   function publicar(mensagem) {
@@ -208,6 +249,7 @@
 
   // ---------- captura ----------
 
+  const temposFalas = novoRegistroTempos();
   const nossos = new WeakSet();
   const conexoesComLegenda = new WeakSet();
   let proximoId = 61000;
@@ -222,16 +264,13 @@
     }
     nossos.add(canal);
     canal.binaryType = "arraybuffer";
-    canal.addEventListener("message", async function (ev) {
-      try {
-        const u = await bytesDe(ev.data);
-        const legenda = u && decodificarLegenda(u);
-        if (!legenda) return;
-        try {
-          canal.send(ackLegenda(legenda.utterance, legenda.versao));
-        } catch (_e) {}
-        publicar(Object.assign({ tipo: "legenda" }, legenda));
-      } catch (_e) {}
+    canal.addEventListener("message", function (ev) {
+      tratarPacoteLegenda(ev.data, {
+        registro: temposFalas,
+        agora: agoraPagina,
+        enviarAck: (bytes) => canal.send(bytes),
+        publicar,
+      }).catch(() => {});
     });
     canal.addEventListener("close", function () {
       if (tentativa >= MAX_REABERTURAS) return;
@@ -304,6 +343,11 @@
     ackLegenda,
     idDispositivo,
     descompactar,
+    agoraPagina,
+    novoRegistroTempos,
+    carimbarLegenda,
+    tratarPacoteLegenda,
+    MAX_TEMPOS,
     EVENTO,
   };
 

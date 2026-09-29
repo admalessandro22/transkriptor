@@ -10,14 +10,14 @@ Estados possíveis: `PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `REOPENED` (mes
 
 ### T-15.A1 — horário na origem da legenda
 
-- [ ] **Requisito:** FR-15.A1. **Depende de:** autorização. **Estado:** `PENDING`. **Tamanho:** P.
+- [x] **Requisito:** FR-15.A1. **Depende de:** autorização. **Estado:** `DONE`; evidência: `evidencias/T-15.A1.md`. **Tamanho:** P.
 - **Arquivos:**
   - modificar `extension/meet/rtc.js`, `extension/meet/content.js`, `extension/meet/background.js`;
   - criar `tests/js/meet-tempo-origem.test.js`, `tests/test_envelope_v2.py`;
   - modificar `sessao_reuniao.py` (`validar_envelope` aceita v2), `tests/js/content.test.js`.
 - **Implementação:**
   - `rtc.js` calcula `agora()` (`timeOrigin + now()`) ao receber cada pacote e publica `t_inicio_ms`/`t_ultimo_ms`, guardando o primeiro por `utterance/dispositivo` num `Map` limitado (LRU de 512);
-  - `content.js` preserva `t_inicio_ms` entre revisões (corrige G-01) e anexa `page_perf_ms`/`page_wall_ms` ao lote;
+  - `content.js` preserva `t_inicio_ms` entre revisões (corrige G-01). Emenda de 29/09: `page_perf_ms`/`page_wall_ms` passam para a T-15.A2, única consumidora;
   - `background.js` copia os campos para o envelope v2 sem substituí-los (corrige G-02).
 - **RED:**
   - `meet-tempo-origem.test.js::revisao nao altera t_inicio`, `::t_ultimo cresce`, `::flush nao substitui horario`;
@@ -32,7 +32,7 @@ Estados possíveis: `PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `REOPENED` (mes
   - criar `relogio_meet.py`, `tests/test_relogio_meet.py`, `tests/js/background-relogio.test.js`;
   - modificar `extension/meet/background.js`, `meet_bridge.py`, `sessao_reuniao.py`, `processador_reuniao.py:169`, `identidade_reuniao.py`, `app_ciclo_reuniao.py` (aviso legado G-14), `config.py`.
 - **Implementação:**
-  - ping/pong conforme `interfaces.md` §3;
+  - ping/pong conforme `interfaces.md` §3; `content.js` anexa `page_perf_ms`/`page_wall_ms` a cada lote para o delta página↔service worker;
   - a ponte chama `anotar_handshake` com a melhor amostra;
   - o job leva `offset_ns`, `incerteza_ns` e `first_frame_monotonic_ns`;
   - `identidade_reuniao._tempo_ms` usa `relogio_meet.para_ms_audio`, e o `clock_uncertainty_ms` vem da medida, não da constante 5000;

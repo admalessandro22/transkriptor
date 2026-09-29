@@ -98,6 +98,11 @@
       if (Number.isInteger(metadados.revisao)) payload.caption_revision = metadados.revisao;
       if (metadados.participant_id) payload.participant_id = metadados.participant_id;
       payload.confidence_source = tipo === "legenda" ? "caption" : "speaker_activity";
+      if (metadados.t_inicio_ms != null && metadados.t_ultimo_ms != null) {
+        payload.caption_started_ms = metadados.t_inicio_ms;
+        payload.caption_last_ms = metadados.t_ultimo_ms;
+        if (metadados.canal) payload.origin_channel = metadados.canal;
+      }
     }
     canalEnviar(payload);
   }
@@ -136,6 +141,16 @@
     return nome.length > 1 && nome.length < 80 ? nome : "";
   }
 
+  function tempoValido(valor) {
+    return typeof valor === "number" && Number.isFinite(valor) ? valor : null;
+  }
+
+  /** Math.min/Math.max entre dois horários, ignorando o que não for número. */
+  function extremoTempo(escolher, a, b) {
+    const validos = [tempoValido(a), tempoValido(b)].filter((v) => v !== null);
+    return validos.length ? escolher.apply(null, validos) : null;
+  }
+
   function nomeDoDispositivo(dispositivo) {
     return nomesRtc.get(dispositivo) || nomeNoTile(dispositivo);
   }
@@ -162,12 +177,18 @@
       const id = msg.utterance + "/" + msg.dispositivo;
       const atual = falasRtc.get(id);
       if (atual && atual.versao > msg.versao) return;
+      // FR-15.A1: o início da fala é o do primeiro pacote; revisões nunca o empurram.
+      const inicio = tempoValido(msg.t_inicio_ms);
+      const ultimo = tempoValido(msg.t_ultimo_ms);
       falasRtc.set(id, {
         dispositivo: msg.dispositivo,
         versao: msg.versao,
         texto: msg.texto,
         visto: Date.now(),
         pendente: true,
+        t_inicio_ms: extremoTempo(Math.min, atual && atual.t_inicio_ms, inicio),
+        t_ultimo_ms: extremoTempo(Math.max, atual && atual.t_ultimo_ms, ultimo),
+        canal: typeof msg.canal === "string" ? msg.canal : null,
       });
     }
   }
@@ -188,6 +209,9 @@
         id: "rtc-" + id,
         revisao: fala.versao,
         participant_id: fala.dispositivo,
+        t_inicio_ms: fala.t_inicio_ms,
+        t_ultimo_ms: fala.t_ultimo_ms,
+        canal: fala.canal,
       });
     });
   }
