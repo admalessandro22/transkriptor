@@ -16,6 +16,7 @@ class ResultadoProcessamento:
     segmentos: tuple[SegmentoResultado, ...]
     warnings: tuple[str, ...] = ()
     gerar_copia_tkpt: bool = False
+    alinhamento: dict | None = None  # T-15.C2: só números (atraso, concordância, cortes)
 
 
 def criar_segmentos(

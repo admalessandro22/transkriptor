@@ -155,10 +155,10 @@ Estados possíveis: `PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `REOPENED` (mes
 
 ### T-15.C2 — alinhamento legenda↔Whisper e corte por troca de falante
 
-- [ ] **Requisito:** FR-15.C2. **Depende de:** A2, C1. **Estado:** `PENDING`. **Tamanho:** G.
+- [x] **Requisito:** FR-15.C2. **Depende de:** A2, C1. **Estado:** `DONE`; evidência: `evidencias/T-15.C2.md`. **Tamanho:** G.
 - **Arquivos:**
-  - criar `linha_tempo_falas.py`, `alinhador_falas.py`, `tests/test_linha_tempo_falas.py`, `tests/test_alinhador_falas.py`, `tests/fixtures/alinhamento/` (sintéticas);
-  - modificar `processador_reuniao.py`, `diarizacao_final.py`, `config.py`.
+  - criar `linha_tempo_falas.py`, `alinhador_falas.py`, `tests/test_linha_tempo_falas.py`, `tests/test_alinhador_falas.py` (gerador sintético no próprio teste, no lugar de `tests/fixtures/alinhamento/`);
+  - modificar `retranscritor.py` (ponto de encaixe real, antes da diarização), `resultado_pipeline.py`, `processador_reuniao.py` (log), `relogio_meet.py` (`ts_fim_sec`), `status_seguro.py`, `config.py`. O `diarizacao_final.py` não precisou mudar.
 - **Implementação:** conforme `interfaces.md` §4; atraso global por grade, refino por janela, atribuição por palavra, corte com fragmento mínimo e marcação de `overlap`.
 - **RED:**
   - `test_alinhador_falas.py::test_recupera_atraso_simulado` (−1200 ms ± 50);
@@ -168,7 +168,7 @@ Estados possíveis: `PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `REOPENED` (mes
   - `::test_sobreposicao_sem_desempate_marca_overlap`;
   - `::test_concordancia_baixa_reduz_confianca`;
   - `test_linha_tempo_falas.py::test_revisoes_viram_uma_fala`, `::test_sem_relogio_retorna_vazio`.
-- **Teste final:** `python -m pytest tests/test_alinhador_falas.py tests/test_linha_tempo_falas.py tests/test_diarizacao_final.py tests/test_processador_reuniao.py -v`.
+- **Teste final:** `python -m pytest tests/test_alinhador_falas.py tests/test_linha_tempo_falas.py tests/test_nomes_meet_worker.py tests/test_processador_reuniao.py tests/test_relogio_meet.py -v` (emenda: `test_diarizacao_final.py` não existe no repositório).
 - **Aceite:** em fixture sintética de 10 min com 4 falantes, atraso de −900 ms e deriva de 200 ms, ≥ 98% das palavras recebem o dispositivo correto.
 
 ### T-15.C3 — política de nomes automática calibrada

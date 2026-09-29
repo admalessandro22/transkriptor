@@ -29,6 +29,8 @@ CODIGOS_EVENTO = {
     "meet_evento": ("tipo",),
     "worker_etapa": ("stage", "unidades"),
     "recuperacao": ("itens", "recuperados"),
+    # T-15.C2: só números; atraso_ms = quanto a legenda chega depois do áudio.
+    "meet_alinhamento": ("atraso_ms", "concordancia", "falas", "palavras", "atribuidas", "cortes"),
 }
 
 VALORES_EVENTO = {

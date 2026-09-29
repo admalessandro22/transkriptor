@@ -210,6 +210,9 @@ def eventos_no_tempo_do_audio(
             and inicio_ns >= primeiro_frame_ns
         ):
             copia["ts_sec"] = (inicio_ns - primeiro_frame_ns) / 1_000_000_000
+            fim_ns = copia.get("speech_last_monotonic_ns")
+            if isinstance(fim_ns, int) and not isinstance(fim_ns, bool) and fim_ns >= inicio_ns:
+                copia["ts_fim_sec"] = (fim_ns - primeiro_frame_ns) / 1_000_000_000  # T-15.C2
             incertezas.append(float(incerteza))
         saida.append(copia)
     return saida, (max(incertezas) if incertezas else None)

@@ -70,27 +70,51 @@ def eventos_no_tempo_do_audio(eventos, primeiro_frame_ns) -> tuple[list[dict], f
 
 ## 4. Linha do tempo e alinhamento
 
+**Emenda de 29/09/2026 (T-15.C2):** contrato ajustado ao que foi implementado e medido.
+
 ```python
-# linha_tempo_falas.py (novo)
+# linha_tempo_falas.py
 @dataclass(frozen=True)
 class Fala:
     fala_id: str; participant_id: str; nome: str | None
-    inicio_ms: float; fim_ms: float; texto: str; idioma: str | None; proprio: bool
-def construir_linha_tempo(eventos: Iterable[Mapping], conversor: Callable[[Mapping], float | None]) -> list[Fala]
+    inicio_ms: int; fim_ms: int; texto: str; evento_ids: tuple[str, ...]
+def construir_linha_tempo(eventos: Iterable[Mapping]) -> list[Fala]   # eventos já com ts_sec/ts_fim_sec
 
-# alinhador_falas.py (novo)
+# alinhador_falas.py
 @dataclass(frozen=True)
-class Alinhamento:
-    atraso_global_ms: float; atrasos_janela: dict[int, float]; concordancia: float
-def estimar_atraso(palavras: Sequence[Palavra], falas: Sequence[Fala], *, faixa_ms=(-4000, 1000), passo_ms=50) -> Alinhamento
-def atribuir_palavras(palavras, falas, alinhamento, *, tolerancia_ms) -> list[AtribuicaoPalavra]
-def cortar_segmentos(segmentos, atribuicoes, *, fragmento_min_ms) -> list[Segmento]
+class Alinhamento: atraso_global_ms: float; atrasos_janela: dict[int, float]; concordancia: float; estimado: bool
+@dataclass(frozen=True)
+class AtribuicaoPalavra: participant_id: str | None; fala_idx: int | None; ambigua: bool; forte: bool
+@dataclass(frozen=True)
+class ResultadoAlinhamento: fundidos: list[SegmentoSTT]; atribuicoes: dict[str, Atribuicao]; alinhamento: dict | None
+def estimar_atraso(palavras, falas) -> Alinhamento
+def atribuir_palavras(palavras, falas, alinhamento) -> list[AtribuicaoPalavra]
+def alinhar_segmentos(fundidos, eventos, *, incerteza_ms) -> ResultadoAlinhamento
+def combinar_atribuicoes(por_texto: Mapping[str, dict], por_alinhamento: Mapping[str, Atribuicao]) -> dict[str, dict]
 ```
 
-- A normalização de texto é a mesma da similaridade lexical atual (minúsculas, sem acento nem pontuação).
-- Palavras de legenda são distribuídas uniformemente no intervalo da fala para a busca de atraso.
-- Com concordância abaixo de `ALINHAMENTO_CONCORDANCIA_MIN`, a atribuição usa só o tempo, com confiança reduzida, e o Diagnóstico registra "legenda e áudio não concordam".
-- Constantes novas em `config.py`: `RELOGIO_INCERTEZA_MAX_MS`, `ALINHAMENTO_FAIXA_MS`, `ALINHAMENTO_PASSO_MS`, `ALINHAMENTO_JANELA_MS=60000`, `ALINHAMENTO_REFINO_MS=500`, `ATRIBUICAO_TOLERANCIA_MS`, `FRAGMENTO_MIN_MS`, `NOME_AUTO_PARTICIPACAO_MIN`, `NOME_AUTO_DURACAO_MIN_S`, `LEGENDA_SILENCIO_MS=60000`, `FILA_PRE_SESSAO_MAX`, `FILA_PRE_SESSAO_IDADE_MS`, `LOTE_EVENTOS_MS`, `LOTE_EVENTOS_MAX`. Os valores iniciais são provisórios até T-15.F1.
+- **Tempos:** `relogio_meet.eventos_no_tempo_do_audio` passa a dar também `ts_fim_sec`, a partir de `speech_last_monotonic_ns`. Revisões do mesmo `caption_id` viram uma fala: início mínimo, fim máximo, texto e nome da revisão mais nova (o nome também pode vir de qualquer revisão).
+- **Sinal do atraso:** `tempo alinhado = tempo da legenda + δ`. A legenda chega depois da fala, então `δ < 0`. A busca vai de −4000 a +1000 ms, em passos de 50 ms.
+- **Pontuação:** as palavras da legenda são espalhadas por igual no intervalo da fala. Cada palavra do Whisper cuja palavra igual da legenda esteja a até 700 ms soma `1 − |d|/700`. A contagem simples de pares não tem pico (a tolerância cria platôs) e foi descartada. Empate fica com o `δ` mais próximo da referência.
+- **Pouca concordância:** menos de 8 pares resulta em `estimado=False` e atraso padrão de −1000 ms. Com isso, ou com concordância < 0,3, a confiança do segmento é multiplicada por 0,6 (atribuição só pelo tempo).
+- **Refino:** por janela de 60 s, ±500 ms em torno do global. A janela só adota o próprio `δ` com pelo menos 4 pares; senão, fica com o global.
+- **Palavra:**
+  - Contida numa única fala (sem outra fala que cubra e tenha a mesma palavra): atribuição **forte**.
+  - Senão, entre as falas que a cobrem com ±300 ms, a âncora de texto única também é forte.
+  - Todas do mesmo participante: atribuição fraca a ele.
+  - Participantes diferentes sem desempate: **ambígua**.
+  - Fora de qualquer fala: vai para a fala mais próxima em até 1500 ms, como fraca.
+- **Corte:** grupos contíguos por participante; palavras sem atribuição seguem o grupo corrente. Um grupo com menos de 600 ms ou uma só palavra volta ao vizinho **somente se alguma palavra for fraca**, então um "sim" forte vira segmento próprio. O primeiro e o último corte herdam as bordas do segmento original. Os IDs ficam `<id>-c<k>`, e `overlap=True` quando há palavra ambígua.
+- **Sugestão por segmento** (`source="meet_alinhamento"`):
+  - participante dominante por duração;
+  - `score = cobertura × fator`;
+  - evidências = `event_id` das falas usadas;
+  - nome ausente dá UNKNOWN; mais da metade ambígua dá CONFLICT.
+  - Por ora SUGGESTED: a aplicação automática é da T-15.C3.
+- **Combinação** com a atribuição por texto: o alinhamento substitui a comparação de texto, a confirmação manual prevalece, e um UNKNOWN do alinhamento não apaga uma sugestão por texto.
+- **Pipeline:** `retranscritor` alinha logo após `mesclar_segmentos`, antes da diarização, que casa por `(início, fim, texto)`. Com incerteza de relógio acima de `INCERTEZA_TEMPO_MAX_MS` ou sem falas, nada muda.
+- **Diagnóstico** (só números): vai em `ResultadoProcessamento.alinhamento` e no log `[meet_alinhamento]` (`atraso_ms` = quanto a legenda chega depois, `concordancia`, `falas`, `palavras`, `atribuidas`, `cortes`). A persistência no `ResultManifest` fica para a T-15.C4, que é quem o exibe.
+- **Constantes:** `ALINHAMENTO_*`, `ATRIBUICAO_*` e `FRAGMENTO_MIN_MS` em `config.py`, provisórias até a T-15.F1. O antigo `RELOGIO_INCERTEZA_MAX_MS` é o `INCERTEZA_TEMPO_MAX_MS` já existente.
 
 ## 5. Provedores de IA
 

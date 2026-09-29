@@ -44,6 +44,22 @@ def _eventos_no_tempo_do_audio(eventos, sessao) -> tuple[list[dict], int]:
     return convertidos, 5000 if sessao.get("relogio_incerto", True) else 0
 
 
+def _registrar_alinhamento(diagnostico: dict | None) -> None:
+    """T-15.C2: números do alinhamento no log; nunca nome nem texto."""
+    if not diagnostico:
+        return
+    from status_seguro import emitir_evento
+
+    logger.info(emitir_evento(
+        "meet_alinhamento",
+        atraso_ms=max(0, round(-float(diagnostico["atraso_global_ms"]))),
+        concordancia=float(diagnostico["concordancia"]),
+        falas=int(diagnostico["falas"]), palavras=int(diagnostico["palavras"]),
+        atribuidas=int(diagnostico["palavras_atribuidas"]),
+        cortes=int(diagnostico["segmentos_cortados"]),
+    ))
+
+
 def carregar_eventos_job(job, raiz_transcricoes) -> tuple[list[dict], list[str]]:
     """Carrega eventos das refs do job v2 com hash validado (T-13.D5).
 
@@ -187,6 +203,7 @@ def processar_job(
             clock_uncertainty_ms=incerteza_ms,
             on_status=_on_status,
         )
+        _registrar_alinhamento(getattr(processamento, "alinhamento", None))
         if fila.obter(job_id).cancel_solicitado:
             raise JobCancelado("cancelado")
         from resultado_reuniao import (

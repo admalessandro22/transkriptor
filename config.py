@@ -215,6 +215,19 @@ RELOGIO_INTERVALO_S = 30.0            # depois, um ping a cada 30 s
 RELOGIO_AMOSTRAS_MAX = 20             # amostras recentes por conexão
 RELOGIO_PINGS_PENDENTES_MAX = 8       # pings sem resposta guardados
 RELOGIO_FOLGA_FUTURO_MS = 1000        # fala "no futuro" além disso: relógio ruim, não carimba
+# T-15.C2 — alinhamento legenda↔Whisper. Provisórios até a calibração (T-15.F1).
+ALINHAMENTO_FAIXA_MS = (-4000, 1000)  # δ somado à legenda; negativo = legenda atrasada
+ALINHAMENTO_PASSO_MS = 50
+ALINHAMENTO_TOLERANCIA_TEXTO_MS = 700 # palavra igual a até isto conta como concordância
+ALINHAMENTO_MIN_PARES = 8             # menos que isso: atraso padrão, confiança reduzida
+ALINHAMENTO_ATRASO_PADRAO_MS = -1000  # latência típica da legenda quando não dá para estimar
+ALINHAMENTO_JANELA_MS = 60_000        # refino por janela acompanha a deriva
+ALINHAMENTO_REFINO_MS = 500
+ALINHAMENTO_CONCORDANCIA_MIN = 0.3
+ALINHAMENTO_FATOR_SO_TEMPO = 0.6      # confiança quando só o tempo sustenta o nome
+ATRIBUICAO_TOLERANCIA_MS = 300        # folga nas bordas da fala
+ATRIBUICAO_GAP_MAX_MS = 1500          # palavra entre falas vai à mais próxima até isto
+FRAGMENTO_MIN_MS = 600                # corte menor que isto (e fraco) volta ao vizinho
 
 # ---- Worker pós-reunião (FR-13.B3) ----
 # Orçamentos injetáveis; não derivam da duração da reunião.
