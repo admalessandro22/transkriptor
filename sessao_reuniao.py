@@ -128,6 +128,9 @@ def validar_envelope(evento: Mapping, sessao: SessaoReuniao) -> dict:
         isinstance(evento.get("participant_id"), str) and PADRAO_DISPOSITIVO.fullmatch(evento["participant_id"])
     ):
         raise EnvelopeRejeitado("self_device sem dispositivo válido")
+    for campo in ("queued", "caption_final"):  # T-15.A3
+        if campo in evento and not isinstance(evento[campo], bool):
+            raise EnvelopeRejeitado(f"{campo} inválido")
     for campo in ("caption_lang", "lang_requested"):
         valor = evento.get(campo)
         if campo in evento and not (isinstance(valor, str) and PADRAO_IDIOMA.fullmatch(valor)):

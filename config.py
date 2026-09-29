@@ -178,7 +178,7 @@ ARQUIVO_PAREAMENTO_MEET = os.path.join(DIR_MODELO_VOZ, "meet_pareamento.json")  
 
 # ---- Spool de eventos Meet (SEC-13.D4) ----
 MEET_EVENTOS_BUFFER = 500             # eventos em RAM antes do dreno
-MEET_EVENTOS_DRENO_SEG = 1.0          # dreno contínuo no máximo a cada 1 s
+MEET_EVENTOS_DRENO_SEG = 30.0         # T-15.A3: lote de até 30 s (antes 1 s; um arquivo por evento)
 MEET_EVENTOS_SEGMENTO_BYTES = 1024 * 1024  # segmento JSONL antes do selo
 MEET_EVENTOS_SPOOL_MAX_BYTES = 256 * 1024 * 1024  # teto do spool cifrado/sessão
 MEET_EVENTOS_RAIZ = "eventos_privados"

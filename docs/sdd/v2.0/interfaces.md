@@ -39,6 +39,17 @@ Estende o envelope canônico da v1.8 (`v1.8/spec.md`, "Envelope de evento"). `sc
 
 `client_wall_ms`/`client_monotonic_ms` continuam sendo o horário do envio do envelope. **O tempo da fala é `caption_started_ms`.** O `capabilities` carrega `{caption_lang, lang_result, tactiq, build_meet}`, e `health` carrega o objeto `saude` da §1.
 
+### 2.1 Emenda de 29/09/2026 (T-15.A3): fila, lote e ACK
+
+- **Contrato substituído:** o da v1.8 `interfaces.md` ("`registrar_envelope` só confirma a sequência após `EventStore.descarregar(forcar=True)`"), que gerava um arquivo cifrado por evento (G-09).
+- **Lote:** a ponte faz `append` e deixa o lote do `EventStore` fechar sozinho. Isso ocorre ao completar `MEET_EVENTOS_DRENO_SEG` (agora **30 s**), 500 eventos ou 1 MiB, no heartbeat (que chama `descarregar()` sem forçar, para fechar o lote vencido em silêncio) e no `seal()` do fim da reunião.
+- **ACK:** passa a ser `{"tipo": "ack", "connection_id", "seq": <recebido>, "duravel": <último seq em disco ou -1>}` (`MeetBridge.seq_duravel()`).
+- **Troca aceita:** uma queda do app perde no máximo 30 s de legendas; o áudio não é afetado.
+- **Fila no background:** sem sessão (início da reunião ou reconexão), cada evento de conteúdo espera numa fila por aba (`FILA_MAX = 200`, os mais antigos saem primeiro; `FILA_IDADE_MS = 120000`, os vencidos caem na drenagem). Ao aceitar `sessao`, a fila é drenada em ordem com `queued: true`. O heartbeat (`reuniao`) não entra na fila.
+- **Revisão final:** sem revisão por 3 s, o `content.js` reenvia a fala uma vez com `caption_final: true`.
+- **Validação:** `queued` e `caption_final`, se presentes, são booleanos.
+- **Excesso de taxa:** o contador `contador_descarte_rajada` vira aviso no Diagnóstico ("Eventos do Meet descartados").
+
 ## 3. Handshake de relógio
 
 **Emenda de 29/09/2026 (T-15.A2):** a medição passou para a ponte, no relógio monotônico do app. O cliente não mede nada; apenas devolve o próprio relógio de parede. O `anotar_handshake` por sessão foi substituído por relógio por conexão e carimbo por evento. Motivo: a sessão da ponte e a do app são cópias imutáveis distintas, e cada aba tem o próprio relógio.

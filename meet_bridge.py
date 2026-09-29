@@ -238,14 +238,15 @@ class MeetBridge:
                 self.idiomas_meet = {k: valido[k] for k in ("caption_lang", "lang_requested") if k in valido}
             if valido["kind"] == "heartbeat":
                 self.registrar_estado_reuniao(bool(valido.get("active")))
+                self._store.descarregar()  # T-15.A3: fecha o lote vencido mesmo em silêncio
                 self._sessoes_ativas.aceitar_evento(connection_id, valido)
                 return int(valido["seq"])
-            self._store.append(valido)
-            ack = self._store.descarregar(forcar=True)
-            if ack < int(valido["seq"]):
-                raise RuntimeError("evento Meet não durável")
+            self._store.append(valido)  # lote de até MEET_EVENTOS_DRENO_SEG; seal() fecha no fim
             self._sessoes_ativas.aceitar_evento(connection_id, valido)
             return int(valido["seq"])
+
+    def seq_duravel(self) -> int:
+        return int(self._store.estado()["ack_seq"]) if self._store is not None else -1
 
     def definir_store(self, store) -> None:
         """Liga o spool cifrado da sessão (T-13.D4; envelopes v1 vão ao store)."""
@@ -436,7 +437,7 @@ async def _servidor_ws(bridge: MeetBridge, host: str, porta: int) -> None:
                     except (EnvelopeRejeitado, ValueError, RuntimeError):
                         await websocket.send(json.dumps({"tipo": "erro", "codigo": "envelope_rejeitado"}))
                         continue
-                    await websocket.send(json.dumps({"tipo": "ack", "connection_id": connection_id, "seq": seq}))
+                    await websocket.send(json.dumps({"tipo": "ack", "connection_id": connection_id, "seq": seq, "duravel": bridge.seq_duravel()}))
                     continue
                 if bridge.pareador is None:
                     bridge.registrar_evento(dados)

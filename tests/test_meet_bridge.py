@@ -65,7 +65,8 @@ def test_hello_vincula_somente_hint_ativo_unico(chave_teste, tmp_path):
     assert bridge.hint_ativo_unico() is None
 
 
-def test_ack_v1_so_apos_evento_duravel_e_relogio_do_servidor(chave_teste, tmp_path):
+def test_ack_v1_com_relogio_do_servidor(chave_teste, tmp_path):
+    """T-15.A3: o ack confirma o recebimento; a durabilidade vem em lote (seq_duravel)."""
     from eventos_meet_store import EventStore
     from sessao_reuniao import criar_sessao
 
@@ -116,16 +117,19 @@ def test_websocket_hello_sessao_ack_no_mesmo_socket(chave_teste, tmp_path):
                       "kind": "caption", "client_wall_ms": 1_789_848_060_000,
                       "client_monotonic_ms": 1001, "text": "fala sintética"}
             await ws.send(json.dumps(evento))
-            assert await _recv_sem_ping(ws) == {"tipo": "ack", "connection_id": "c1", "seq": 0}
+            assert await _recv_sem_ping(ws) == {"tipo": "ack", "connection_id": "c1", "seq": 0, "duravel": -1}  # T-15.A3: lote aberto
             segundo_hello = {**hello, "connection_id": "c2", "tab_id": "aba-2"}
             await ws.send(json.dumps(segundo_hello))
             segunda_sessao = await _recv_sem_ping(ws)
             assert segunda_sessao["connection_id"] == "c2"
             await ws.send(json.dumps({**evento, "connection_id": "c2", "tab_id": "aba-2", "event_id": "e2"}))
-            assert await _recv_sem_ping(ws) == {"tipo": "ack", "connection_id": "c2", "seq": 0}
+            assert await _recv_sem_ping(ws) == {"tipo": "ack", "connection_id": "c2", "seq": 0, "duravel": -1}  # T-15.A3: lote aberto
 
     try:
         asyncio.run(exercitar())
+        # T-15.A3: antes do selo o lote está só em memória (queda perde ≤ 30 s de legendas).
+        assert list(EventStore(tmp_path / "eventos", sessao).read_events()) == []
+        store.seal()  # fim da reunião
         reaberto = EventStore(tmp_path / "eventos", sessao)
         assert [e["event_id"] for e in reaberto.read_events()] == ["e1", "e2"]
     finally:

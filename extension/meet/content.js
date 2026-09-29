@@ -24,6 +24,7 @@
   const RTC_FLUSH_MS = 1000;
   const RTC_VIVO_MS = 10000;
   const RTC_EXPIRA_MS = 60000;
+  const RTC_FINAL_MS = 3000; // T-15.A3: sem revisão por 3 s, a fala está fechada
   const MAX_NOMES = 500;
 
   /** dispositivo ("dev-127") -> nome exibido no Meet. */
@@ -108,6 +109,7 @@
         payload.caption_last_ms = metadados.t_ultimo_ms;
         if (metadados.canal) payload.origin_channel = metadados.canal;
         if (metadados.idioma) payload.caption_lang = metadados.idioma;
+        if (metadados.final) payload.caption_final = true;
         // FR-15.A2: relógio da página e de parede lidos juntos, no envio.
         payload.page_perf_ms = performance.timeOrigin + performance.now();
         payload.page_wall_ms = Date.now();
@@ -232,6 +234,10 @@
         falasRtc.delete(id);
         return;
       }
+      if (!fala.pendente && !fala.final && fala.texto && agora - fala.visto >= RTC_FINAL_MS) {
+        fala.final = true;
+        fala.pendente = true;
+      }
       if (!fala.pendente || !fala.texto) return;
       const nome = nomeDoDispositivo(fala.dispositivo);
       if (!nome) return;
@@ -244,6 +250,7 @@
         t_ultimo_ms: fala.t_ultimo_ms,
         canal: fala.canal,
         idioma: fala.idioma,
+        final: fala.final === true,
       });
     });
   }

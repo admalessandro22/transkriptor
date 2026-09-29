@@ -13,6 +13,9 @@ const PONTE_URL = "ws://127.0.0.1:5051";
 const RECONECTAR_BASE_MS = 1000;
 const RECONECTAR_MAX_MS = 30000;
 const CHAVE_CREDENCIAL = "meetWsToken";
+// T-15.A3: eventos esperam a sessão (início da reunião, reconexão) em vez de sumir.
+const FILA_MAX = 200;
+const FILA_IDADE_MS = 120000;
 const CANAIS_ORIGEM = new Set(["captions_v2", "captions", "meet", "dom"]);
 const PADRAO_IDIOMA = /^[a-z]{2,3}-[A-Z]{2}$/;
 
@@ -42,7 +45,7 @@ function novoId() {
 
 function estadoAba(tabId) {
   if (!abas.has(tabId)) {
-    abas.set(tabId, { connectionId: novoId(), session: null, seq: 0, helloSent: false, meetingHint: null });
+    abas.set(tabId, { connectionId: novoId(), session: null, seq: 0, helloSent: false, meetingHint: null, fila: [] });
   }
   return abas.get(tabId);
 }
@@ -71,16 +74,46 @@ function montarHello(sender, agora = {}, active = false) {
   };
 }
 
-function aceitarSessao(mensagem) {
+function aceitarSessao(mensagem, dependencias = {}) {
   if (!mensagem || mensagem.tipo !== "sessao") return false;
   for (const [tabId, estado] of abas) {
     if (estado.connectionId !== mensagem.connection_id) continue;
     if (mensagem.tab_id !== String(tabId) || !mensagem.session_id || !mensagem.meeting_key) return false;
     if (estado.session && estado.session.session_id !== mensagem.session_id) estado.seq = 0;
     estado.session = { session_id: mensagem.session_id, meeting_key: mensagem.meeting_key };
+    drenarFila(estado, dependencias.enviar || enviarPonte);
     return true;
   }
   return false;
+}
+
+/** Reenvia, em ordem, o que chegou antes da sessão; o que passou da idade cai. */
+function drenarFila(estado, enviar) {
+  const fila = estado.fila || [];
+  estado.fila = [];
+  const agora = Date.now();
+  for (const item of fila) {
+    if (agora - item.em > FILA_IDADE_MS) continue;
+    const envelope = montarEnvelope(item.evento, item.remetente);
+    if (!envelope) continue;
+    envelope.queued = true;
+    enviar(envelope);
+  }
+}
+
+function enfileirar(estado, evento, remetente) {
+  if (!evento || evento.tipo === "reuniao") return;
+  estado.fila = estado.fila || [];
+  estado.fila.push({ evento, remetente, em: Date.now() });
+  if (estado.fila.length > FILA_MAX) estado.fila.splice(0, estado.fila.length - FILA_MAX);
+}
+
+/** Socket novo: a sessão precisa ser renegociada; os eventos voltam a esperar na fila. */
+function reiniciarSessoes() {
+  for (const estado of abas.values()) {
+    estado.helloSent = false;
+    estado.session = null;
+  }
 }
 
 function validarSenderPareamento(sender, runtimeId) {
@@ -154,6 +187,7 @@ function montarEnvelope(evento, remetente, agora = {}) {
       envelope.caption_last_ms = fim;
       if (CANAIS_ORIGEM.has(evento.origin_channel)) envelope.origin_channel = evento.origin_channel;
       copiarIdiomas(evento, envelope, ["caption_lang"]);
+      if (evento.caption_final === true) envelope.caption_final = true;
       // FR-15.A2: amostra página↔parede do mesmo instante, para a ponte converter.
       if (Number.isFinite(evento.page_perf_ms) && Number.isFinite(evento.page_wall_ms)) {
         envelope.page_perf_ms = evento.page_perf_ms;
@@ -245,10 +279,7 @@ function conectar() {
     ws.onopen = function () {
       pronto = true;
       tentativas = 0;
-      for (const estado of abas.values()) {
-        estado.helloSent = false;
-        estado.session = null;
-      }
+      reiniciarSessoes();
     };
     ws.onclose = function (evento) {
       tratarFechamento(evento);
@@ -307,6 +338,7 @@ function aoReceberMensagem(mensagem, remetente, responder, dependencias = {}) {
     }
     const enviar = dependencias.enviar || enviarPonte;
     if (!estado.session) {
+      enfileirar(estado, mensagem.evento, remetente);
       if (!estado.helloSent || (mensagem.evento && mensagem.evento.tipo === "reuniao")) {
         estado.helloSent = enviar(montarHello(remetente, {}, mensagem.evento && mensagem.evento.ativa)) !== false;
       }
@@ -337,6 +369,9 @@ if (typeof module !== "undefined" && module.exports) {
     atrasoReconexao,
     montarEnvelope,
     responderRelogio,
+    reiniciarSessoes,
+    FILA_MAX,
+    FILA_IDADE_MS,
     registrarPareamento,
     estadoPareamento,
     tratarFechamento,

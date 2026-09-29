@@ -264,6 +264,14 @@ def checar_idioma_legenda(idiomas_meet, idioma_transcricao):
     )]
 
 
+def checar_descartes_meet(descartes):
+    """FR-15.A3: excesso de taxa nunca some em silêncio."""
+    if not descartes:
+        return []
+    return [_item("Eventos do Meet descartados", AVISO,
+                  f"{descartes} evento(s) acima da taxa da ponte; alguns nomes podem faltar.")]
+
+
 def coletar(
     detector=None,
     modelo_whisper="auto",
@@ -272,6 +280,7 @@ def coletar(
     transcritor=None,
     idiomas_meet=None,
     idioma_transcricao=None,
+    descartes_meet=0,
 ):
     """Roda todas as checagens e devolve a lista de itens."""
     itens = []
@@ -294,6 +303,7 @@ def coletar(
         itens += checar_metricas_captura(transcritor)
     itens += checar_modelo_whisper(modelo_whisper)
     itens += checar_idioma_legenda(idiomas_meet, idioma_transcricao)
+    itens += checar_descartes_meet(descartes_meet)
     return itens
 
 

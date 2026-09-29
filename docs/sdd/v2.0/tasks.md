@@ -46,7 +46,7 @@ Estados possíveis: `PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `REOPENED` (mes
 
 ### T-15.A3 — fila pré-sessão, reconexão e consolidação de revisões
 
-- [ ] **Requisito:** FR-15.A3. **Depende de:** A2. **Estado:** `PENDING`. **Tamanho:** M.
+- [x] **Requisito:** FR-15.A3. **Depende de:** A2. **Estado:** `DONE`; evidência: `evidencias/T-15.A3.md`. **Tamanho:** M.
 - **Arquivos:**
   - modificar `extension/meet/background.js`, `extension/meet/content.js`, `meet_bridge.py:237, 384-396`, `eventos_meet_store.py`, `config.py`;
   - criar `tests/js/background-fila.test.js`, `tests/test_eventos_meet_lote.py`.
