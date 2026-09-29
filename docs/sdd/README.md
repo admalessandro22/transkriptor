@@ -31,6 +31,14 @@ remediação v1.8. Não autoriza bump ou release; a integração da branch e a
 decisão de versão (DP-14-11) são do usuário. Auditar com
 `python scripts/verificar_fase.py --fase v1.8-sdd --sdd-root docs/sdd/v1.9`.
 
+## v2.0 em execução (decisões respondidas)
+
+A [v2.0](v2.0/README.md) (29/09/2026) diagnostica como a Tactiq nomeia falantes
+no Meet e planeja nomes exatos por fala, escolha de IA (Ollama/OpenRouter) e
+instalação em um clique. Status: decisões respondidas em 29/09/2026; execução task a
+task na branch `sdd-v2.0-nomes-ia-instalador`; não autoriza publicação nem bump. Auditar com
+`python scripts/verificar_fase.py --fase v1.8-sdd --sdd-root docs/sdd/v2.0`.
+
 ## Histórico preservado
 
 As pastas v1.1–v1.6 e [VERIFICACAO.md](../VERIFICACAO.md) são registros

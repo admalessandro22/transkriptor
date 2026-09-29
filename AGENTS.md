@@ -107,6 +107,7 @@ Ver `docs/sdd/v1.3/concept.md`.
 | 1.6 | `docs/sdd/v1.6/` | Histórico (implementado; preservar evidências) |
 | 1.8 | `docs/sdd/v1.8/` | **Em execução (fonte de verdade)** |
 | 1.9 | `docs/sdd/v1.9/` | Implementada na branch `sdd-v1.9-design` (UI/UX e Central; gate final em `evidencias/GATE-FINAL.md`; merge e versão a decidir) |
+| 2.0 | `docs/sdd/v2.0/` | Em execução na branch `sdd-v2.0-nomes-ia-instalador` (nomes exatos via legendas do Meet, IA escolhível, instalador) |
 
 ### Detecção de reunião (v1.4)
 
