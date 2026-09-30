@@ -5,6 +5,7 @@
   "version": "1.9.0",
   "description": "Envia nomes dos participantes do Google Meet ao Transkriptor local.",
   "permissions": [
+    "nativeMessaging",
     "storage"
   ],
   "host_permissions": [

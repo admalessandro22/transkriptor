@@ -276,7 +276,7 @@ Estados possíveis: `PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `REOPENED` (mes
 
 ### T-15.E2 — pareamento automático por Native Messaging
 
-- [ ] **Requisito:** FR-15.E2. **Depende de:** E1. **Estado:** `PENDING`. **Tamanho:** M.
+- [x] **Requisito:** FR-15.E2. **Depende de:** E1. **Estado:** `DONE` (aceite manual em perfil de teste pendente); evidência: `evidencias/T-15.E2.md`. **Tamanho:** M.
 - **Arquivos:**
   - criar `ponte_nativa.py` (host stdio), `instalador/registrar_host.py`, `tests/test_ponte_nativa.py`, `tests/js/background-nativo.test.js`;
   - modificar `extension/meet/background.js`, `extension/meet/manifest.json` (`nativeMessaging`), `assistente.py`/`central_api.py` (`/api/ponte/codigo`), `meet_pareamento.py`.

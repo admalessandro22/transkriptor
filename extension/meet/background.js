@@ -229,7 +229,14 @@ function estadoPareamento() {
 
 /** 1008 = o app recusou a credencial (código expirado, usado ou errado). */
 function tratarFechamento(evento) {
-  if (evento && evento.code === 1008 && pareamento !== "confirmado") pareamento = "recusado";
+  if (evento && evento.code === 1008 && pareamento !== "confirmado") {
+    pareamento = "recusado";
+    // Credencial vencida ou de outro ID: tenta o pareamento nativo mais uma vez.
+    if (!nativoTentado) {
+      nativoTentado = true;
+      parearNativo();
+    }
+  }
 }
 
 function agendarReconexao() {
@@ -261,6 +268,36 @@ function reconectarComNovaCredencial() {
   conectar();
 }
 
+// T-15.E2: sem credencial, pede um código de uso único ao app pelo host nativo.
+const HOST_NATIVO = "com.transkriptor.ponte";
+let nativoTentado = false;
+
+function parearNativo(dependencias = {}) {
+  const enviarNativo = dependencias.enviarNativo ||
+    ((msg, cb) => chrome.runtime.sendNativeMessage(HOST_NATIVO, msg, cb));
+  const salvar = dependencias.salvar || ((valor, cb) => chrome.storage.local.set(valor, cb));
+  const conectarDepois = dependencias.conectar || reconectarComNovaCredencial;
+  return new Promise((resolver) => {
+    try {
+      enviarNativo({ cmd: "obter_codigo_pareamento", v: 1 }, (resposta) => {
+        const erro = typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.lastError;
+        const codigo = resposta && resposta.ok === true ? resposta.codigo : null;
+        if (erro || typeof codigo !== "string" || !/^pair-[A-Za-z0-9_-]+$/.test(codigo)) {
+          resolver(false);
+          return;
+        }
+        salvar({ [CHAVE_CREDENCIAL]: codigo }, () => {
+          registrarPareamento("pendente");
+          conectarDepois();
+          resolver(true);
+        });
+      });
+    } catch (_e) {
+      resolver(false); // host não instalado: o pareamento manual continua valendo
+    }
+  });
+}
+
 function conectar() {
   if (typeof chrome === "undefined" || !chrome.storage) return;
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
@@ -268,6 +305,10 @@ function conectar() {
     const credencial = dados && dados[CHAVE_CREDENCIAL];
     if (!credencial) {
       pronto = false;
+      if (!nativoTentado) {
+        nativoTentado = true;
+        parearNativo();
+      }
       return;
     }
     try {
@@ -370,6 +411,7 @@ if (typeof module !== "undefined" && module.exports) {
     montarEnvelope,
     responderRelogio,
     reiniciarSessoes,
+    parearNativo,
     FILA_MAX,
     FILA_IDADE_MS,
     registrarPareamento,

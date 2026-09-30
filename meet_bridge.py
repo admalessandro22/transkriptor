@@ -143,6 +143,7 @@ class MeetBridge:
         self._sessao_lock = threading.RLock()
         self.relogios = RelogiosConexao()  # T-15.A2
         self.idiomas_meet: dict = {}  # T-15.B1: último idioma observado (só códigos)
+        self.segredo_nativo = secrets.token_urlsafe(32)  # T-15.E2: host de Native Messaging
 
     def registrar_hello(self, mensagem: dict) -> None:
         """Guarda só o código de sala/estado em memória; nunca nome ou legenda."""
@@ -345,6 +346,10 @@ async def _servidor_ws(bridge: MeetBridge, host: str, porta: int) -> None:
             await websocket.close(1008, "Origin not allowed")
             return
         token_url = _token_da_url(websocket.request.path or "")
+        if bridge.pareador is not None and token_url and secrets.compare_digest(token_url, bridge.segredo_nativo):
+            await websocket.send(json.dumps({"tipo": "convite", "codigo": bridge.pareador.gerar_convite()}))
+            await websocket.close()  # T-15.E2: só entrega o código de uso único
+            return
         if bridge.pareador is not None:
             try:
                 token_sessao, era_convite = bridge.pareador.autenticar(token_url)
@@ -460,6 +465,12 @@ def iniciar_bridge_em_thread(
 
     thread = threading.Thread(target=_run, daemon=True, name="meet-bridge")
     thread.start()
+    try:
+        from ponte_nativa import publicar_segredo
+
+        publicar_segredo(bridge.segredo_nativo, porta)
+    except OSError:
+        logger.warning("Segredo da ponte nativa indisponível; pareamento só manual.")
     return thread
 
 

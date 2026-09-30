@@ -224,7 +224,7 @@ Endpoints novos, todos sob o header secreto nas mutações:
 ← {"ok":true,"codigo":"pair-…","porta":5051}   |  {"ok":false,"erro":"app_nao_iniciado|recusado"}
 ```
 
-- **Canal host → app:** `POST http://127.0.0.1:<porta_central>/api/ponte/codigo` com o segredo local lido de `%LOCALAPPDATA%\Transkriptor\ponte.segredo`. O arquivo tem ACL só do usuário e é gerado pelo app a cada início. A ponte confere também a origem do chamador recebida pelo host como argumento do Chrome.
+- **Canal host → app** (emenda de 29/09, T-15.E2): a Central só sobe quando a interface abre, então o host fala com a **ponte do Meet**. Ele lê `{porta, segredo}` de `%LOCALAPPDATA%\Transkriptor\ponte.segredo` (pasta privada do usuário; o segredo é novo a cada início do app, `config.ARQUIVO_SEGREDO_PONTE`) e abre `ws://127.0.0.1:<porta>/?token=<segredo>` com Origin de loopback. A ponte compara com `secrets.compare_digest`, envia `{"tipo": "convite", "codigo": "pair-…"}` e fecha a conexão. O host confere a origem que o Chrome passa como primeiro argumento contra `EXTENSAO_IDS_PERMITIDOS`.
 - A extensão usa `chrome.runtime.connectNative` apenas quando não há credencial válida. Exige a permissão `nativeMessaging` no manifest.
 
 ## 9. Extensão
