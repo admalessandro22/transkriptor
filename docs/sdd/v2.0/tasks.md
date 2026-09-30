@@ -242,7 +242,7 @@ Estados possíveis: `PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `REOPENED` (mes
 
 ### T-15.D3 — configurações de transcrição e de resumos
 
-- [ ] **Requisito:** UX-15.D3. **Depende de:** D1 (D2 para a opção OpenRouter). **Estado:** `PENDING`. **Tamanho:** M.
+- [x] **Requisito:** UX-15.D3. **Depende de:** D1 (D2 para a opção OpenRouter). **Estado:** `DONE`; evidência: `evidencias/T-15.D3.md`. **Tamanho:** M.
 - **Arquivos:**
   - criar `central_ia.py` (blueprint `/api/ia/*`), `static/js/ia.js`, `tests/test_central_ia.py`, `tests/e2e/configuracoes-ia.spec.js`;
   - modificar `central_config.py`, `templates/configuracoes.html`, `transcricao_core.py:127-146` (dispositivo e precisão), `resumo_reuniao.py:86-91` (modelo escolhido antes da preferência), `static/js/chat.js:164-176` (padrão salvo), `config.py`.
@@ -254,7 +254,7 @@ Estados possíveis: `PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `REOPENED` (mes
 - **RED:**
   - `test_central_ia.py::test_modelos_do_provedor`, `::test_openrouter_exige_confirmacao`, `::test_chave_nao_retorna`, `::test_resumo_usa_modelo_configurado`, `::test_whisper_dispositivo_aplicado`;
   - `configuracoes-ia.spec.js::seletor lista modelos do ollama`, `::ollama offline mostra acao`, `::chave mascarada`, `::teclado e axe sem violacoes`.
-- **Teste final:** `python -m pytest tests/test_central_ia.py tests/test_central_config.py tests/test_transcricao_core.py -v`; `npm run test:e2e -- configuracoes-ia.spec.js csp.spec.js`.
+- **Teste final:** `python -m pytest tests/test_central_ia.py tests/test_central_config.py tests/test_modelo_whisper_auto.py tests/test_config_device.py -v`; `npm run test:e2e -- configuracoes-ia.spec.js configuracoes.spec.js csp.spec.js` (emenda: `test_transcricao_core.py` não existe; o carregamento do modelo é coberto pelos dois arquivos de Whisper).
 - **Aceite:**
   - capturas sintéticas claro/escuro;
   - trocar o modelo de resumo e gerar resumo sintético usa o modelo escolhido;

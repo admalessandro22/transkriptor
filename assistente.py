@@ -16,6 +16,7 @@ from central_api import bp as central_api_bp
 from central_config import bp as central_config_bp
 from central_diagnostico import bp as central_diagnostico_bp
 from central_resumos import bp as central_resumos_bp
+from central_ia import bp as central_ia_bp
 from central_reunioes import bp as central_reunioes_bp
 from central_paginas import PAGINAS_CENTRAL, bp as central_paginas_bp
 from transcricoes_meta import (  # noqa: F401 — reexportados para compatibilidade
@@ -44,7 +45,7 @@ from config import (
 
 app = Flask(__name__, root_path=str(BASE_DIR))
 for _bp in (central_paginas_bp, central_api_bp, central_config_bp, central_diagnostico_bp, central_resumos_bp,
-            central_reunioes_bp):
+            central_reunioes_bp, central_ia_bp):
     app.register_blueprint(_bp)
 app.config["MAX_CONTENT_LENGTH"] = MAX_CORPO_CHAT_BYTES
 
@@ -412,9 +413,19 @@ def api_transcricoes():
 
 @app.route("/api/modelos")
 def api_modelos():
-    from provedores_ia import provedor_ollama
+    """Modelos do provedor do chat; o escolhido nas Configurações vem primeiro (T-15.D3)."""
+    import config_user
+    from provedores_ia import ErroProvedor, provedor_para
 
-    return jsonify([m.id for m in provedor_ollama().listar_modelos()])
+    escolhido = config_user.carregar().get("ia_chat_modelo") or None
+    try:
+        provedor = provedor_para("chat")
+    except ErroProvedor:
+        return jsonify([])
+    if provedor.id == "openrouter" and escolhido:  # centenas de modelos: só o escolhido
+        return jsonify([escolhido])
+    modelos = [m.id for m in provedor.listar_modelos()]
+    return jsonify(([escolhido] if escolhido in modelos else []) + [m for m in modelos if m != escolhido])
 
 
 @app.route("/api/chat", methods=["POST"])

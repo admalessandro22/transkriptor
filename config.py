@@ -47,6 +47,27 @@ def resolver_device_whisper(valor: str) -> str:
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 
+def preferir_whisper(modelo: str, device: str, ctype: str, *, fixo: bool = False) -> tuple[str, str, str]:
+    """T-15.D3: aplica dispositivo/precisão escolhidos nas Configurações.
+
+    Em "auto" (fixo=False), CPU forçada troca para o modelo leve; float16 não
+    roda em CPU, então a precisão cai para int8 ali.
+    """
+    import config_user
+
+    cfg = config_user.carregar()
+    dispositivo, precisao = cfg.get("whisper_dispositivo") or "auto", cfg.get("whisper_precisao") or "auto"
+    if dispositivo == "cpu" and device != "cpu":
+        modelo, device, ctype = (modelo if fixo else "small"), "cpu", "int8"
+    elif dispositivo == "cuda" and device != "cuda":
+        device, ctype = "cuda", "int8_float16"
+    if precisao != "auto":
+        ctype = precisao
+    if device == "cpu" and "float16" in ctype:
+        ctype = "int8"
+    return modelo, device, ctype
+
+
 def resolver_modelo_whisper(tem_cuda: bool, vram_gb: float) -> tuple[str, str, str]:
     """FR-6.3: escolhe (modelo, device, compute_type) pelo hardware.
 

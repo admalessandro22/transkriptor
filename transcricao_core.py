@@ -29,7 +29,7 @@ from config import (
     CHUNK_SEGUNDOS,
     MODELO_WHISPER,
     IDIOMA,
-    COMPUTE_TYPE,
+    COMPUTE_TYPE, preferir_whisper,  # T-15.D3
     DEVICE_WHISPER,
     resolver_device_whisper,
     resolver_modelo_whisper,
@@ -130,7 +130,7 @@ class Transcritor(CapturaLeveMixin):
         nome = self.modelo_nome or MODELO_WHISPER
         if nome == "auto":
             tem_cuda, vram_gb = detectar_cuda_e_vram()
-            modelo, device, ctype = resolver_modelo_whisper(tem_cuda, vram_gb)
+            modelo, device, ctype = preferir_whisper(*resolver_modelo_whisper(tem_cuda, vram_gb))
             self.on_status(f"Carregando modelo {modelo} ({device}, auto)...")
             try:
                 self._modelo = WhisperModel(modelo, device=device, compute_type=ctype)
@@ -141,8 +141,8 @@ class Transcritor(CapturaLeveMixin):
             self.on_status("Modelo pronto.")
             return
         self.on_status(f"Carregando modelo {nome}...")
-        device = resolver_device_whisper(DEVICE_WHISPER)
-        self._modelo = WhisperModel(nome, device=device, compute_type=COMPUTE_TYPE)
+        nome, device, ctype = preferir_whisper(nome, resolver_device_whisper(DEVICE_WHISPER), COMPUTE_TYPE, fixo=True)
+        self._modelo = WhisperModel(nome, device=device, compute_type=ctype)
         self.on_status("Modelo pronto.")
 
     def _abrir_wav(self, caminho):
