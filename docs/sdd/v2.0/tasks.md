@@ -264,7 +264,7 @@ Estados possíveis: `PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `REOPENED` (mes
 
 ### T-15.E1 — ID fixo da extensão e Origin fixado
 
-- [ ] **Requisito:** SEC-15.E1. **Depende de:** DP-15-05. **Estado:** `PENDING`. **Tamanho:** P.
+- [x] **Requisito:** SEC-15.E1. **Depende de:** DP-15-05. **Estado:** `DONE` (chave de desenvolvimento; IDs das lojas entram ao publicar); evidência: `evidencias/T-15.E1.md`. **Tamanho:** P.
 - **Arquivos:** modificar `extension/meet/manifest.json` (`key`), `meet_bridge.py:37-42, 95-110, 352-359`, `config.py` (`EXTENSAO_IDS_PERMITIDOS`), `extension/meet/README.md`; criar `tests/test_origem_extensao.py`.
 - **Implementação:**
   - a chave pública vem do item na loja (ou de um par gerado para desenvolvimento, com a privada fora do repositório);

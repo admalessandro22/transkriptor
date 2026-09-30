@@ -27,21 +27,12 @@ from config import (
     MEET_WS_EVENTOS_POR_SEG,
     MEET_WS_MAX_BYTES,
     MEET_WS_MAX_CONEXOES,
+    EXTENSAO_IDS_PERMITIDOS,
 )
 
 logger = logging.getLogger(__name__)
 
-_ORIGEM_EXTENSAO_RE = None
 _CODIGO_MEET_RE = re.compile(r"^[a-z]{3,4}-[a-z]{3,4}-[a-z]{3,4}$")
-
-
-def _origem_extensao_re():
-    global _ORIGEM_EXTENSAO_RE
-    if _ORIGEM_EXTENSAO_RE is None:
-        import re as _re
-
-        _ORIGEM_EXTENSAO_RE = _re.compile(r"^[a-p]{16,32}$")
-    return _ORIGEM_EXTENSAO_RE
 
 
 def sanitizar_nome_participante(nome: str) -> str:
@@ -105,8 +96,8 @@ def origem_permitida(origin: str | None) -> bool:
         partes = urlparse(origin)
     except Exception:  # noqa: BLE001
         return False
-    if partes.scheme == "chrome-extension":
-        return bool(_origem_extensao_re().fullmatch(partes.hostname or ""))
+    if partes.scheme == "chrome-extension":  # T-15.E1: ID exato, não qualquer extensão
+        return (partes.hostname or "") in EXTENSAO_IDS_PERMITIDOS
     if partes.scheme == "http" and partes.hostname in ("127.0.0.1", "localhost"):
         return True
     return False
@@ -357,14 +348,10 @@ async def _servidor_ws(bridge: MeetBridge, host: str, porta: int) -> None:
         if bridge.pareador is not None:
             try:
                 token_sessao, era_convite = bridge.pareador.autenticar(token_url)
-            except ConviteInvalido:
-                # Transição D2→D4: instalações antigas (token em config.js)
-                # seguem válidas até o re-pareamento; novas usam o pareador.
-                if not token_url_valido(token_url, bridge.token):
-                    logger.info("Extensão Meet recusada: credencial inválida, expirada ou já usada.")
-                    await websocket.close(1008, "Unauthorized")
-                    return
-                token_sessao, era_convite = bridge.token, False
+            except ConviteInvalido:  # T-15.E1: sem token estático legado
+                logger.info("Extensão Meet recusada: credencial inválida, expirada ou já usada.")
+                await websocket.close(1008, "Unauthorized")
+                return
             if era_convite:
                 try:
                     await websocket.send(json.dumps({"tipo": "pareado", "token": token_sessao}))

@@ -193,6 +193,9 @@ MEET_WS_MAX_BYTES = 16 * 1024          # envelope máximo no socket (spec: 4 KiB
 MEET_WS_EVENTOS_POR_SEG = 20           # taxa sustentada por conexão
 MEET_WS_BURST = 40                     # rajada máxima por conexão
 MEET_WS_MAX_CONEXOES = 4               # conexões autenticadas simultâneas
+# T-15.E1: só a nossa extensão fala com a ponte. O ID sai da `key` do manifest
+# (desenvolvimento); os IDs da Chrome Web Store/Edge Add-ons entram ao publicar.
+EXTENSAO_IDS_PERMITIDOS = ("mkcfobdlgdaeplnklpfcioojjgjjoojo",)
 MEET_CONVITE_SEG = 300                 # validade do convite de pareamento
 MEET_SESSAO_SEG = 90 * 24 * 3600       # validade da credencial; renovada a cada uso
 ARQUIVO_PAREAMENTO_MEET = os.path.join(DIR_MODELO_VOZ, "meet_pareamento.json")  # só hashes
