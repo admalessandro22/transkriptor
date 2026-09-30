@@ -140,10 +140,12 @@ class ServicoResumos:
         orcamento: Callable[[str], int] = lambda modelo: 12000,
         espera_ocupado_seg: float = 30.0,
         elegivel: Callable[[str], bool] = lambda meeting_id: True,
+        marca: Callable[[str], str] = lambda modelo: "",
     ) -> None:
         self.pasta = Path(pasta)
         self._carregar = carregar
         self._chamar = chamar
+        self._marca = marca  # T-15.D2: "Gerado por OpenRouter · modelo"
         self._modelos = modelos
         self._ocupado = ocupado
         self._orcamento = orcamento
@@ -269,7 +271,7 @@ class ServicoResumos:
                             return
             if not self._carregar(meeting_id):
                 return  # excluída enquanto o resumo era gerado: não recria dado
-            self._gravar(meeting_id, str(dados.get("revision", "")), resumo, modelo)
+            self._gravar(meeting_id, str(dados.get("revision", "")), resumo + self._marca(modelo), modelo)
         except ResumoIndisponivel as exc:
             motivo = str(exc)
             with self._lock:

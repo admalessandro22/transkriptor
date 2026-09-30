@@ -201,3 +201,18 @@ class ProvedorOllama:
 def provedor_ollama() -> ProvedorOllama:
     """Provedor local com a URL configurada no momento da chamada."""
     return ProvedorOllama()
+
+
+def provedor_para(funcao: str):
+    """Provedor escolhido para "resumo" ou "chat" (T-15.D2). OpenRouter só com
+    chave e consentimento; sem eles, erro explícito — nunca troca sozinho."""
+    import config_user
+
+    cfg = config_user.carregar()
+    if cfg.get(f"ia_{funcao}_provedor") == "openrouter":
+        from provedor_openrouter import ProvedorOpenRouter, chave
+
+        if not cfg.get("openrouter_consentido_em"):
+            raise ErroProvedor("sem_consentimento", "Autorize o uso do OpenRouter nas Configurações.")
+        return ProvedorOpenRouter(chave())
+    return ProvedorOllama()

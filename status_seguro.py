@@ -55,6 +55,7 @@ def _padroes_credencial():
             _re.compile(r"\bBearer\s+\S+"),
             _re.compile(r"\bsess-[A-Za-z0-9_-]+"),
             _re.compile(r"\bpair-[A-Za-z0-9_-]+"),
+            _re.compile(r"\bsk-or-[A-Za-z0-9_-]+"),  # T-15.D2: chave do OpenRouter
             _re.compile(r"MEET_WS_TOKEN\s*=\s*\"[^\"]*\""),
         ]
     return _PADROES_CREDENCIAL

@@ -27,9 +27,28 @@ TIMEOUT_RESUMO_SEG = 300
 
 
 def _modelos_instalados() -> list[str]:
-    from provedores_ia import provedor_ollama  # T-15.D1
+    """Modelos do provedor de resumo; o escolhido nas Configurações vem primeiro (T-15.D2)."""
+    import config_user
+    from provedores_ia import ErroProvedor, provedor_para
 
-    return [m.id for m in provedor_ollama().listar_modelos()]
+    escolhido = config_user.carregar().get("ia_resumo_modelo") or None
+    try:
+        provedor = provedor_para("resumo")
+    except ErroProvedor:
+        return []
+    if provedor.id == "openrouter":  # centenas de modelos: só o que o usuário escolheu
+        return [escolhido] if escolhido else []
+    instalados = [m.id for m in provedor.listar_modelos()]
+    return ([escolhido] if escolhido in instalados else []) + [m for m in instalados if m != escolhido]
+
+
+def _marca(modelo: str) -> str:
+    """Resumo gerado fora do computador sai marcado (SEC-15.D2)."""
+    import config_user
+
+    if config_user.carregar().get("ia_resumo_provedor") == "openrouter":
+        return f"\n\n_Gerado por OpenRouter · {modelo}_"
+    return ""
 
 
 def _app_ocupado() -> bool:
@@ -49,18 +68,22 @@ def _app_ocupado() -> bool:
 
 def _contexto(modelo: str) -> int:
     import config
-    from assistente_ollama import consultar_context_length
+    from provedores_ia import ErroProvedor, provedor_para
 
-    return min(consultar_context_length(modelo) or 8192, config.OLLAMA_NUM_CTX_MAX)
+    try:
+        contexto = provedor_para("resumo").contexto(modelo)
+    except ErroProvedor:
+        contexto = None
+    return min(contexto or 8192, config.OLLAMA_NUM_CTX_MAX)
 
 
 def _chamar_resumo(modelo: str, mensagens: list[dict]) -> str:
     """Chamada própria: sem "thinking" (modelos como gemma4 passavam de 2 min só
     raciocinando), temperatura baixa e `num_ctx` igual ao orçamento usado."""
-    from provedores_ia import ErroProvedor, provedor_ollama
+    from provedores_ia import ErroProvedor, provedor_para
 
     try:
-        return provedor_ollama().conversar(
+        return provedor_para("resumo").conversar(
             mensagens, modelo=modelo, opcoes={"temperature": 0.2, "num_ctx": _contexto(modelo)},
             pensar=False, timeout=TIMEOUT_RESUMO_SEG)
     except ErroProvedor as exc:  # vira estado "indisponível", nunca resumo
@@ -96,6 +119,7 @@ def servico():
                 ocupado=_app_ocupado,
                 orcamento=_orcamento,
                 elegivel=lambda mid: _elegivel(Path(assistente.PASTA_TRANSCRICOES), mid),
+                marca=_marca,
             )
         return _servico
 

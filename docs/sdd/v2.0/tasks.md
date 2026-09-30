@@ -225,7 +225,7 @@ Estados possíveis: `PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `REOPENED` (mes
 
 ### T-15.D2 — provedor OpenRouter com chave protegida
 
-- [ ] **Requisito:** SEC-15.D2. **Depende de:** D1 e DP-15-04. **Estado:** `PENDING`. **Tamanho:** M.
+- [x] **Requisito:** SEC-15.D2. **Depende de:** D1 e DP-15-04. **Estado:** `DONE`; evidência: `evidencias/T-15.D2.md`. **Tamanho:** M.
 - **Arquivos:**
   - modificar `provedores_ia.py` (ou criar `provedor_openrouter.py`), `crypto_storage.py` (reuso de `_dpapi_protect`/`_dpapi_unprotect` via função pública), `status_seguro.py` (máscara `sk-or-`), `politica_privacidade.py`, `resultado_reuniao.py` (marca de provedor);
   - criar `tests/test_provedor_openrouter.py`.

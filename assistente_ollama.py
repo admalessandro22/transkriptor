@@ -6,7 +6,7 @@ from __future__ import annotations
 from flask import Response, jsonify
 
 import config as _config
-from provedores_ia import ErroProvedor, provedor_ollama
+from provedores_ia import ErroProvedor, provedor_para
 
 _cache_ctx: dict[str, int] = {}
 
@@ -30,33 +30,48 @@ def orcamento_chars(context_length: int) -> int:
 
 
 def consultar_context_length(modelo: str) -> int | None:
-    """Janela de contexto do modelo pelo provedor; None se falhar (fallback)."""
+    """Janela de contexto do modelo pelo provedor do chat; None se falhar (fallback)."""
     if modelo in _cache_ctx:
         return _cache_ctx[modelo]
-    contexto = provedor_ollama().contexto(modelo)
+    try:
+        contexto = provedor_para("chat").contexto(modelo)
+    except ErroProvedor:
+        return None
     if contexto:
         _cache_ctx[modelo] = contexto
     return contexto
+
+
+def marca_remota(modelo: str) -> str:
+    """T-15.D2: resposta gerada fora do computador sai marcada, uma vez."""
+    import config_user
+
+    if config_user.carregar().get("ia_chat_provedor") == "openrouter":
+        return f"\n\n— Gerado por OpenRouter · {modelo}"
+    return ""
 
 
 def chamar_ollama_sync(
     modelo: str, mensagens: list[dict], num_ctx: int | None = None
 ) -> str:
     try:
-        return provedor_ollama().conversar(mensagens, modelo=modelo, opcoes={"num_ctx": num_ctx} if num_ctx else None)
+        return provedor_para("chat").conversar(mensagens, modelo=modelo, opcoes={"num_ctx": num_ctx} if num_ctx else None)
     except ErroProvedor as e:
         return f"[{e.mensagem_segura}]"
 
 
 def stream_chat(modelo: str, mensagens: list[dict], num_ctx: int | None = None) -> Response:
-    """Resposta em stream pelo provedor (T-15.D1); falha vira texto, nunca 500."""
+    """Resposta em stream pelo provedor do chat (T-15.D1/D2); falha vira texto, nunca 500."""
 
     def stream():
         try:
-            yield from provedor_ollama().conversar_stream(
+            yield from provedor_para("chat").conversar_stream(
                 mensagens, modelo=modelo, opcoes={"num_ctx": num_ctx} if num_ctx else None)
+            yield marca_remota(modelo)
         except GeneratorExit:
             raise
+        except ErroProvedor as e:
+            yield f"\n[{e.mensagem_segura}]"
         except Exception as e:
             yield (
                 "\n[Não foi possível contatar o Ollama. "
@@ -113,6 +128,7 @@ def processar_chat(
                     pergunta,
                     lambda m, msgs: sync_fn(m, msgs, num_ctx=num_ctx),
                 )
+                yield marca_remota(modelo)
             except Exception as e:
                 yield f"\n[Erro ao processar reunião longa: {e}]"
 
