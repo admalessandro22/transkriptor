@@ -127,6 +127,18 @@ def combinar_atribuicoes(por_texto: Mapping[str, dict], por_alinhamento: Mapping
 - **Diagnóstico** (só números): vai em `ResultadoProcessamento.alinhamento` e no log `[meet_alinhamento]` (`atraso_ms` = quanto a legenda chega depois, `concordancia`, `falas`, `palavras`, `atribuidas`, `cortes`). A persistência no `ResultManifest` fica para a T-15.C4, que é quem o exibe.
 - **Constantes:** `ALINHAMENTO_*`, `ATRIBUICAO_*` e `FRAGMENTO_MIN_MS` em `config.py`, provisórias até a T-15.F1. O antigo `RELOGIO_INCERTEZA_MAX_MS` é o `INCERTEZA_TEMPO_MAX_MS` já existente.
 
+## 4.1 Política de nomes (T-15.C3)
+
+- **Confirmação por segmento:** uma atribuição `suggested` com `source ∈ {meet_alinhamento, meet_proprio}`, `participant_id` e nome, sem `overlap` e com `confidence ≥ NOME_AUTO_CONFIANCA_MIN` (0,6), vira `status: "confirmed"` com `auto: true`.
+- **Nome do cluster de voz:** o participante com `auto` que cobre ≥ `NOME_AUTO_PARTICIPACAO_MIN` (0,8) da duração do cluster, com ≥ `NOME_AUTO_DURACAO_MIN_S` (5 s) e sem homônimo (mesmo nome, outro `participant_id`), entra no mapeamento: `{participant_id, display_name, origem: "meet_auto", confianca}`. Uma entrada manual existente nunca é sobrescrita.
+- **Nome no TXT** (`resultado_edicao._nome_do_segmento`), em ordem:
+  1. correção manual do cluster;
+  2. confirmação do segmento;
+  3. nome automático do cluster;
+  4. "Identificação pendente".
+- **Desligar:** `NOMES_AUTO_MEET = False` devolve o comportamento anterior (só sugestão).
+- **Central:** o painel mostra a origem ("Meet", "Meet (você)", "Meet (automático) · 86%").
+
 ## 5. Provedores de IA
 
 ```python

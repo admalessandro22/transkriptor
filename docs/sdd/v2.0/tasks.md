@@ -178,8 +178,8 @@ Estados possíveis: `PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `REOPENED` (mes
 
 ### T-15.C3 — política de nomes automática calibrada
 
-- [ ] **Requisito:** FR-15.C3. **Depende de:** C2, B2 e DP-15-02. **Estado:** `PENDING`. **Tamanho:** M.
-- **Arquivos:** modificar `identidade_reuniao.py`, `correlacionador.py` (remover `correlacionar_segmento`/`correlacionar_por_legenda` mortos), `resultado_pipeline.py`, `static/js/participantes.js`, `config.py` (`MODO_AUTO_NOMES` → configurável); criar `tests/test_politica_nomes.py`.
+- [x] **Requisito:** FR-15.C3. **Depende de:** C2, B2 e DP-15-02. **Estado:** `DONE`; evidência: `evidencias/T-15.C3.md`. **Tamanho:** M.
+- **Arquivos:** criar `politica_nomes.py`, `tests/test_politica_nomes.py`; modificar `resultado_edicao.py` (regra de nome no TXT), `processador_reuniao.py`, `static/js/participantes.js`, `config.py` (`NOMES_AUTO_MEET` e limiares; `MODO_AUTO_NOMES` continua `False` para a comparação de texto). Emenda: as funções antigas de `correlacionador.py` têm testes próprios e ficam; `identidade_reuniao.py` não mudou.
 - **Implementação:**
   - votação por cluster com peso de duração;
   - aplicação automática acima dos limiares;

@@ -208,14 +208,24 @@ def _nome_para_cluster(mapeamento: Mapping, cluster: str) -> str | None:
     return str(nome) if isinstance(nome, str) and nome else None
 
 
+def _nome_do_segmento(seg: Mapping, mapeamento: Mapping) -> str | None:
+    """T-15.C3: correção manual > confirmação do segmento > nome automático do cluster."""
+    entrada = (mapeamento or {}).get(str(seg.get("speaker_cluster_id", "")))
+    automatico = isinstance(entrada, dict) and entrada.get("origem") == "meet_auto"
+    if not automatico:
+        manual = _nome_para_cluster(mapeamento, str(seg.get("speaker_cluster_id", "")))
+        if manual:
+            return manual
+    atrib = seg.get("assignment")
+    if isinstance(atrib, dict) and atrib.get("status") == "confirmed" and atrib.get("display_name"):
+        return str(atrib["display_name"])
+    return _nome_para_cluster(mapeamento, str(seg.get("speaker_cluster_id", ""))) if automatico else None
+
+
 def exportar_txt(segmentos: Sequence[Mapping], mapeamento: Mapping) -> str:
     """TXT derivado do canônico: mesma ordem, texto, tempo e nome."""
     linhas = [
-        format_segment_txt(
-            int(seg["start_ms"]),
-            _nome_para_cluster(mapeamento, str(seg.get("speaker_cluster_id", ""))),
-            str(seg.get("text", "")),
-        )
+        format_segment_txt(int(seg["start_ms"]), _nome_do_segmento(seg, mapeamento), str(seg.get("text", "")))
         for seg in segmentos
     ]
     return "\n".join(linhas) + ("\n" if linhas else "")

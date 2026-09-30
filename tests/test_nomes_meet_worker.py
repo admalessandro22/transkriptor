@@ -319,4 +319,7 @@ def test_worker_corta_e_nomeia_pelo_alinhamento(chave_teste, tmp_path, caplog):
     assert [s["text"] for s in segs] == ["bafo cedi lame nipo", "ruza tevi zoba gula"]
     assert [s["assignment"]["display_name"] for s in segs] == ["Ana", "Bruno"]
     assert all(s["assignment"]["source"] == "meet_alinhamento" for s in segs)
-    assert all(s["assignment"]["status"] == "suggested" for s in segs)
+    # T-15.C3 (DP-15-02): alinhamento forte confirma sozinho e o TXT já sai nomeado.
+    assert all(s["assignment"]["status"] == "confirmed" and s["assignment"]["auto"] for s in segs)
+    txt = (fila.pasta_transcricoes / "reuniao-c2.txt").read_text(encoding="utf-8")
+    assert "Ana: bafo cedi lame nipo" in txt and "Bruno: ruza tevi zoba gula" in txt

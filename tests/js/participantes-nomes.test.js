@@ -26,3 +26,24 @@ describe("nomes confirmados pela legenda do Meet aparecem na transcrição", () 
     expect(mapa.FALANTE_00.display_name).toBe("Ana Corrigida");
   });
 });
+
+
+describe("T-15.C3 — origem e confiança dos nomes automáticos do Meet", () => {
+  it("nome de cluster automático mostra a origem e a confiança", () => {
+    const mapa = { FALANTE_00: { display_name: "Ana Fictícia", origem: "meet_auto", confianca: 0.857 } };
+    expect(estadoDoFalante("FALANTE_00", mapa, []).origem).toBe("Meet (automático) · 86%");
+  });
+
+  it("confirmação por segmento vinda do alinhamento aparece como Meet", () => {
+    const segs = [seg("s1", "FALANTE_03", { status: "confirmed", auto: true, display_name: "Davi Fictício",
+      source: "meet_alinhamento", confidence: 0.9 })];
+    const mapa = mapeamentoExibicao(segs, {});
+    expect(estadoDoFalante("FALANTE_03", mapa, segs).origem).toBe("Meet");
+  });
+
+  it("você pelo dispositivo próprio", () => {
+    const segs = [seg("m1", "VOCÊ", { status: "confirmed", auto: true, display_name: "Alessandro (você)",
+      source: "meet_proprio", confidence: 1 })];
+    expect(estadoDoFalante("VOCÊ", mapeamentoExibicao(segs, {}), segs).origem).toBe("Meet (você)");
+  });
+});

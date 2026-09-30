@@ -206,7 +206,12 @@ IDENTIDADE_EPSILON_EMPATE = 0.05      # diferença mínima p/ desempatar candida
 IDENTIDADE_PRECISAO_MIN = 0.98        # precisão seletiva p/ modo automático
 IDENTIDADE_COBERTURA_MIN = 0.80       # cobertura elegível p/ modo automático
 CALIBRACAO_IDENTIDADE_VERSAO = "d6-1"
-MODO_AUTO_NOMES = False               # sem corpus não há nome automático
+MODO_AUTO_NOMES = False               # comparação de texto nunca confirma sozinha
+# T-15.C3 / DP-15-02: alinhamento com o Meet aplica o nome sozinho (provisório até T-15.F1).
+NOMES_AUTO_MEET = True
+NOME_AUTO_CONFIANCA_MIN = 0.6         # confiança do segmento (cobertura × fator do alinhamento)
+NOME_AUTO_PARTICIPACAO_MIN = 0.8      # fatia do cluster de voz para nomear o cluster inteiro
+NOME_AUTO_DURACAO_MIN_S = 5.0         # fala mínima do participante no cluster
 INCERTEZA_TEMPO_MAX_MS = 1500         # acima disso, tempo sozinho não nomeia
 # T-15.A2 — relógio da extensão: ping/pong ponte↔background por conexão.
 RELOGIO_PINGS_INICIAIS = 5            # rajada ao vincular a aba

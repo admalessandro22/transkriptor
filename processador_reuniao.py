@@ -223,11 +223,14 @@ def processar_job(
         caminho_segmentos = storage.caminho(job.id)
         if caminho_resultado.exists() or caminho_segmentos.exists() or caminho_txt.exists():
             raise FileExistsError("resultado existente; revisão manual preservada")
+        from politica_nomes import aplicar_politica
+
+        segmentos_finais, mapeamento_auto = aplicar_politica(processamento.segmentos)  # T-15.C3
         if modo == ProtectionMode.PROTECTED:
-            dados_segmentos = montar_payload(processamento.segmentos, {})
+            dados_segmentos = montar_payload(segmentos_finais, mapeamento_auto)
             ref_segmentos = storage.save(job.id, dados_segmentos)
         else:
-            salvar_segmentos(caminho_segmentos, processamento.segmentos, {})
+            salvar_segmentos(caminho_segmentos, segmentos_finais, mapeamento_auto)
             dados_segmentos = carregar_segmentos(caminho_segmentos)
             ref_segmentos = None
         texto_txt = exportar_txt(dados_segmentos["segmentos"], dados_segmentos["mapeamento"])
