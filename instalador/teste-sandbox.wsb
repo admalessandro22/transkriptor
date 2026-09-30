@@ -1,0 +1,17 @@
+<!-- T-15.E4: teste do instalador numa Windows Sandbox limpa (descartável).
+     Abra este arquivo com dois cliques depois de ativar a Sandbox.
+     A pasta dist fica só leitura; o setup abre sozinho. -->
+<Configuration>
+  <MappedFolders>
+    <MappedFolder>
+      <HostFolder>C:\Projetos\transkriptor\dist</HostFolder>
+      <SandboxFolder>C:\Instalador</SandboxFolder>
+      <ReadOnly>true</ReadOnly>
+    </MappedFolder>
+  </MappedFolders>
+  <Networking>Enable</Networking>
+  <MemoryInMB>8192</MemoryInMB>
+  <LogonCommand>
+    <Command>C:\Instalador\TranskriptorSetup.exe</Command>
+  </LogonCommand>
+</Configuration>

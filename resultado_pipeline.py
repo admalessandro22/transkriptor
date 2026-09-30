@@ -16,6 +16,9 @@ class ResultadoProcessamento:
     segmentos: tuple[SegmentoResultado, ...]
     warnings: tuple[str, ...] = ()
     gerar_copia_tkpt: bool = False
+    alinhamento: dict | None = None  # T-15.C2: só números (atraso, concordância, cortes)
+    transcricao_meet: tuple = ()     # T-15.C4: blocos por falante (legenda do Meet)
+    lacunas_meet: tuple = ()         # T-15.C4: legenda sem Whisper, marcada no TXT
 
 
 def criar_segmentos(
@@ -45,6 +48,7 @@ def criar_segmentos(
             speaker_cluster_id=rotulo,
             overlap=segmento.overlap,
             assignment=(atribuicoes or {}).get(segmento.segment_id),
+            words=segmento.words,
         ))
     if any(por_chave.values()):
         alinhamento_falhou = True

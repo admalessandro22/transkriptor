@@ -21,6 +21,14 @@
   const CANAL_LEGENDAS = "captions_v2";
   const URL_COLECOES =
     "https://meet.google.com/$rpc/google.rtc.meetings.v1.MeetingSpaceService/SyncMeetingSpaceCollections";
+  const URL_ATUALIZAR_MIDIA =
+    "https://meet.google.com/$rpc/google.rtc.meetings.v1.MediaSessionService/UpdateMediaSession";
+  const URL_CRIAR_DISPOSITIVO =
+    "https://meet.google.com/$rpc/google.rtc.meetings.v1.MeetingDeviceService/CreateMeetingDevice";
+  // FR-15.B2: o Meet põe o próprio dispositivo em texto legível nessas chamadas.
+  const PADRAO_DISPOSITIVO = /spaces\/[A-Za-z0-9_-]+\/devices\/([A-Za-z0-9_-]+)/;
+  // BCP-47 com região, como o Meet usa nas legendas ("pt-BR", "en-US").
+  const PADRAO_IDIOMA = /^[a-z]{2,3}-[A-Z]{2}$/;
   const MAX_TEXTO = 500;
   const MAX_NOME = 80;
   const MAX_REABERTURAS = 5;
@@ -144,6 +152,81 @@
     return n && n.length < MAX_NOME ? n : "";
   }
 
+  // ---------- idioma (FR-15.B1, só leitura) ----------
+
+  /** ArrayBuffer de qualquer realm (instanceof falha entre janelas/ambientes). */
+  function ehArrayBuffer(valor) {
+    return Object.prototype.toString.call(valor) === "[object ArrayBuffer]";
+  }
+
+  /** Códigos de idioma em folhas de texto, sem olhar os campos em `ignorar`. */
+  function idiomasEm(campos, profundidade, ignorar) {
+    const achados = [];
+    Object.keys(campos).forEach(function (numero) {
+      if (ignorar && ignorar.has(Number(numero))) return;
+      campos[numero].forEach(function (valor) {
+        if (!(valor instanceof Uint8Array) || !valor.length) return;
+        const s = valor.length <= 16 ? texto(valor) : "";
+        if (PADRAO_IDIOMA.test(s)) {
+          achados.push(s);
+          return;
+        }
+        if (profundidade > 0) {
+          try {
+            achados.push(...idiomasEm(lerProto(valor), profundidade - 1, null));
+          } catch (_e) {}
+        }
+      });
+    });
+    return achados;
+  }
+
+  /** Idioma pedido pelo próprio Meet no corpo do UpdateMediaSession (binário ou base64). */
+  function idiomaDoCorpo(corpo) {
+    let bytes = null;
+    if (ArrayBuffer.isView(corpo)) bytes = new Uint8Array(corpo.buffer, corpo.byteOffset, corpo.byteLength);
+    else if (ehArrayBuffer(corpo)) bytes = new Uint8Array(corpo);
+    else if (typeof corpo === "string") {
+      try {
+        const s = /^[A-Za-z0-9+/=\s]+$/.test(corpo) ? atob(corpo.trim()) : corpo;
+        bytes = Uint8Array.from(s, (ch) => ch.charCodeAt(0) & 255);
+      } catch (_e) {
+        return null;
+      }
+    }
+    if (!bytes) return null;
+    try {
+      return idiomasEm(lerProto(bytes), 6, null)[0] || null;
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  // ---------- dispositivo próprio (FR-15.B2) ----------
+
+  /** "spaces/<sala>/devices/88" em texto, bytes ou base64 -> "dev-88"; a sala não sai. */
+  function dispositivoProprioEm(corpo) {
+    let s = null;
+    if (typeof corpo === "string") s = corpo;
+    else if (ArrayBuffer.isView(corpo)) s = new TextDecoder().decode(new Uint8Array(corpo.buffer, corpo.byteOffset, corpo.byteLength));
+    else if (ehArrayBuffer(corpo)) s = new TextDecoder().decode(new Uint8Array(corpo));
+    if (s === null) return null;
+    let m = PADRAO_DISPOSITIVO.exec(s);
+    if (!m && /^[A-Za-z0-9+/=\s]+$/.test(s)) {
+      try {
+        m = PADRAO_DISPOSITIVO.exec(atob(s.trim()));
+      } catch (_e) {}
+    }
+    return m ? "dev-" + m[1] : null;
+  }
+
+  let proprioPublicado = false;
+  function publicarProprio(dispositivo) {
+    if (!dispositivo || proprioPublicado) return;
+    proprioPublicado = true;
+    publicar({ tipo: "proprio", dispositivo });
+  }
+
   /** CaptionsV2Packet: 1{1 utterance, 2 versão, 3{3 texto, 6 deviceId}}. */
   function decodificarLegenda(u) {
     const pacote = lerProto(u);
@@ -160,6 +243,8 @@
       utterance,
       versao: typeof versao === "number" ? versao : 0,
       texto: texto(primeiro(legenda, 3)).slice(0, MAX_TEXTO),
+      // Texto (3) e dispositivo (6) nunca contam como idioma.
+      idioma: idiomasEm(legenda, 3, new Set([3, 6]))[0] || null,
     };
   }
 
@@ -194,6 +279,151 @@
       .filter(Boolean);
   }
 
+  // ---------- horário da fala (FR-15.A1) ----------
+
+  const MAX_TEMPOS = 512;
+
+  /** Época em ms no relógio monotônico da página, com resolução sub-ms. */
+  function agoraPagina() {
+    return performance.timeOrigin + performance.now();
+  }
+
+  /** "utterance/dispositivo" -> início da fala; ordem de inserção = recência. */
+  function novoRegistroTempos() {
+    return new Map();
+  }
+
+  /** O primeiro pacote de cada fala define o início; revisões só avançam o fim. */
+  function carimbarLegenda(registro, legenda, agoraMs) {
+    const id = legenda.utterance + "/" + legenda.dispositivo;
+    let inicio = registro.get(id);
+    if (inicio === undefined) {
+      inicio = agoraMs;
+      if (registro.size >= MAX_TEMPOS) registro.delete(registro.keys().next().value);
+    } else {
+      registro.delete(id);
+    }
+    registro.set(id, inicio);
+    return Object.assign({}, legenda, { t_inicio_ms: inicio, t_ultimo_ms: agoraMs });
+  }
+
+  /** Decodifica, confirma e publica um pacote do canal com o horário da chegada. */
+  async function tratarPacoteLegenda(dados, deps) {
+    const chegada = deps.agora();
+    const u = await bytesDe(dados);
+    const legenda = u && decodificarLegenda(u);
+    if (deps.monitor) {
+      deps.monitor.notarPacote(legenda ? "parsed" : "rejected", chegada, legenda ? null : "decodificacao");
+      if (!legenda && u && deps.aoRejeitar) deps.aoRejeitar(esqueleto(u));
+    }
+    if (!legenda) return;
+    try {
+      deps.enviarAck(ackLegenda(legenda.utterance, legenda.versao));
+    } catch (_e) {}
+    const carimbada = carimbarLegenda(deps.registro, legenda, chegada);
+    deps.publicar(Object.assign({ tipo: "legenda", canal: CANAL_LEGENDAS }, carimbada));
+  }
+
+  // ---------- saúde do canal (T-15.B4) ----------
+
+  const LEGENDA_SILENCIO_MS = 60000;
+  const FALA_RECENTE_MS = 30000;
+  const RECRIACOES_MAX = 3;
+  const ESQUELETO_MAX = 240;
+
+  /** Contadores e vigia de silêncio; tudo número, nada de conteúdo. */
+  function novoMonitorSaude(agoraInicial) {
+    const contagem = { raw: 0, parsed: 0, rejected: 0 };
+    const motivos = {};
+    let ultimoPacote = agoraInicial;
+    let ultimaFala = -Infinity;
+    let recriacoes = 0;
+    let quedas = 0;
+    return {
+      notarPacote(tipo, agora, motivo) {
+        contagem.raw += 1;
+        if (tipo === "parsed") contagem.parsed += 1;
+        else {
+          contagem.rejected += 1;
+          if (motivo) motivos[motivo] = (motivos[motivo] || 0) + 1;
+        }
+        ultimoPacote = agora;
+      },
+      notarFala(agora) {
+        ultimaFala = agora;
+      },
+      notarRecriacao(agora) {
+        recriacoes += 1;
+        if (typeof agora === "number") ultimoPacote = agora; // o canal novo ganha outra janela
+      },
+      notarQueda() {
+        quedas += 1;
+      },
+      deveRecriar(agora) {
+        return recriacoes < RECRIACOES_MAX && agora - ultimoPacote >= LEGENDA_SILENCIO_MS &&
+          agora - ultimaFala <= FALA_RECENTE_MS;
+      },
+      resumo() {
+        return { contadores: { captions_v2: Object.assign({}, contagem) }, motivos: Object.assign({}, motivos), recriacoes, quedas };
+      },
+    };
+  }
+
+  /** Estrutura de um pacote que não decodificou: números de campo, tipos e tamanhos. Nunca bytes. */
+  function esqueleto(u, profundidade) {
+    const nivel = profundidade || 0;
+    const partes = [];
+    let i = 0;
+    function varint() {
+      let x = 0;
+      let escala = 1;
+      let b;
+      do {
+        if (i >= u.length) throw new Error("truncado");
+        b = u[i++];
+        x += (b & 127) * escala;
+        escala *= 128;
+      } while (b & 128);
+      return x;
+    }
+    try {
+      while (i < u.length) {
+        const chave = varint();
+        const numero = Math.floor(chave / 8);
+        const tipo = chave & 7;
+        if (numero === 0) throw new Error("campo 0");
+        if (tipo === 0) {
+          varint();
+          partes.push(numero + ":VARINT");
+        } else if (tipo === 2) {
+          const n = varint();
+          if (i + n > u.length) throw new Error("truncado");
+          const filho = nivel < 3 && n > 0 ? esqueleto(u.subarray(i, i + n), nivel + 1) : "";
+          i += n;
+          partes.push(numero + ":LEN(" + n + ")" + (filho && filho.indexOf("nao-protobuf") !== 0 ? "{" + filho + "}" : ""));
+        } else if (tipo === 1 || tipo === 5) {
+          i += tipo === 1 ? 8 : 4;
+          partes.push(numero + (tipo === 1 ? ":I64" : ":I32"));
+        } else throw new Error("tipo " + tipo);
+      }
+    } catch (_e) {
+      return "nao-protobuf(" + u.length + ")";
+    }
+    const texto = partes.join(" ");
+    return texto.length > ESQUELETO_MAX ? texto.slice(0, ESQUELETO_MAX - 1) + "…" : texto;
+  }
+
+  /** Versão do front do Meet (ajuda a saber quando o formato mudou). */
+  function buildMeet() {
+    try {
+      const valores = Object.values(window.WIZ_global_data || {});
+      const achado = valores.find((v) => typeof v === "string" && v.indexOf("boq_meetingsuiserver_") === 0);
+      return achado ? achado.slice("boq_meetingsuiserver_".length).slice(0, 80) : null;
+    } catch (_e) {
+      return null;
+    }
+  }
+
   // ---------- ponte com o content script ----------
 
   function publicar(mensagem) {
@@ -208,6 +438,10 @@
 
   // ---------- captura ----------
 
+  const temposFalas = novoRegistroTempos();
+  const saude = novoMonitorSaude(0);
+  let ultimoEsqueleto = null;
+  let conexaoPrincipal = null;
   const nossos = new WeakSet();
   const conexoesComLegenda = new WeakSet();
   let proximoId = 61000;
@@ -222,18 +456,18 @@
     }
     nossos.add(canal);
     canal.binaryType = "arraybuffer";
-    canal.addEventListener("message", async function (ev) {
-      try {
-        const u = await bytesDe(ev.data);
-        const legenda = u && decodificarLegenda(u);
-        if (!legenda) return;
-        try {
-          canal.send(ackLegenda(legenda.utterance, legenda.versao));
-        } catch (_e) {}
-        publicar(Object.assign({ tipo: "legenda" }, legenda));
-      } catch (_e) {}
+    canal.addEventListener("message", function (ev) {
+      tratarPacoteLegenda(ev.data, {
+        registro: temposFalas,
+        agora: agoraPagina,
+        monitor: saude,
+        aoRejeitar: (esq) => { ultimoEsqueleto = ultimoEsqueleto || esq; },
+        enviarAck: (bytes) => canal.send(bytes),
+        publicar,
+      }).catch(() => {});
     });
     canal.addEventListener("close", function () {
+      saude.notarQueda();
       if (tentativa >= MAX_REABERTURAS) return;
       if (pc.connectionState === "closed" || pc.connectionState === "failed") return;
       setTimeout(function () {
@@ -264,6 +498,7 @@
         // que o servidor aceita o canal de legendas.
         if (!conexoesComLegenda.has(pc)) {
           conexoesComLegenda.add(pc);
+          conexaoPrincipal = pc;
           abrirCanalLegendas(pc, 0);
         }
       });
@@ -282,6 +517,17 @@
       const promessa = original.apply(this, arguments);
       try {
         const url = typeof recurso === "string" ? recurso : recurso && recurso.url;
+        if (url === URL_ATUALIZAR_MIDIA) {
+          const codigo = idiomaDoCorpo(arguments[1] && arguments[1].body);
+          if (codigo) publicar({ tipo: "idioma", codigo, origem: "meet", resultado: "lido" });
+        }
+        if (url === URL_COLECOES) publicarProprio(dispositivoProprioEm(arguments[1] && arguments[1].body));
+        if (url === URL_CRIAR_DISPOSITIVO) {
+          promessa
+            .then((resposta) => resposta.clone().text())
+            .then((corpo) => publicarProprio(dispositivoProprioEm(corpo)))
+            .catch(() => {});
+        }
         if (url === URL_COLECOES) {
           promessa
             .then((resposta) => resposta.clone().text())
@@ -301,9 +547,18 @@
     decodificarLegenda,
     decodificarDispositivo,
     decodificarColecao,
+    idiomaDoCorpo,
+    dispositivoProprioEm,
     ackLegenda,
     idDispositivo,
     descompactar,
+    agoraPagina,
+    novoMonitorSaude,
+    esqueleto,
+    novoRegistroTempos,
+    carimbarLegenda,
+    tratarPacoteLegenda,
+    MAX_TEMPOS,
     EVENTO,
   };
 
@@ -311,6 +566,27 @@
     module.exports = API;
     return;
   }
+  /** T-15.B4: vigia de silêncio e relatório de saúde (só números) ao content script. */
+  function instalarVigia() {
+    document.addEventListener("transkriptor-meet-fala", function () {
+      saude.notarFala(agoraPagina());
+    });
+    setInterval(function () {
+      const agora = agoraPagina();
+      if (conexaoPrincipal && saude.deveRecriar(agora)) {
+        saude.notarRecriacao(agora);
+        abrirCanalLegendas(conexaoPrincipal, 0);
+      }
+    }, 10000);
+    const relatar = function () {
+      publicar(Object.assign({ tipo: "saude", esqueleto: ultimoEsqueleto, build_meet: buildMeet(),
+        tactiq: !!document.querySelector("meta#tactiq-rtc") }, saude.resumo()));
+    };
+    setInterval(relatar, 60000);
+    window.addEventListener("pagehide", relatar);
+  }
+
   instalarRtc();
   instalarFetch();
+  instalarVigia();
 })();

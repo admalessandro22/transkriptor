@@ -27,6 +27,39 @@ def flags_subprocesso_windows() -> int:
     )
 
 
+def _eventos_no_tempo_do_audio(eventos, sessao) -> tuple[list[dict], int]:
+    """T-15.A2: fala carimbada pela ponte vira ts_sec; a incerteza é a medida.
+
+    Sem nenhum evento carimbado, mantém o comportamento anterior (5 s se o
+    snapshot da sessão marcar relógio incerto).
+    """
+    import math
+
+    from relogio_meet import eventos_no_tempo_do_audio
+
+    sessao = sessao or {}
+    convertidos, medida = eventos_no_tempo_do_audio(eventos, sessao.get("first_frame_monotonic_ns"))
+    if medida is not None:
+        return convertidos, math.ceil(medida)
+    return convertidos, 5000 if sessao.get("relogio_incerto", True) else 0
+
+
+def _registrar_alinhamento(diagnostico: dict | None) -> None:
+    """T-15.C2: números do alinhamento no log; nunca nome nem texto."""
+    if not diagnostico:
+        return
+    from status_seguro import emitir_evento
+
+    logger.info(emitir_evento(
+        "meet_alinhamento",
+        atraso_ms=max(0, round(-float(diagnostico["atraso_global_ms"]))),
+        concordancia=float(diagnostico["concordancia"]),
+        falas=int(diagnostico["falas"]), palavras=int(diagnostico["palavras"]),
+        atribuidas=int(diagnostico["palavras_atribuidas"]),
+        cortes=int(diagnostico["segmentos_cortados"]),
+    ))
+
+
 def carregar_eventos_job(job, raiz_transcricoes) -> tuple[list[dict], list[str]]:
     """Carrega eventos das refs do job v2 com hash validado (T-13.D5).
 
@@ -150,6 +183,7 @@ def processar_job(
                 fila.registrar_aviso(job_id, aviso)
             except Exception:
                 logger.error("Falha ao registrar aviso de eventos")
+        eventos_meet, incerteza_ms = _eventos_no_tempo_do_audio(eventos_meet, job.sessao)
         preferencias = dict(job.preferencias or {})
         processamento = retranscritor.retranscrever_resultado(
             job.audio,
@@ -166,13 +200,14 @@ def processar_job(
             usar_vozes_conhecidas=bool(preferencias.get("usar_vozes_conhecidas", True)),
             rotulo_usuario=preferencias.get("rotulo_usuario"),
             eventos_meet=eventos_meet,
-            clock_uncertainty_ms=5000 if (job.sessao or {}).get("relogio_incerto", True) else 0,
+            clock_uncertainty_ms=incerteza_ms,
             on_status=_on_status,
         )
+        _registrar_alinhamento(getattr(processamento, "alinhamento", None))
         if fila.obter(job_id).cancel_solicitado:
             raise JobCancelado("cancelado")
         from resultado_reuniao import (
-            carregar_segmentos, criar_manifesto_estruturado, exportar_txt,
+            carregar_segmentos, criar_manifesto_estruturado, exportar_txt_resultado,
             salvar_manifesto, salvar_segmentos, validar_manifesto,
         )
         from politica_privacidade import ProtectionMode, modo_efetivo
@@ -188,14 +223,19 @@ def processar_job(
         caminho_segmentos = storage.caminho(job.id)
         if caminho_resultado.exists() or caminho_segmentos.exists() or caminho_txt.exists():
             raise FileExistsError("resultado existente; revisão manual preservada")
+        from politica_nomes import aplicar_politica
+
+        segmentos_finais, mapeamento_auto = aplicar_politica(processamento.segmentos)  # T-15.C3
+        extras_meet = {"transcricao_meet": getattr(processamento, "transcricao_meet", ()),
+                       "lacunas_meet": getattr(processamento, "lacunas_meet", ())}  # T-15.C4
         if modo == ProtectionMode.PROTECTED:
-            dados_segmentos = montar_payload(processamento.segmentos, {})
+            dados_segmentos = montar_payload(segmentos_finais, mapeamento_auto, **extras_meet)
             ref_segmentos = storage.save(job.id, dados_segmentos)
         else:
-            salvar_segmentos(caminho_segmentos, processamento.segmentos, {})
+            salvar_segmentos(caminho_segmentos, segmentos_finais, mapeamento_auto, **extras_meet)
             dados_segmentos = carregar_segmentos(caminho_segmentos)
             ref_segmentos = None
-        texto_txt = exportar_txt(dados_segmentos["segmentos"], dados_segmentos["mapeamento"])
+        texto_txt = exportar_txt_resultado(dados_segmentos)
         if modo == ProtectionMode.PROTECTED:
             from crypto_storage import salvar_transcricao
 

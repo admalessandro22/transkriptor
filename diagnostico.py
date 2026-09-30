@@ -245,12 +245,69 @@ def checar_ambiente():
     return itens
 
 
+def _base_idioma(codigo: str) -> str:
+    return str(codigo or "").split("-")[0].lower()
+
+
+def checar_idioma_legenda(idiomas_meet, idioma_transcricao):
+    """FR-15.B1: legenda do Meet em outro idioma deixa os nomes só pelo tempo."""
+    legenda = (idiomas_meet or {}).get("caption_lang")
+    if not legenda:
+        return []
+    nome = "Idioma da legenda do Meet"
+    if idioma_transcricao in (None, "", "auto") or _base_idioma(legenda) == _base_idioma(idioma_transcricao):
+        return [_item(nome, OK, legenda)]
+    return [_item(
+        nome, AVISO,
+        f"Legenda do Meet em {legenda}; transcrição em {idioma_transcricao}. "
+        "Os nomes usarão só o horário das falas. Ajuste o idioma das legendas no Meet.",
+    )]
+
+
+def checar_canal_legendas(saude):
+    """T-15.B4: motivo provável quando os nomes do Meet não chegam (só números)."""
+    if not saude:
+        return []
+    nome = "Canal de legendas do Meet"
+    brutos, lidos = int(saude.get("raw") or 0), int(saude.get("parsed") or 0)
+    itens = []
+    if brutos == 0:
+        itens.append(_item(nome, AVISO, "O canal de legendas não recebeu nada nesta reunião. "
+                                        "Recarregue a aba do Meet (F5) e confira a extensão."))
+    elif lidos == 0:
+        versao = saude.get("build_meet") or "desconhecida"
+        itens.append(_item(nome, AVISO, f"Chegaram {brutos} pacote(s), mas nenhum pôde ser lido: "
+                                        f"o formato das legendas mudou (versão do Meet {versao}). "
+                                        "Os nomes ficam pendentes até a extensão ser atualizada."))
+    else:
+        recriado = int(saude.get("recriacoes") or 0)
+        extra = f"; canal recriado {recriado} vez(es) após silêncio" if recriado else ""
+        itens.append(_item(nome, OK, f"{lidos} de {brutos} pacote(s) lidos{extra}."))
+    if saude.get("tactiq") is True:
+        itens.append(_item("Outra extensão de transcrição", AVISO,
+                           "A Tactiq está ativa na mesma aba e também abre canais de legenda. "
+                           "Se os nomes falharem, desative-a nesta reunião."))
+    return itens
+
+
+def checar_descartes_meet(descartes):
+    """FR-15.A3: excesso de taxa nunca some em silêncio."""
+    if not descartes:
+        return []
+    return [_item("Eventos do Meet descartados", AVISO,
+                  f"{descartes} evento(s) acima da taxa da ponte; alguns nomes podem faltar.")]
+
+
 def coletar(
     detector=None,
     modelo_whisper="auto",
     capturar_mic=True,
     gravando=False,
     transcritor=None,
+    idiomas_meet=None,
+    idioma_transcricao=None,
+    descartes_meet=0,
+    saude_meet=None,
 ):
     """Roda todas as checagens e devolve a lista de itens."""
     itens = []
@@ -272,6 +329,9 @@ def coletar(
     if transcritor is not None:
         itens += checar_metricas_captura(transcritor)
     itens += checar_modelo_whisper(modelo_whisper)
+    itens += checar_idioma_legenda(idiomas_meet, idioma_transcricao)
+    itens += checar_descartes_meet(descartes_meet)
+    itens += checar_canal_legendas(saude_meet)
     return itens
 
 

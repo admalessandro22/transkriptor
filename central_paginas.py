@@ -14,7 +14,7 @@ bp = Blueprint("central_paginas", __name__)
 def _template_existe(pagina: str) -> bool:
     return os.path.isfile(os.path.join(BASE_DIR, "templates", f"{pagina}.html"))
 
-PAGINAS_CENTRAL = ("inicio", "reunioes", "participantes", "configuracoes", "diagnostico")
+PAGINAS_CENTRAL = ("inicio", "reunioes", "participantes", "configuracoes", "diagnostico", "primeiro-uso")
 
 
 @bp.route("/<pagina>")

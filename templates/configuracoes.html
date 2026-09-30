@@ -83,7 +83,63 @@
         </label>
       </section>
     </form>
+
+    <div class="config" id="config-ia" aria-labelledby="ia-titulo">
+      <h2 class="tk-page__titulo" id="ia-titulo">Inteligência artificial</h2>
+      <section class="tk-card config__grupo" aria-labelledby="ia-transcricao-titulo">
+        <h3 class="config__titulo" id="ia-transcricao-titulo">Transcrição (sempre local)</h3>
+        <p class="tk-subtle tk-type-sm" id="ia-transcricao-info"></p>
+        <div class="config__linha">
+          <label class="config__texto" for="ia-whisper_dispositivo"><span class="config__rotulo">Dispositivo da transcrição</span><span class="config__desc">Vale a partir da próxima transcrição.</span></label>
+          <div class="tk-select-wrap config__select"><select id="ia-whisper_dispositivo"><option value="auto">Automático</option><option value="cpu">Processador (CPU)</option><option value="cuda">Placa de vídeo (GPU)</option></select><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-chevron-down"/></svg></div>
+        </div>
+        <div class="config__linha">
+          <label class="config__texto" for="ia-whisper_precisao"><span class="config__rotulo">Precisão da transcrição</span><span class="config__desc">Na CPU, float16 vira int8 automaticamente.</span></label>
+          <div class="tk-select-wrap config__select"><select id="ia-whisper_precisao"><option value="auto">Automática</option><option value="int8">int8 (leve)</option><option value="int8_float16">int8/float16 (GPU)</option><option value="float16">float16 (GPU, mais memória)</option></select><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-chevron-down"/></svg></div>
+        </div>
+      </section>
+      <section class="tk-card config__grupo" aria-labelledby="ia-resumo-titulo">
+        <h3 class="config__titulo" id="ia-resumo-titulo">Resumos</h3>
+        <div class="config__linha">
+          <label class="config__texto" for="ia-resumo-provedor"><span class="config__rotulo">Provedor dos resumos</span><span class="config__desc">Local mantém tudo no computador; OpenRouter envia o texto para fora.</span></label>
+          <div class="tk-select-wrap config__select"><select id="ia-resumo-provedor"><option value="ollama">Ollama (neste computador)</option><option value="openrouter">OpenRouter (chave de API)</option></select><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-chevron-down"/></svg></div>
+        </div>
+        <div class="config__linha">
+          <label class="config__texto" for="ia-resumo-modelo"><span class="config__rotulo">Modelo dos resumos</span><span class="config__desc">"Automático" escolhe o melhor disponível.</span></label>
+          <div class="tk-select-wrap config__select"><select id="ia-resumo-modelo"></select><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-chevron-down"/></svg></div>
+        </div>
+        <p class="tk-subtle tk-type-sm" id="ia-resumo-estado" role="status" aria-live="polite"></p>
+        <div class="config__linha"><button type="button" class="tk-btn tk-btn--secondary tk-btn--sm" id="ia-resumo-testar">Testar</button></div>
+      </section>
+      <section class="tk-card config__grupo" aria-labelledby="ia-chat-titulo">
+        <h3 class="config__titulo" id="ia-chat-titulo">Assistente (chat)</h3>
+        <div class="config__linha">
+          <label class="config__texto" for="ia-chat-provedor"><span class="config__rotulo">Provedor do assistente</span><span class="config__desc">Local mantém tudo no computador; OpenRouter envia o texto para fora.</span></label>
+          <div class="tk-select-wrap config__select"><select id="ia-chat-provedor"><option value="ollama">Ollama (neste computador)</option><option value="openrouter">OpenRouter (chave de API)</option></select><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-chevron-down"/></svg></div>
+        </div>
+        <div class="config__linha">
+          <label class="config__texto" for="ia-chat-modelo"><span class="config__rotulo">Modelo do assistente</span><span class="config__desc">"Automático" escolhe o melhor disponível.</span></label>
+          <div class="tk-select-wrap config__select"><select id="ia-chat-modelo"></select><svg class="tk-icon"><use href="{{ url_for('static', filename='icones.svg') }}#i-chevron-down"/></svg></div>
+        </div>
+        <p class="tk-subtle tk-type-sm" id="ia-chat-estado" role="status" aria-live="polite"></p>
+        <div class="config__linha"><button type="button" class="tk-btn tk-btn--secondary tk-btn--sm" id="ia-chat-testar">Testar</button></div>
+      </section>
+      <section class="tk-card config__grupo" aria-labelledby="ia-conexoes-titulo">
+        <h3 class="config__titulo" id="ia-conexoes-titulo">Conexões</h3>
+        <div class="config__linha">
+          <label class="config__texto" for="ia-ollama_url"><span class="config__rotulo">Endereço do Ollama</span><span class="config__desc">Só neste computador (127.0.0.1 ou localhost).</span></label>
+          <input id="ia-ollama_url" type="text" autocomplete="off" spellcheck="false" maxlength="80">
+          <button type="button" class="tk-btn tk-btn--secondary tk-btn--sm" id="ia-ollama-salvar">Salvar</button>
+        </div>
+        <div class="config__linha">
+          <label class="config__texto" for="ia-openrouter-chave"><span class="config__rotulo">Chave do OpenRouter</span><span class="config__desc">Guardada cifrada neste computador; nunca é exibida de volta.</span></label>
+          <input id="ia-openrouter-chave" type="password" autocomplete="off" spellcheck="false" maxlength="200">
+          <button type="button" class="tk-btn tk-btn--secondary tk-btn--sm" id="ia-openrouter-salvar">Salvar chave</button>
+        </div>
+        <p class="tk-subtle tk-type-sm" id="ia-openrouter-status" role="status" aria-live="polite"></p>
+      </section>
+    </div>
   </div>
 </div>
 {% endblock %}
-{% block scripts %}<script type="module" src="{{ url_for('static', filename='js/configuracoes.js') }}"></script>{% endblock %}
+{% block scripts %}<script type="module" src="{{ url_for('static', filename='js/configuracoes.js') }}"></script><script type="module" src="{{ url_for('static', filename='js/ia.js') }}"></script>{% endblock %}

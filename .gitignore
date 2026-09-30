@@ -23,3 +23,8 @@ agent-tools/
 .worktrees/
 _*.txt
 diagnostico_*.txt
+
+# T-15.E4: artefatos do instalador
+instalador/bin/
+instalador/ollama-detectado.txt
+dist/

@@ -29,7 +29,7 @@ from config import (
     CHUNK_SEGUNDOS,
     MODELO_WHISPER,
     IDIOMA,
-    COMPUTE_TYPE,
+    COMPUTE_TYPE, preferir_whisper,  # T-15.D3
     DEVICE_WHISPER,
     resolver_device_whisper,
     resolver_modelo_whisper,
@@ -130,7 +130,7 @@ class Transcritor(CapturaLeveMixin):
         nome = self.modelo_nome or MODELO_WHISPER
         if nome == "auto":
             tem_cuda, vram_gb = detectar_cuda_e_vram()
-            modelo, device, ctype = resolver_modelo_whisper(tem_cuda, vram_gb)
+            modelo, device, ctype = preferir_whisper(*resolver_modelo_whisper(tem_cuda, vram_gb))
             self.on_status(f"Carregando modelo {modelo} ({device}, auto)...")
             try:
                 self._modelo = WhisperModel(modelo, device=device, compute_type=ctype)
@@ -141,8 +141,8 @@ class Transcritor(CapturaLeveMixin):
             self.on_status("Modelo pronto.")
             return
         self.on_status(f"Carregando modelo {nome}...")
-        device = resolver_device_whisper(DEVICE_WHISPER)
-        self._modelo = WhisperModel(nome, device=device, compute_type=COMPUTE_TYPE)
+        nome, device, ctype = preferir_whisper(nome, resolver_device_whisper(DEVICE_WHISPER), COMPUTE_TYPE, fixo=True)
+        self._modelo = WhisperModel(nome, device=device, compute_type=ctype)
         self.on_status("Modelo pronto.")
 
     def _abrir_wav(self, caminho):
@@ -162,7 +162,7 @@ class Transcritor(CapturaLeveMixin):
             cab = f"=== Transcricao iniciada em {datetime.datetime.now():%Y-%m-%d %H:%M:%S} ===\nReuniao: {self.titulo_reuniao}\n\n"
         else:
             cab = f"=== Transcricao iniciada em {datetime.datetime.now():%Y-%m-%d %H:%M:%S} ===\n\n"
-        if self.criptografar:
+        if self.criptografar or not self.processar_ao_vivo:  # só áudio: nada em disco
             self._arq = io.StringIO()
             self._arq.write(cab)
         else:
@@ -382,7 +382,8 @@ class Transcritor(CapturaLeveMixin):
 
     def _finalizar_arquivo_texto(self):
         with self._resultado_io_lock:
-            if not self._arq:
+            if not self._arq or not self.processar_ao_vivo:
+                self._arq = None  # só áudio: o worker grava com este nome-base
                 return
             self._arq.write(
                 f"\n=== Encerrado em {datetime.datetime.now():%Y-%m-%d %H:%M:%S} ===\n"
@@ -390,9 +391,8 @@ class Transcritor(CapturaLeveMixin):
             if self.criptografar and isinstance(self._arq, io.StringIO):
                 from crypto_storage import salvar_transcricao
                 salvar_transcricao(self._caminho_saida, self._arq.getvalue())
-                self._arq = None
-                return
-            self._arq.close()
+            else:
+                self._arq.close()
             self._arq = None
 
     def _fechar_arquivos_abertos(self):

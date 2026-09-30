@@ -19,6 +19,13 @@
   </div>
   <div id="lista-participantes" class="falas" aria-live="polite" aria-label="Participantes e sugestões para revisão"></div>
 </section>
+<section id="secao-meet" class="participantes__falas" aria-labelledby="titulo-meet" hidden>
+  <div class="participantes__falas-cab">
+    <h3 class="tk-label" id="titulo-meet">Transcrição do Meet</h3>
+    <button type="button" id="exportar-meet" class="tk-btn tk-btn--secondary tk-btn--sm"><svg class="tk-icon tk-icon--sm"><use href="{{ url_for('static', filename='icones.svg') }}#i-download"/></svg>Exportar</button>
+  </div>
+  <ol id="lista-meet" class="falas" aria-label="Legendas do Meet por falante"></ol>
+</section>
 <form id="form-correcao" class="participantes__form tk-card">
   <div class="participantes__form-titulo">Corrigir nome nesta reunião</div>
   <div class="tk-field">

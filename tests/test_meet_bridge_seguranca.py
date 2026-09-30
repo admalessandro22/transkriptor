@@ -27,7 +27,9 @@ def test_token_url_valido():
 
 
 def test_origem_permitida_chrome_extension():
-    assert origem_permitida("chrome-extension://abcdefghijklmnop") is True
+    from config import EXTENSAO_IDS_PERMITIDOS  # T-15.E1: só o ID da nossa extensão
+
+    assert origem_permitida(f"chrome-extension://{EXTENSAO_IDS_PERMITIDOS[0]}") is True
     assert origem_permitida("http://127.0.0.1:5050") is True
     assert origem_permitida("https://evil.example.com") is False
 
@@ -41,7 +43,8 @@ def test_listener_producao_rejeita_origin_ausente():
 
 
 def test_origem_extensao_exige_id_valido():
-    assert origem_permitida("chrome-extension://abcdefghijklmnopabcdefghijklmnop") is True
+    # T-15.E1: ID bem formado mas de outra extensão também é recusado.
+    assert origem_permitida("chrome-extension://abcdefghijklmnopabcdefghijklmnop") is False
     assert origem_permitida("chrome-extension://evil") is False
     assert origem_permitida("chrome-extension://abcdefghijklmnop.evil.test") is False
 

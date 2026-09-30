@@ -3,18 +3,12 @@
 
 from __future__ import annotations
 
-import json
-import urllib.request
-
 from flask import Response, jsonify
 
 import config as _config
+from provedores_ia import ErroProvedor, provedor_para
 
 _cache_ctx: dict[str, int] = {}
-
-
-def _ollama_url() -> str:
-    return _config.OLLAMA_URL
 
 
 def tamanho_mensagens(mensagens) -> int:
@@ -36,86 +30,53 @@ def orcamento_chars(context_length: int) -> int:
 
 
 def consultar_context_length(modelo: str) -> int | None:
-    """Consulta /api/show; None se falhar (fallback)."""
+    """Janela de contexto do modelo pelo provedor do chat; None se falhar (fallback)."""
     if modelo in _cache_ctx:
         return _cache_ctx[modelo]
     try:
-        payload = json.dumps({"name": modelo}).encode("utf-8")
-        req = urllib.request.Request(
-            _ollama_url().rstrip("/") + "/api/show",
-            data=payload,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=_config.OLLAMA_TIMEOUT_LEITURA) as r:
-            dados = json.loads(r.read().decode("utf-8"))
-        info = dados.get("model_info") or {}
-        for k, v in info.items():
-            if "context_length" in str(k).lower() and isinstance(v, (int, float)):
-                _cache_ctx[modelo] = int(v)
-                return _cache_ctx[modelo]
-        for part in str(dados.get("parameters") or "").split():
-            if part.isdigit() and int(part) >= 512:
-                _cache_ctx[modelo] = int(part)
-                return _cache_ctx[modelo]
-    except Exception:
+        contexto = provedor_para("chat").contexto(modelo)
+    except ErroProvedor:
         return None
-    return None
+    if contexto:
+        _cache_ctx[modelo] = contexto
+    return contexto
+
+
+def marca_remota(modelo: str) -> str:
+    """T-15.D2: resposta gerada fora do computador sai marcada, uma vez."""
+    import config_user
+
+    if config_user.carregar().get("ia_chat_provedor") == "openrouter":
+        return f"\n\n— Gerado por OpenRouter · {modelo}"
+    return ""
 
 
 def chamar_ollama_sync(
     modelo: str, mensagens: list[dict], num_ctx: int | None = None
 ) -> str:
-    body = {"model": modelo, "messages": mensagens, "stream": False}
-    if num_ctx:
-        body["options"] = {"num_ctx": num_ctx}
-    req = urllib.request.Request(
-        _ollama_url().rstrip("/") + "/api/chat",
-        data=json.dumps(body).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
     try:
-        with urllib.request.urlopen(req, timeout=_config.OLLAMA_TIMEOUT_LEITURA) as resp:
-            dados = json.loads(resp.read().decode("utf-8"))
-        return (dados.get("message") or {}).get("content") or ""
-    except Exception as e:
-        return f"[Erro ao contatar o Ollama: {e}]"
+        return provedor_para("chat").conversar(mensagens, modelo=modelo, opcoes={"num_ctx": num_ctx} if num_ctx else None)
+    except ErroProvedor as e:
+        return f"[{e.mensagem_segura}]"
 
 
-def stream_chat_ollama(req) -> Response:
+def stream_chat(modelo: str, mensagens: list[dict], num_ctx: int | None = None) -> Response:
+    """Resposta em stream pelo provedor do chat (T-15.D1/D2); falha vira texto, nunca 500."""
+
     def stream():
-        resp = None
         try:
-            resp = urllib.request.urlopen(
-                req, timeout=_config.OLLAMA_TIMEOUT_LEITURA
-            )
-            for linha in resp:
-                linha = linha.decode("utf-8").strip()
-                if not linha:
-                    continue
-                try:
-                    bloco = json.loads(linha)
-                    conteudo = bloco.get("message", {}).get("content", "")
-                    if conteudo:
-                        yield conteudo
-                    if bloco.get("done"):
-                        break
-                except json.JSONDecodeError:
-                    continue
+            yield from provedor_para("chat").conversar_stream(
+                mensagens, modelo=modelo, opcoes={"num_ctx": num_ctx} if num_ctx else None)
+            yield marca_remota(modelo)
         except GeneratorExit:
             raise
+        except ErroProvedor as e:
+            yield f"\n[{e.mensagem_segura}]"
         except Exception as e:
             yield (
                 "\n[Não foi possível contatar o Ollama. "
-                f"Verifique se está em execução. ({e})]"
+                f"Verifique se está em execução. ({type(e).__name__})]"
             )
-        finally:
-            if resp is not None:
-                try:
-                    resp.close()
-                except Exception:
-                    pass
 
     return Response(stream(), mimetype="text/plain; charset=utf-8")
 
@@ -167,6 +128,7 @@ def processar_chat(
                     pergunta,
                     lambda m, msgs: sync_fn(m, msgs, num_ctx=num_ctx),
                 )
+                yield marca_remota(modelo)
             except Exception as e:
                 yield f"\n[Erro ao processar reunião longa: {e}]"
 
@@ -189,13 +151,4 @@ def processar_chat(
             mensagens.append({"role": msg["role"], "content": msg["content"]})
     mensagens.append({"role": "user", "content": pergunta})
 
-    body = {"model": modelo, "messages": mensagens, "stream": True}
-    if num_ctx:
-        body["options"] = {"num_ctx": num_ctx}
-    req = urllib.request.Request(
-        _ollama_url().rstrip("/") + "/api/chat",
-        data=json.dumps(body).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    return stream_chat_ollama(req)
+    return stream_chat(modelo, mensagens, num_ctx)

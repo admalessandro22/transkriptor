@@ -12,7 +12,7 @@ REPO = Path(__file__).resolve().parent.parent
 def test_versao_config_bate_com_pyproject():
     pyproject = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
     assert config.VERSAO == pyproject["project"]["version"]
-    assert config.VERSAO == "1.9.0"
+    assert config.VERSAO == "2.0.0"
 
 
 def test_transkriptor_pyw_sem_versao_hardcoded():

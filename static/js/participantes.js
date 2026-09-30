@@ -3,6 +3,7 @@
 // resultado, correção (409 por revisão), desfazer, exportação explícita.
 import { escapeHtml } from './markdown.js';
 import { abrirPainel, fecharPainel, icone, confirmar, toast } from './ui.js';
+import { renderTranscricaoMeet } from './transcricao-meet.js';
 
 const $ = (id) => document.getElementById(id);
 const painel = $('participantes-drawer');
@@ -30,7 +31,8 @@ function apiHeaders(extra = {}) {
 }
 const fetchOpts = { credentials: 'same-origin' };
 
-const ORIGENS = { caption: 'legenda', google_entry: 'entrada do Meet', manual: 'manual', voz: 'voz', voice: 'voz', pendente: 'pendente' };
+const ORIGENS = { caption: 'legenda', google_entry: 'entrada do Meet', manual: 'manual', voz: 'voz', voice: 'voz', pendente: 'pendente',
+  meet_alinhamento: 'Meet', meet_proprio: 'Meet (você)', meet_auto: 'Meet (automático)' };
 const NUM_CORES = 8;
 
 let dados = null;
@@ -97,7 +99,12 @@ function numeroRevisao(rev) {
 
 export function estadoDoFalante(cluster, mapeamento, segmentos) {
   const entrada = (mapeamento || {})[cluster];
-  if (entrada && entrada.display_name) return { rotulo: 'Confirmado', estado: 'confirmado', origem: ORIGENS[entrada.origem] || entrada.origem || 'manual' };
+  if (entrada && entrada.display_name) {
+    const origem = ORIGENS[entrada.origem] || entrada.origem || 'manual';
+    const confianca = Number(entrada.confianca);
+    // T-15.C3: nome automático mostra de onde veio e com que confiança.
+    return { rotulo: 'Confirmado', estado: 'confirmado', origem: Number.isFinite(confianca) ? `${origem} · ${Math.round(confianca * 100)}%` : origem };
+  }
   const segs = (segmentos || []).filter((s) => s.speaker_cluster_id === cluster);
   const sugestoes = segs.filter((s) => s.assignment && s.assignment.status === 'suggested' && s.assignment.display_name);
   if (sugestoes.length) {
@@ -181,6 +188,7 @@ export async function carregarResultado() {
   if (filtroAtivo && !clusters.includes(filtroAtivo)) filtroAtivo = '';
   carregando(false);
   render();
+  renderTranscricaoMeet(dados, selReuniao.value); // T-15.C4
 }
 
 // ---- render -----------------------------------------------------------------

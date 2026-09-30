@@ -51,6 +51,25 @@ def test_crash_antes_do_move_recupera(tmp_path):
     assert feitos[0].state == "recuperado"
 
 
+def test_recuperado_nao_e_renomeado_a_cada_inicio(tmp_path):
+    """Regressão 2026-09-30: arquivo já em sessoes/<sid>/audio virava _02_02_02… a cada início."""
+    raiz = _raiz(tmp_path)
+    registrar_inicio(raiz, "sess-1")
+    wav = raiz / "trabalho" / "reuniao_audio.wav"
+    wav.parent.mkdir()
+    wav.write_bytes(b"RIFF" + b"\x03" * 100)
+    registrar_ativo(raiz, "sess-1", str(wav))
+    recuperar(raiz, inventariar(raiz, set()), dry_run=False)
+    destino = raiz / "sessoes" / "sess-1" / "audio" / "reuniao_audio.wav"
+    antes = _sha(destino)
+    for _ in range(3):  # três reinícios da bandeja
+        itens = inventariar(raiz, set())
+        assert not any(i.action == "recuperar_mover" for i in itens)
+        recuperar(raiz, itens, dry_run=False)
+    assert sorted(p.name for p in destino.parent.iterdir()) == ["reuniao_audio.wav"]
+    assert _sha(destino) == antes
+
+
 def test_crash_durante_diarizacao_recupera_legado(tmp_path):
     """Dir diarizacao_* órfão é recolhido; hash do original permanece."""
     raiz = _raiz(tmp_path)

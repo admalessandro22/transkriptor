@@ -318,6 +318,9 @@ class AppTranskriptor(CicloReuniaoMixin, ProcessamentoReuniaoMixin, MenuBandejaM
                 target=self._vigiar_monitor, daemon=True, name="Transkriptor-VigiaMonitor"
             ).start()
             logging.info("Bandeja pronta.")
+            from transkriptor_menu_flows import abrir_primeiro_uso_se_preciso
+
+            abrir_primeiro_uso_se_preciso(self)  # T-15.E3: só até concluir os primeiros passos
             logging.info("Monitor do Meet iniciado.")
         except Exception:
             logging.exception("Falha ao preparar bandeja")

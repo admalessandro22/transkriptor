@@ -222,6 +222,10 @@ def inventariar(root: Path, live_sessions: Collection[str]) -> tuple[RecoveryIte
             if dono is not None and dono in vivas:
                 itens.append(RecoveryItem(relativo, dono, "viva", "preservar_viva"))
                 continue
+            if dono is not None and len(partes) == 4 and partes[2] == "audio":
+                # Já no destino da recuperação: mover para si mesmo renomeava _02 a cada início.
+                itens.append(RecoveryItem(relativo, dono, "ja_recuperado", "preservar_recuperado"))
+                continue
             if dono is not None:
                 itens.append(RecoveryItem(relativo, dono, "para_recuperar", "recuperar_mover"))
                 continue
@@ -332,6 +336,7 @@ def recuperar(
     for item in items:
         if dry_run or item.action in (
             "preservar_viva",
+            "preservar_recuperado",
             "sinalizar",
             "recusar_externo",
             "aguardar_escritor",

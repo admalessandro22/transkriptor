@@ -6,6 +6,8 @@ import dataclasses
 import datetime
 import hashlib
 import json
+import math
+import re
 import uuid
 from dataclasses import dataclass
 from typing import Mapping
@@ -23,10 +25,41 @@ TIPOS_ENVELOPE = frozenset(
         "caption",
         "speaker_activity",
         "capabilities",
+        "self_device",  # T-15.B2
+        "health",  # T-15.B4: saúde do canal de legendas, só números
     }
 )
+PADRAO_ESQUELETO = re.compile(r"[0-9A-Z:(){} …a-z-]{0,240}")
+PADRAO_BUILD = re.compile(r"[\w.-]{1,80}")
+PADRAO_MOTIVO = re.compile(r"[a-z_]{1,32}")
+
+
+def _contagem(valor: object) -> bool:
+    return type(valor) is int and 0 <= valor < 10**9
+
+
+def _validar_saude(evento: Mapping) -> None:
+    """T-15.B4: contagens, motivos conhecidos, esqueleto sem texto e versão do Meet."""
+    for campo in ("raw", "parsed", "rejected", "recriacoes", "quedas"):
+        if campo in evento and not _contagem(evento[campo]):
+            raise EnvelopeRejeitado(f"{campo} inválido")
+    motivos = evento.get("motivos", {})
+    if not isinstance(motivos, Mapping) or not all(
+        isinstance(k, str) and PADRAO_MOTIVO.fullmatch(k) and _contagem(v) for k, v in motivos.items()
+    ):
+        raise EnvelopeRejeitado("motivos inválidos")
+    if "esqueleto" in evento and not (isinstance(evento["esqueleto"], str) and PADRAO_ESQUELETO.fullmatch(evento["esqueleto"])):
+        raise EnvelopeRejeitado("esqueleto inválido")
+    if "build_meet" in evento and not (isinstance(evento["build_meet"], str) and PADRAO_BUILD.fullmatch(evento["build_meet"])):
+        raise EnvelopeRejeitado("build_meet inválido")
+    if "tactiq" in evento and not isinstance(evento["tactiq"], bool):
+        raise EnvelopeRejeitado("tactiq inválido")
 TAMANHO_MAX_ENVELOPE = 4 * 1024
 INCERTEZA_MAX_MS = 1500.0
+VERSOES_ENVELOPE = frozenset({1, 2})
+CANAIS_ORIGEM = frozenset({"captions_v2", "captions", "meet", "dom"})
+PADRAO_IDIOMA = re.compile(r"[a-z]{2,3}-[A-Z]{2}")  # FR-15.B1: "pt-BR", "en-US"
+PADRAO_DISPOSITIVO = re.compile(r"dev-[A-Za-z0-9_-]+")  # FR-15.B2: nunca o id da sala
 
 
 @dataclass(frozen=True)
@@ -63,11 +96,36 @@ def criar_sessao(
     )
 
 
+def _tempo_finito(valor: object) -> bool:
+    return (
+        isinstance(valor, (int, float))
+        and not isinstance(valor, bool)
+        and math.isfinite(valor)
+    )
+
+
+def _validar_tempos_fala(evento: Mapping) -> None:
+    """Schema 2 (FR-15.A1): legenda traz o intervalo da fala medido na página."""
+    inicio = evento.get("caption_started_ms")
+    fim = evento.get("caption_last_ms")
+    if not _tempo_finito(inicio):
+        raise EnvelopeRejeitado("caption_started_ms inválido")
+    if not _tempo_finito(fim) or fim < inicio:
+        raise EnvelopeRejeitado("caption_last_ms inválido")
+    canal = evento.get("origin_channel")
+    if canal is not None and canal not in CANAIS_ORIGEM:
+        raise EnvelopeRejeitado("origin_channel desconhecido")
+    for campo in ("page_perf_ms", "page_wall_ms"):  # FR-15.A2: amostra página↔parede
+        if campo in evento and not _tempo_finito(evento[campo]):
+            raise EnvelopeRejeitado(f"{campo} inválido")
+
+
 def validar_envelope(evento: Mapping, sessao: SessaoReuniao) -> dict:
-    """Valida envelope `schema_version=1` contra a sessão; recusa sem adivinhar."""
+    """Valida envelope `schema_version` 1 ou 2 contra a sessão; recusa sem adivinhar."""
     if not isinstance(evento, Mapping):
         raise EnvelopeRejeitado("envelope não é objeto")
-    if type(evento.get("schema_version")) is not int or evento["schema_version"] != 1:
+    versao = evento.get("schema_version")
+    if type(versao) is not int or versao not in VERSOES_ENVELOPE:
         raise EnvelopeRejeitado("schema_version desconhecida")
     try:
         serializado = json.dumps(dict(evento), ensure_ascii=False)
@@ -90,6 +148,21 @@ def validar_envelope(evento: Mapping, sessao: SessaoReuniao) -> dict:
         raise EnvelopeRejeitado("seq inválida")
     if evento.get("kind") not in TIPOS_ENVELOPE:
         raise EnvelopeRejeitado("kind desconhecido")
+    if versao == 2 and evento["kind"] == "caption":
+        _validar_tempos_fala(evento)
+    if evento["kind"] == "health":
+        _validar_saude(evento)
+    if evento["kind"] == "self_device" and not (
+        isinstance(evento.get("participant_id"), str) and PADRAO_DISPOSITIVO.fullmatch(evento["participant_id"])
+    ):
+        raise EnvelopeRejeitado("self_device sem dispositivo válido")
+    for campo in ("queued", "caption_final"):  # T-15.A3
+        if campo in evento and not isinstance(evento[campo], bool):
+            raise EnvelopeRejeitado(f"{campo} inválido")
+    for campo in ("caption_lang", "lang_requested"):
+        valor = evento.get(campo)
+        if campo in evento and not (isinstance(valor, str) and PADRAO_IDIOMA.fullmatch(valor)):
+            raise EnvelopeRejeitado(f"{campo} inválido")
     for campo in ("client_wall_ms", "client_monotonic_ms", "received_monotonic_ns"):
         valor = evento.get(campo)
         if not isinstance(valor, (int, float)) or isinstance(valor, bool):

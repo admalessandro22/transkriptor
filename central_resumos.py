@@ -9,9 +9,7 @@ JSON são exigidos pelo `before_request` de `assistente.py` para `/api/*`.
 """
 from __future__ import annotations
 
-import json
 import threading
-import urllib.request
 from pathlib import Path
 
 from flask import Blueprint, jsonify, request
@@ -29,13 +27,28 @@ TIMEOUT_RESUMO_SEG = 300
 
 
 def _modelos_instalados() -> list[str]:
-    import config
+    """Modelos do provedor de resumo; o escolhido nas Configurações vem primeiro (T-15.D2)."""
+    import config_user
+    from provedores_ia import ErroProvedor, provedor_para
 
+    escolhido = config_user.carregar().get("ia_resumo_modelo") or None
     try:
-        with urllib.request.urlopen(config.OLLAMA_URL.rstrip("/") + "/api/tags", timeout=config.OLLAMA_TIMEOUT_CONEXAO) as r:
-            return [m["name"] for m in json.loads(r.read().decode("utf-8")).get("models", []) if m.get("name")]
-    except Exception:  # noqa: BLE001 — Ollama fora do ar: sem modelo
+        provedor = provedor_para("resumo")
+    except ErroProvedor:
         return []
+    if provedor.id == "openrouter":  # centenas de modelos: só o que o usuário escolheu
+        return [escolhido] if escolhido else []
+    instalados = [m.id for m in provedor.listar_modelos()]
+    return ([escolhido] if escolhido in instalados else []) + [m for m in instalados if m != escolhido]
+
+
+def _marca(modelo: str) -> str:
+    """Resumo gerado fora do computador sai marcado (SEC-15.D2)."""
+    import config_user
+
+    if config_user.carregar().get("ia_resumo_provedor") == "openrouter":
+        return f"\n\n_Gerado por OpenRouter · {modelo}_"
+    return ""
 
 
 def _app_ocupado() -> bool:
@@ -55,27 +68,26 @@ def _app_ocupado() -> bool:
 
 def _contexto(modelo: str) -> int:
     import config
-    from assistente_ollama import consultar_context_length
+    from provedores_ia import ErroProvedor, provedor_para
 
-    return min(consultar_context_length(modelo) or 8192, config.OLLAMA_NUM_CTX_MAX)
+    try:
+        contexto = provedor_para("resumo").contexto(modelo)
+    except ErroProvedor:
+        contexto = None
+    return min(contexto or 8192, config.OLLAMA_NUM_CTX_MAX)
 
 
 def _chamar_resumo(modelo: str, mensagens: list[dict]) -> str:
     """Chamada própria: sem "thinking" (modelos como gemma4 passavam de 2 min só
     raciocinando), temperatura baixa e `num_ctx` igual ao orçamento usado."""
-    import config
+    from provedores_ia import ErroProvedor, provedor_para
 
-    corpo = {"model": modelo, "messages": mensagens, "stream": False, "think": False,
-             "options": {"temperature": 0.2, "num_ctx": _contexto(modelo)}}
-    req = urllib.request.Request(
-        config.OLLAMA_URL.rstrip("/") + "/api/chat", data=json.dumps(corpo).encode("utf-8"),
-        headers={"Content-Type": "application/json"}, method="POST",
-    )
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT_RESUMO_SEG) as r:
-            return (json.loads(r.read().decode("utf-8")).get("message") or {}).get("content") or ""
-    except Exception as exc:  # noqa: BLE001 — vira estado "indisponível", nunca resumo
-        return f"[Erro ao contatar o Ollama: {type(exc).__name__}]"
+        return provedor_para("resumo").conversar(
+            mensagens, modelo=modelo, opcoes={"temperature": 0.2, "num_ctx": _contexto(modelo)},
+            pensar=False, timeout=TIMEOUT_RESUMO_SEG)
+    except ErroProvedor as exc:  # vira estado "indisponível", nunca resumo
+        return f"[{exc.mensagem_segura}]"
 
 
 def _orcamento(modelo: str) -> int:
@@ -107,6 +119,7 @@ def servico():
                 ocupado=_app_ocupado,
                 orcamento=_orcamento,
                 elegivel=lambda mid: _elegivel(Path(assistente.PASTA_TRANSCRICOES), mid),
+                marca=_marca,
             )
         return _servico
 

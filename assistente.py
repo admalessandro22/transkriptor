@@ -2,7 +2,6 @@
 """Assistente de reunião — Flask local (Ollama) com front em templates/static."""
 
 import datetime
-import json
 import os
 import secrets
 import socket
@@ -17,6 +16,8 @@ from central_api import bp as central_api_bp
 from central_config import bp as central_config_bp
 from central_diagnostico import bp as central_diagnostico_bp
 from central_resumos import bp as central_resumos_bp
+from central_ia import bp as central_ia_bp
+from central_primeiro_uso import bp as central_primeiro_uso_bp
 from central_reunioes import bp as central_reunioes_bp
 from central_paginas import PAGINAS_CENTRAL, bp as central_paginas_bp
 from transcricoes_meta import (  # noqa: F401 — reexportados para compatibilidade
@@ -37,8 +38,6 @@ from config import (
     MAX_CHARS_TRANSCRICAO,
     MAX_CORPO_CHAT_BYTES,
     MAX_HISTORICO_CHAT,
-    OLLAMA_TIMEOUT_CONEXAO,
-    OLLAMA_URL,
     PASTA_TRANSCRICOES,
     PORTAS_FALLBACK,
     ROTULO_USUARIO,
@@ -47,7 +46,7 @@ from config import (
 
 app = Flask(__name__, root_path=str(BASE_DIR))
 for _bp in (central_paginas_bp, central_api_bp, central_config_bp, central_diagnostico_bp, central_resumos_bp,
-            central_reunioes_bp):
+            central_reunioes_bp, central_ia_bp, central_primeiro_uso_bp):
     app.register_blueprint(_bp)
 app.config["MAX_CONTENT_LENGTH"] = MAX_CORPO_CHAT_BYTES
 
@@ -203,20 +202,20 @@ def api_resultado_reuniao(meeting_id: str):
 
 def _carregar_resultado_reuniao(meeting_id: str) -> tuple[dict | None, int]:
     """Carrega o resultado aberto ou cifrado; (dados, 200) ou (None, código HTTP)."""
-    from resultado_reuniao import carregar_segmentos
+    from resultado_reuniao import carregar_segmentos, sem_palavras
 
     protegido = _resultado_protegido(meeting_id)
     if protegido:
         storage, manifesto = protegido
         try:
-            return storage.load(manifesto.segments_ref), 200
+            return sem_palavras(storage.load(manifesto.segments_ref)), 200
         except ValueError:
             return None, 422
     caminho = _caminho_resultado(meeting_id)
     if caminho is None or not caminho.is_file():
         return None, 404
     try:
-        return carregar_segmentos(caminho), 200
+        return sem_palavras(carregar_segmentos(caminho)), 200
     except ValueError:
         return None, 422
 
@@ -234,13 +233,13 @@ def api_participantes_reuniao(meeting_id: str):
 @app.route("/api/reunioes/<meeting_id>/exportar-txt", methods=["POST"])
 def api_exportar_txt_reuniao(meeting_id: str):
     """Entrega TXT somente após ação explícita, sem gravar plaintext no servidor."""
-    from resultado_reuniao import exportar_txt
+    from resultado_reuniao import exportar_txt_resultado
 
     dados, codigo = _carregar_resultado_reuniao(meeting_id)
     if dados is None:
         return jsonify({"erro": "Reunião não encontrada" if codigo == 404 else "Resultado inválido"}), codigo
     try:
-        conteudo = exportar_txt(dados["segmentos"], dados["mapeamento"])
+        conteudo = exportar_txt_resultado(dados)
     except (OSError, ValueError, KeyError, TypeError):
         return jsonify({"erro": "Resultado inválido"}), 422
     resposta = make_response(conteudo)
@@ -371,17 +370,11 @@ def index():
 
 @app.route("/api/saude")
 def api_saude():
-    ollama_ok = False
-    modelos: list[str] = []
-    try:
-        with urllib.request.urlopen(
-            OLLAMA_URL.rstrip("/") + "/api/tags", timeout=OLLAMA_TIMEOUT_CONEXAO
-        ) as r:
-            dados = json.loads(r.read().decode("utf-8"))
-        ollama_ok = True
-        modelos = [m.get("name", "") for m in dados.get("models", []) if m.get("name")]
-    except Exception:
-        pass
+    from provedores_ia import provedor_ollama  # T-15.D1: um só caminho até o Ollama
+
+    provedor = provedor_ollama()
+    modelos = [m.id for m in provedor.listar_modelos()]
+    ollama_ok = bool(modelos) or provedor.estado().estado != "offline"
     return jsonify({"ollama": ollama_ok, "modelos": modelos, "versao": VERSAO})
 
 
@@ -421,12 +414,19 @@ def api_transcricoes():
 
 @app.route("/api/modelos")
 def api_modelos():
+    """Modelos do provedor do chat; o escolhido nas Configurações vem primeiro (T-15.D3)."""
+    import config_user
+    from provedores_ia import ErroProvedor, provedor_para
+
+    escolhido = config_user.carregar().get("ia_chat_modelo") or None
     try:
-        with urllib.request.urlopen(OLLAMA_URL + "/api/tags", timeout=5) as r:
-            dados = json.loads(r.read())
-        return jsonify([m["name"] for m in dados.get("models", [])])
-    except Exception:
+        provedor = provedor_para("chat")
+    except ErroProvedor:
         return jsonify([])
+    if provedor.id == "openrouter" and escolhido:  # centenas de modelos: só o escolhido
+        return jsonify([escolhido])
+    modelos = [m.id for m in provedor.listar_modelos()]
+    return jsonify(([escolhido] if escolhido in modelos else []) + [m for m in modelos if m != escolhido])
 
 
 @app.route("/api/chat", methods=["POST"])

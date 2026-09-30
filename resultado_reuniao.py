@@ -400,7 +400,7 @@ def atualizar_exportacao_apos_edicao(caminho_segmentos: Path) -> None:
         raise ValueError("TXT alterado fora da revisão; exportação preservada")
     caminho_txt = (raiz / refs_txt[0].relative_path).resolve(strict=True)
     dados = carregar_segmentos(caminho_segmentos)
-    texto = exportar_txt(dados["segmentos"], dados["mapeamento"])
+    texto = exportar_txt_resultado(dados)
     fd, temporario = tempfile.mkstemp(prefix=f"{caminho_txt.stem}_", suffix=".tmp", dir=str(caminho_txt.parent))
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as arquivo:
@@ -426,8 +426,10 @@ from resultado_edicao import (
     carregar_segmentos,
     desfazer_correcao,
     exportar_txt,
+    exportar_txt_resultado,
     format_segment_txt,
     salvar_segmentos,
+    sem_palavras,
 )
 
 

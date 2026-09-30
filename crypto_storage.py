@@ -112,6 +112,19 @@ def _dpapi_unprotect(data: bytes) -> bytes:
         ctypes.windll.kernel32.LocalFree(out_blob.pbData)
 
 
+
+def proteger_segredo(texto: str) -> str:
+    """T-15.D2: segredo do usuário (ex.: chave do OpenRouter) cifrado por DPAPI, em base64."""
+    import base64
+
+    return base64.b64encode(_dpapi_protect(str(texto).encode("utf-8"))).decode("ascii")
+
+
+def revelar_segredo(cifrado: str) -> str:
+    import base64
+
+    return _dpapi_unprotect(base64.b64decode(cifrado)).decode("utf-8")
+
 def criptografia_ativa() -> bool:
     return _carregar_config().get("criptografar_transcricoes", True)
 

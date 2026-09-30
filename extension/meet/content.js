@@ -24,6 +24,7 @@
   const RTC_FLUSH_MS = 1000;
   const RTC_VIVO_MS = 10000;
   const RTC_EXPIRA_MS = 60000;
+  const RTC_FINAL_MS = 3000; // T-15.A3: sem revisão por 3 s, a fala está fechada
   const MAX_NOMES = 500;
 
   /** dispositivo ("dev-127") -> nome exibido no Meet. */
@@ -31,6 +32,11 @@
   /** "utterance/dispositivo" -> última revisão ainda não entregue. */
   const falasRtc = new Map();
   let ultimaLegendaRtc = 0;
+  /** FR-15.B1: idioma efetivo da legenda e o pedido pelo Meet (só leitura). */
+  const PADRAO_IDIOMA = /^[a-z]{2,3}-[A-Z]{2}$/;
+  const idiomas = { legenda: null, pedido: null };
+  /** FR-15.B2: dispositivo do próprio usuário; o primeiro valor da página vale. */
+  let proprioEnviado = null;
 
   let ultimoNome = "";
   let ultimoTexto = "";
@@ -98,6 +104,16 @@
       if (Number.isInteger(metadados.revisao)) payload.caption_revision = metadados.revisao;
       if (metadados.participant_id) payload.participant_id = metadados.participant_id;
       payload.confidence_source = tipo === "legenda" ? "caption" : "speaker_activity";
+      if (metadados.t_inicio_ms != null && metadados.t_ultimo_ms != null) {
+        payload.caption_started_ms = metadados.t_inicio_ms;
+        payload.caption_last_ms = metadados.t_ultimo_ms;
+        if (metadados.canal) payload.origin_channel = metadados.canal;
+        if (metadados.idioma) payload.caption_lang = metadados.idioma;
+        if (metadados.final) payload.caption_final = true;
+        // FR-15.A2: relógio da página e de parede lidos juntos, no envio.
+        payload.page_perf_ms = performance.timeOrigin + performance.now();
+        payload.page_wall_ms = Date.now();
+      }
     }
     canalEnviar(payload);
   }
@@ -136,8 +152,27 @@
     return nome.length > 1 && nome.length < 80 ? nome : "";
   }
 
+  function tempoValido(valor) {
+    return typeof valor === "number" && Number.isFinite(valor) ? valor : null;
+  }
+
+  /** Math.min/Math.max entre dois horários, ignorando o que não for número. */
+  function extremoTempo(escolher, a, b) {
+    const validos = [tempoValido(a), tempoValido(b)].filter((v) => v !== null);
+    return validos.length ? escolher.apply(null, validos) : null;
+  }
+
   function nomeDoDispositivo(dispositivo) {
     return nomesRtc.get(dispositivo) || nomeNoTile(dispositivo);
+  }
+
+  function atualizarIdioma(chave, codigo) {
+    if (typeof codigo !== "string" || !PADRAO_IDIOMA.test(codigo) || idiomas[chave] === codigo) return;
+    idiomas[chave] = codigo;
+    const capacidade = { tipo: "capabilities", ts_ms: Date.now() };
+    if (idiomas.legenda) capacidade.caption_lang = idiomas.legenda;
+    if (idiomas.pedido) capacidade.lang_requested = idiomas.pedido;
+    canalEnviar(capacidade);
   }
 
   function receberRtc(ev) {
@@ -156,18 +191,41 @@
       });
       return;
     }
+    if (msg.tipo === "proprio") {
+      if (proprioEnviado === null && typeof msg.dispositivo === "string" && /^dev-[A-Za-z0-9_-]+$/.test(msg.dispositivo)) {
+        proprioEnviado = msg.dispositivo;
+        canalEnviar({ tipo: "proprio", participant_id: msg.dispositivo, ts_ms: Date.now() });
+      }
+      return;
+    }
+    if (msg.tipo === "saude") {
+      canalEnviar(msg); // T-15.B4: só números e esqueleto; o background filtra de novo
+      return;
+    }
+    if (msg.tipo === "idioma") {
+      atualizarIdioma("pedido", msg.codigo);
+      return;
+    }
     if (msg.tipo === "legenda" && typeof msg.dispositivo === "string" && typeof msg.texto === "string") {
       if (!Number.isInteger(msg.utterance) || !Number.isInteger(msg.versao)) return;
+      atualizarIdioma("legenda", msg.idioma);
       ultimaLegendaRtc = Date.now();
       const id = msg.utterance + "/" + msg.dispositivo;
       const atual = falasRtc.get(id);
       if (atual && atual.versao > msg.versao) return;
+      // FR-15.A1: o início da fala é o do primeiro pacote; revisões nunca o empurram.
+      const inicio = tempoValido(msg.t_inicio_ms);
+      const ultimo = tempoValido(msg.t_ultimo_ms);
       falasRtc.set(id, {
         dispositivo: msg.dispositivo,
         versao: msg.versao,
         texto: msg.texto,
         visto: Date.now(),
         pendente: true,
+        t_inicio_ms: extremoTempo(Math.min, atual && atual.t_inicio_ms, inicio),
+        t_ultimo_ms: extremoTempo(Math.max, atual && atual.t_ultimo_ms, ultimo),
+        canal: typeof msg.canal === "string" ? msg.canal : null,
+        idioma: typeof msg.idioma === "string" && PADRAO_IDIOMA.test(msg.idioma) ? msg.idioma : null,
       });
     }
   }
@@ -180,6 +238,10 @@
         falasRtc.delete(id);
         return;
       }
+      if (!fala.pendente && !fala.final && fala.texto && agora - fala.visto >= RTC_FINAL_MS) {
+        fala.final = true;
+        fala.pendente = true;
+      }
       if (!fala.pendente || !fala.texto) return;
       const nome = nomeDoDispositivo(fala.dispositivo);
       if (!nome) return;
@@ -188,6 +250,11 @@
         id: "rtc-" + id,
         revisao: fala.versao,
         participant_id: fala.dispositivo,
+        t_inicio_ms: fala.t_inicio_ms,
+        t_ultimo_ms: fala.t_ultimo_ms,
+        canal: fala.canal,
+        idioma: fala.idioma,
+        final: fala.final === true,
       });
     });
   }
@@ -204,6 +271,8 @@
     }
     const ativo = tileAtivo();
     if (ativo) {
+      // T-15.B4: alguém fala e o canal está mudo — o vigia do rtc.js pode recriá-lo.
+      document.dispatchEvent(new CustomEvent("transkriptor-meet-fala"));
       enviar(ativo.nome, "ativo", "", { participant_id: ativo.id });
     }
   }

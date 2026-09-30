@@ -15,6 +15,8 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from sessao_reuniao import EnvelopeRejeitado, SessaoReuniao, SessoesAtivas
+from relogio_meet import RelogiosConexao, carimbar_fala, pingar
+from saude_meet import registrar_estado_meet
 from meet_pareamento import ConviteInvalido, Pareador
 
 from config import (
@@ -26,21 +28,12 @@ from config import (
     MEET_WS_EVENTOS_POR_SEG,
     MEET_WS_MAX_BYTES,
     MEET_WS_MAX_CONEXOES,
+    EXTENSAO_IDS_PERMITIDOS,
 )
 
 logger = logging.getLogger(__name__)
 
-_ORIGEM_EXTENSAO_RE = None
 _CODIGO_MEET_RE = re.compile(r"^[a-z]{3,4}-[a-z]{3,4}-[a-z]{3,4}$")
-
-
-def _origem_extensao_re():
-    global _ORIGEM_EXTENSAO_RE
-    if _ORIGEM_EXTENSAO_RE is None:
-        import re as _re
-
-        _ORIGEM_EXTENSAO_RE = _re.compile(r"^[a-p]{16,32}$")
-    return _ORIGEM_EXTENSAO_RE
 
 
 def sanitizar_nome_participante(nome: str) -> str:
@@ -104,8 +97,8 @@ def origem_permitida(origin: str | None) -> bool:
         partes = urlparse(origin)
     except Exception:  # noqa: BLE001
         return False
-    if partes.scheme == "chrome-extension":
-        return bool(_origem_extensao_re().fullmatch(partes.hostname or ""))
+    if partes.scheme == "chrome-extension":  # T-15.E1: ID exato, não qualquer extensão
+        return (partes.hostname or "") in EXTENSAO_IDS_PERMITIDOS
     if partes.scheme == "http" and partes.hostname in ("127.0.0.1", "localhost"):
         return True
     return False
@@ -149,6 +142,10 @@ class MeetBridge:
         self._hints: dict[str, dict] = {}
         self._sessoes_ativas = SessoesAtivas()
         self._sessao_lock = threading.RLock()
+        self.relogios = RelogiosConexao()  # T-15.A2
+        self.idiomas_meet: dict = {}  # T-15.B1: último idioma observado (só códigos)
+        self.saude_meet: dict = {}  # T-15.B4: última saúde do canal de legendas
+        self.segredo_nativo = secrets.token_urlsafe(32)  # T-15.E2: host de Native Messaging
 
     def registrar_hello(self, mensagem: dict) -> None:
         """Guarda só o código de sala/estado em memória; nunca nome ou legenda."""
@@ -229,16 +226,21 @@ class MeetBridge:
             canonico = dict(evento)
             canonico["received_monotonic_ns"] = time.monotonic_ns()
             valido = self._sessoes_ativas.aceitar_evento(connection_id, canonico, confirmar=False)
+            valido = carimbar_fala(valido, self.relogios.relogio_de(connection_id),
+                                   agora_mono_ns=canonico["received_monotonic_ns"], agora_wall_ns=time.time_ns())
+            if valido["kind"] in ("capabilities", "health"):  # T-15.B1/B4: só códigos e números
+                registrar_estado_meet(self, valido)
             if valido["kind"] == "heartbeat":
                 self.registrar_estado_reuniao(bool(valido.get("active")))
+                self._store.descarregar()  # T-15.A3: fecha o lote vencido mesmo em silêncio
                 self._sessoes_ativas.aceitar_evento(connection_id, valido)
                 return int(valido["seq"])
-            self._store.append(valido)
-            ack = self._store.descarregar(forcar=True)
-            if ack < int(valido["seq"]):
-                raise RuntimeError("evento Meet não durável")
+            self._store.append(valido)  # lote de até MEET_EVENTOS_DRENO_SEG; seal() fecha no fim
             self._sessoes_ativas.aceitar_evento(connection_id, valido)
             return int(valido["seq"])
+
+    def seq_duravel(self) -> int:
+        return int(self._store.estado()["ack_seq"]) if self._store is not None else -1
 
     def definir_store(self, store) -> None:
         """Liga o spool cifrado da sessão (T-13.D4; envelopes v1 vão ao store)."""
@@ -346,17 +348,17 @@ async def _servidor_ws(bridge: MeetBridge, host: str, porta: int) -> None:
             await websocket.close(1008, "Origin not allowed")
             return
         token_url = _token_da_url(websocket.request.path or "")
+        if bridge.pareador is not None and token_url and secrets.compare_digest(token_url, bridge.segredo_nativo):
+            await websocket.send(json.dumps({"tipo": "convite", "codigo": bridge.pareador.gerar_convite()}))
+            await websocket.close()  # T-15.E2: só entrega o código de uso único
+            return
         if bridge.pareador is not None:
             try:
                 token_sessao, era_convite = bridge.pareador.autenticar(token_url)
-            except ConviteInvalido:
-                # Transição D2→D4: instalações antigas (token em config.js)
-                # seguem válidas até o re-pareamento; novas usam o pareador.
-                if not token_url_valido(token_url, bridge.token):
-                    logger.info("Extensão Meet recusada: credencial inválida, expirada ou já usada.")
-                    await websocket.close(1008, "Unauthorized")
-                    return
-                token_sessao, era_convite = bridge.token, False
+            except ConviteInvalido:  # T-15.E1: sem token estático legado
+                logger.info("Extensão Meet recusada: credencial inválida, expirada ou já usada.")
+                await websocket.close(1008, "Unauthorized")
+                return
             if era_convite:
                 try:
                     await websocket.send(json.dumps({"tipo": "pareado", "token": token_sessao}))
@@ -379,6 +381,7 @@ async def _servidor_ws(bridge: MeetBridge, host: str, porta: int) -> None:
         janela_saldo = float(MEET_WS_BURST)
         janela_ultima = _time.monotonic()
         conexoes_do_socket: set[str] = set()
+        pings: dict[str, asyncio.Future] = {}
         try:
             async for mensagem in websocket:
                 # Token bucket: rajada até BURST, sustentado EVENTOS_POR_SEG.
@@ -412,6 +415,11 @@ async def _servidor_ws(bridge: MeetBridge, host: str, porta: int) -> None:
                     except EnvelopeRejeitado:
                         continue  # antes do consentimento, só heartbeat mínimo
                     await websocket.send(json.dumps(resposta))
+                    if connection_id not in pings:
+                        pings[connection_id] = asyncio.ensure_future(pingar(websocket.send, bridge.relogios, connection_id))
+                    continue
+                if dados.get("tipo") == "relogio_pong" and dados.get("connection_id") in conexoes_do_socket:
+                    bridge.relogios.registrar_pong(dados["connection_id"], dados.get("n"), cliente_wall_ms=dados.get("client_wall_ms"))
                     continue
                 if dados.get("schema_version") == 1 or "event_id" in dados:
                     connection_id = dados.get("connection_id")
@@ -423,15 +431,18 @@ async def _servidor_ws(bridge: MeetBridge, host: str, porta: int) -> None:
                     except (EnvelopeRejeitado, ValueError, RuntimeError):
                         await websocket.send(json.dumps({"tipo": "erro", "codigo": "envelope_rejeitado"}))
                         continue
-                    await websocket.send(json.dumps({"tipo": "ack", "connection_id": connection_id, "seq": seq}))
+                    await websocket.send(json.dumps({"tipo": "ack", "connection_id": connection_id, "seq": seq, "duravel": bridge.seq_duravel()}))
                     continue
                 if bridge.pareador is None:
                     bridge.registrar_evento(dados)
         except Exception:
             logger.debug("Cliente WebSocket desconectado", exc_info=True)
         finally:
+            for tarefa in pings.values():
+                tarefa.cancel()
             for connection_id in conexoes_do_socket:
                 bridge.desanexar_sessao(connection_id)
+                bridge.relogios.esquecer(connection_id)
             with bridge._estado_lock:
                 bridge._conexoes_autenticadas = max(0, bridge._conexoes_autenticadas - 1)
 
@@ -456,6 +467,12 @@ def iniciar_bridge_em_thread(
 
     thread = threading.Thread(target=_run, daemon=True, name="meet-bridge")
     thread.start()
+    try:
+        from ponte_nativa import publicar_segredo
+
+        publicar_segredo(bridge.segredo_nativo, porta)
+    except OSError:
+        logger.warning("Segredo da ponte nativa indisponível; pareamento só manual.")
     return thread
 
 

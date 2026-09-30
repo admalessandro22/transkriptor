@@ -1,0 +1,37 @@
+name: instalador
+
+# T-15.E4: gera o TranskriptorSetup.exe (Inno Setup + uv) e prova o provisionamento.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  setup-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - name: Baixar uv (versão fixa)
+        run: |
+          New-Item -ItemType Directory -Force instalador\bin | Out-Null
+          Invoke-WebRequest https://github.com/astral-sh/uv/releases/download/0.11.26/uv-x86_64-pc-windows-msvc.zip -OutFile uv.zip
+          Expand-Archive uv.zip -DestinationPath uvtmp
+          Copy-Item uvtmp\uv.exe instalador\bin\uv.exe
+      - name: Provisionamento CPU resolve com hash
+        run: |
+          instalador\bin\uv.exe venv --python 3.12 .prova-venv
+          instalador\bin\uv.exe pip sync --dry-run --require-hashes --python .prova-venv\Scripts\python.exe requirements\requirements-cpu.lock
+          instalador\bin\uv.exe pip sync --dry-run --require-hashes --index-strategy unsafe-best-match --python .prova-venv\Scripts\python.exe requirements\requirements-cuda.lock
+      - name: Instalar Inno Setup
+        run: choco install innosetup --no-progress -y
+      - name: Compilar
+        run: |
+          $versao = (python -c "import config; print(config.VERSAO)")
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DVersao=$versao" instalador\transkriptor.iss
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TranskriptorSetup
+          path: dist/TranskriptorSetup.exe

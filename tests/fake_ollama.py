@@ -38,6 +38,9 @@ class FakeOllama:
 
             def do_GET(self):
                 parent.requests.append({"method": "GET", "path": self.path})
+                if self.path.startswith("/api/version"):  # T-15.D1
+                    self._json(200, {"version": "0.34.4-fake"})
+                    return
                 if self.path.startswith("/api/tags"):
                     body = {
                         "models": [{"name": m} for m in parent.modelos],
@@ -72,6 +75,17 @@ class FakeOllama:
                             "parameters": f"num_ctx {parent.context_length}",
                         },
                     )
+                    return
+                if self.path.startswith("/api/pull"):  # T-15.E3: download com progresso
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/x-ndjson")
+                    self.end_headers()
+                    for passo in ({"status": "pulling manifest"},
+                                  {"status": "downloading", "total": 100, "completed": 40},
+                                  {"status": "downloading", "total": 100, "completed": 100},
+                                  {"status": "success"}):
+                        self.wfile.write((json.dumps(passo) + "\n").encode("utf-8"))
+                    parent.modelos.append(dados.get("model") or dados.get("name"))
                     return
                 if self.path.startswith("/api/chat"):
                     # NDJSON stream

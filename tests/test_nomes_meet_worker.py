@@ -199,3 +199,182 @@ def test_job_v1_sem_nome_nao_fabrica_participante(chave_teste, tmp_path):
         resultado = processar_job(job_id, modelo_whisper=_modelo_duas_falas(), fila=fila)
     assert visto["eventos_meet"] == []
     assert "Ana" not in Path(resultado).read_text(encoding="utf-8")
+
+
+def test_fala_com_relogio_chega_no_tempo_do_audio(chave_teste, tmp_path):
+    """T-15.A2: evento carimbado pela ponte vira ts_sec relativo ao 1º frame."""
+    import dataclasses
+
+    from eventos_meet_store import EventStore
+    from processador_reuniao import processar_job
+    from sessao_reuniao import criar_sessao
+
+    (tmp_path / "tr").mkdir()
+    audio = _escrever_wav(tmp_path / "tr" / "audio.wav")
+    sessao = criar_sessao("reuniao-a2", CONSENTIDA, "padrao")
+    store = EventStore(tmp_path / "tr" / "eventos_privados", sessao, ancora_refs=tmp_path / "tr")
+    ev = _evento(sessao.session_id, "reuniao-a2", 0, "Ana", "bom dia a todos")
+    primeiro_frame = 111_000_000_000
+    ev.update({"speech_started_monotonic_ns": primeiro_frame + 250_000_000,
+               "speech_last_monotonic_ns": primeiro_frame + 400_000_000,
+               "clock_uncertainty_ms": 6.0})
+    store.append(ev)
+    refs = store.seal()
+    fila = FilaProcessamento(str(tmp_path / "tr"))
+    snapshot = _sessao_snapshot(sessao.session_id, "reuniao-a2")
+    snapshot["relogio_incerto"] = True  # o snapshot antigo não decide mais
+    job_id = fila.enfileirar(
+        str(audio), None, "reuniao-a2", {"origem": "gate", "diarizar": True, "idioma": "pt"},
+        sessao=snapshot, eventos_refs=[dataclasses.asdict(r) for r in refs],
+        preferencias={"rotulo_usuario": "VOCÊ", "usar_vozes_conhecidas": False},
+    )
+    visto, fake = _espiao_diarizar()
+    capturado = {}
+    import identidade_reuniao
+
+    original = identidade_reuniao.resolver_atribuicao
+
+    def _espiao_resolver(*args, **kwargs):
+        capturado["incerteza"] = kwargs.get("clock_uncertainty_ms")
+        return original(*args, **kwargs)
+
+    with patch("diarizador.diarizar", side_effect=fake), \
+            patch("identidade_reuniao.resolver_atribuicao", side_effect=_espiao_resolver):
+        processar_job(job_id, modelo_whisper=_modelo_duas_falas(), fila=fila)
+    eventos = visto["eventos_meet"]
+    assert eventos[0]["ts_sec"] == 0.25
+    assert capturado.get("incerteza") == 6
+
+
+def test_aviso_sem_nomes_le_event_store(chave_teste, tmp_path):
+    """G-14: com a ponte pareada a fila legada fica vazia; o aviso consulta o store."""
+    from app_ciclo_reuniao import CicloReuniaoMixin
+    from eventos_meet_store import EventStore
+    from sessao_reuniao import criar_sessao
+
+    sessao = criar_sessao("reuniao-g14", CONSENTIDA, "padrao")
+    store = EventStore(tmp_path / "eventos", sessao)
+    ciclo = CicloReuniaoMixin()
+    ciclo.modo_legendas_meet = True
+    ciclo._eventos_store = store
+    assert ciclo._sem_nomes_do_meet([]) is True
+    store.append(_evento(sessao.session_id, "reuniao-g14", 0, "Ana", "bom dia"))
+    assert ciclo._sem_nomes_do_meet([]) is False
+    ciclo._eventos_store = None
+    assert ciclo._sem_nomes_do_meet([{"nome": "Ana"}]) is False
+    ciclo.modo_legendas_meet = False
+    assert ciclo._sem_nomes_do_meet([]) is False
+
+
+def _job_c2(tmp_path, extras=()):
+    """Job do cenário C2: Ana e depois Bruno num segmento só; `extras` são legendas a mais."""
+    import dataclasses
+    from types import SimpleNamespace
+
+    from eventos_meet_store import EventStore
+    from sessao_reuniao import criar_sessao
+
+    (tmp_path / "tr").mkdir()
+    audio = _escrever_wav(tmp_path / "tr" / "audio.wav", segundos=4.0)
+    sessao = criar_sessao("reuniao-c2", CONSENTIDA, "padrao")
+    store = EventStore(tmp_path / "tr" / "eventos_privados", sessao, ancora_refs=tmp_path / "tr")
+    zero = 111_000_000_000
+    falas = [("Ana", "dev-1", "bafo cedi lame nipo", 0.9, 2.45), ("Bruno", "dev-2", "ruza tevi zoba gula", 2.9, 4.45),
+             *extras]
+    for seq, (nome, pid, texto, ini, fim) in enumerate(falas):
+        ev = _evento(sessao.session_id, "reuniao-c2", seq, nome, texto)
+        ev.update({"participant_id": pid, "caption_id": f"rtc-{seq}/{pid}", "caption_revision": 1,
+                   "speech_started_monotonic_ns": zero + int(ini * 1e9),
+                   "speech_last_monotonic_ns": zero + int(fim * 1e9), "clock_uncertainty_ms": 6.0})
+        store.append(ev)
+    refs = store.seal()
+    fila = FilaProcessamento(str(tmp_path / "tr"))
+    job_id = fila.enfileirar(
+        str(audio), None, "reuniao-c2", {"origem": "gate", "diarizar": True, "idioma": "pt"},
+        sessao=_sessao_snapshot(sessao.session_id, "reuniao-c2"),
+        eventos_refs=[dataclasses.asdict(r) for r in refs],
+        preferencias={"rotulo_usuario": "VOCÊ", "usar_vozes_conhecidas": False},
+    )
+    toks = "bafo cedi lame nipo ruza tevi zoba gula".split()
+    inicios = [0.0, 0.4, 0.8, 1.2, 2.0, 2.4, 2.8, 3.2]
+    palavras = [SimpleNamespace(word=" " + w, start=i, end=i + 0.35, probability=0.9) for w, i in zip(toks, inicios)]
+    modelo = MagicMock()
+    modelo.transcribe.return_value = (
+        [SimpleNamespace(text=" " + " ".join(toks), start=0.0, end=3.55, words=palavras)], MagicMock())
+    return fila, job_id, modelo
+
+
+def test_worker_gera_transcricao_do_meet_e_preenche_lacuna(chave_teste, tmp_path):
+    """T-15.C4: legenda de Carla depois do áudio transcrito vira lacuna marcada no TXT."""
+    from processador_reuniao import processar_job
+    from resultado_reuniao import carregar_manifesto, carregar_segmentos
+
+    fila, job_id, modelo = _job_c2(tmp_path, extras=[("Carla", "dev-3", "fala sem audio", 9.0, 12.0)])
+    _, fake = _espiao_diarizar()
+    with patch("diarizador.diarizar", side_effect=fake):
+        processar_job(job_id, modelo_whisper=modelo, fila=fila)
+    manifesto = carregar_manifesto(Path(fila.obter(job_id).manifesto_resultado))
+    dados = carregar_segmentos(fila.pasta_transcricoes / manifesto.segments_ref.relative_path)
+    assert [b["nome"] for b in dados["transcricao_meet"]] == ["Ana", "Bruno", "Carla"]
+    assert [b["nome"] for b in dados["lacunas_meet"]] == ["Carla"]
+    txt = (fila.pasta_transcricoes / "reuniao-c2.txt").read_text(encoding="utf-8").splitlines()
+    assert txt[-1].endswith("[legenda do Meet] Carla: fala sem audio")
+
+
+def test_worker_corta_e_nomeia_pelo_alinhamento(chave_teste, tmp_path, caplog):
+    """T-15.C2: um segmento com Ana e depois Bruno sai em dois, cada um com o nome."""
+    import dataclasses
+    from types import SimpleNamespace
+
+    from eventos_meet_store import EventStore
+    from processador_reuniao import processar_job
+    from resultado_reuniao import carregar_manifesto, carregar_segmentos
+    from sessao_reuniao import criar_sessao
+
+    (tmp_path / "tr").mkdir()
+    audio = _escrever_wav(tmp_path / "tr" / "audio.wav", segundos=4.0)
+    sessao = criar_sessao("reuniao-c2", CONSENTIDA, "padrao")
+    store = EventStore(tmp_path / "tr" / "eventos_privados", sessao, ancora_refs=tmp_path / "tr")
+    zero = 111_000_000_000
+    for seq, (nome, pid, texto, ini, fim) in enumerate([
+        ("Ana", "dev-1", "bafo cedi lame nipo", 0.9, 2.45),
+        ("Bruno", "dev-2", "ruza tevi zoba gula", 2.9, 4.45),
+    ]):
+        ev = _evento(sessao.session_id, "reuniao-c2", seq, nome, texto)
+        ev.update({"participant_id": pid, "caption_id": f"rtc-{seq}/{pid}", "caption_revision": 1,
+                   "speech_started_monotonic_ns": zero + int(ini * 1e9),
+                   "speech_last_monotonic_ns": zero + int(fim * 1e9), "clock_uncertainty_ms": 6.0})
+        store.append(ev)
+    refs = store.seal()
+    fila = FilaProcessamento(str(tmp_path / "tr"))
+    job_id = fila.enfileirar(
+        str(audio), None, "reuniao-c2", {"origem": "gate", "diarizar": True, "idioma": "pt"},
+        sessao=_sessao_snapshot(sessao.session_id, "reuniao-c2"),
+        eventos_refs=[dataclasses.asdict(r) for r in refs],
+        preferencias={"rotulo_usuario": "VOCÊ", "usar_vozes_conhecidas": False},
+    )
+    toks = "bafo cedi lame nipo ruza tevi zoba gula".split()
+    inicios = [0.0, 0.4, 0.8, 1.2, 2.0, 2.4, 2.8, 3.2]
+    palavras = [SimpleNamespace(word=" " + w, start=i, end=i + 0.35, probability=0.9)
+                for w, i in zip(toks, inicios)]
+    segmento = SimpleNamespace(text=" " + " ".join(toks), start=0.0, end=3.55, words=palavras)
+    modelo = MagicMock()
+    modelo.transcribe.return_value = ([segmento], MagicMock())
+    _, fake = _espiao_diarizar()
+    import logging
+
+    with patch("diarizador.diarizar", side_effect=fake), caplog.at_level(logging.INFO, "processador_reuniao"):
+        processar_job(job_id, modelo_whisper=modelo, fila=fila)
+    linhas = [r.getMessage() for r in caplog.records if "[meet_alinhamento]" in r.getMessage()]
+    assert len(linhas) == 1 and "cortes=1" in linhas[0]
+    assert not any(nome in linhas[0] for nome in ("Ana", "Bruno", "bafo", "ruza"))
+    manifesto = carregar_manifesto(Path(fila.obter(job_id).manifesto_resultado))
+    dados = carregar_segmentos(fila.pasta_transcricoes / manifesto.segments_ref.relative_path)
+    segs = dados["segmentos"]
+    assert [s["text"] for s in segs] == ["bafo cedi lame nipo", "ruza tevi zoba gula"]
+    assert [s["assignment"]["display_name"] for s in segs] == ["Ana", "Bruno"]
+    assert all(s["assignment"]["source"] == "meet_alinhamento" for s in segs)
+    # T-15.C3 (DP-15-02): alinhamento forte confirma sozinho e o TXT já sai nomeado.
+    assert all(s["assignment"]["status"] == "confirmed" and s["assignment"]["auto"] for s in segs)
+    txt = (fila.pasta_transcricoes / "reuniao-c2.txt").read_text(encoding="utf-8")
+    assert "Ana: bafo cedi lame nipo" in txt and "Bruno: ruza tevi zoba gula" in txt

@@ -142,7 +142,10 @@ def test_cabecalhos_privacidade(tmp_path, monkeypatch, headers_token):
 
 
 def test_desconexao_fecha_upstream():
-    from assistente_ollama import stream_chat_ollama
+    """Cliente desconectou: a resposta do Ollama é fechada (T-15.D1: via provedores_ia)."""
+    import urllib.request
+
+    from assistente_ollama import stream_chat
 
     fechado = []
 
@@ -154,16 +157,14 @@ def test_desconexao_fecha_upstream():
         def close(self):
             fechado.append(True)
 
-    import assistente_ollama
-
-    orig = assistente_ollama.urllib.request.urlopen
-    assistente_ollama.urllib.request.urlopen = lambda *a, **k: _Resp()
+    orig = urllib.request.urlopen
+    urllib.request.urlopen = lambda *a, **k: _Resp()
     try:
-        gen = stream_chat_ollama(object()).response
+        gen = stream_chat("m", [{"role": "user", "content": "q"}]).response
         next(gen)
         gen.close()
     finally:
-        assistente_ollama.urllib.request.urlopen = orig
+        urllib.request.urlopen = orig
     assert fechado == [True]
 
 

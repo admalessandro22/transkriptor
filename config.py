@@ -8,7 +8,7 @@ Isso evita magic numbers espalhados e facilita ajustes.
 import os
 
 # ---- Versão do produto (fonte única) ----
-VERSAO = "1.9.0"
+VERSAO = "2.0.0"
 
 # ---- Caminhos ----
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -45,6 +45,27 @@ def resolver_device_whisper(valor: str) -> str:
         return valor
     import torch
     return "cuda" if torch.cuda.is_available() else "cpu"
+
+
+def preferir_whisper(modelo: str, device: str, ctype: str, *, fixo: bool = False) -> tuple[str, str, str]:
+    """T-15.D3: aplica dispositivo/precisão escolhidos nas Configurações.
+
+    Em "auto" (fixo=False), CPU forçada troca para o modelo leve; float16 não
+    roda em CPU, então a precisão cai para int8 ali.
+    """
+    import config_user
+
+    cfg = config_user.carregar()
+    dispositivo, precisao = cfg.get("whisper_dispositivo") or "auto", cfg.get("whisper_precisao") or "auto"
+    if dispositivo == "cpu" and device != "cpu":
+        modelo, device, ctype = (modelo if fixo else "small"), "cpu", "int8"
+    elif dispositivo == "cuda" and device != "cuda":
+        device, ctype = "cuda", "int8_float16"
+    if precisao != "auto":
+        ctype = precisao
+    if device == "cpu" and "float16" in ctype:
+        ctype = "int8"
+    return modelo, device, ctype
 
 
 def resolver_modelo_whisper(tem_cuda: bool, vram_gb: float) -> tuple[str, str, str]:
@@ -172,13 +193,21 @@ MEET_WS_MAX_BYTES = 16 * 1024          # envelope máximo no socket (spec: 4 KiB
 MEET_WS_EVENTOS_POR_SEG = 20           # taxa sustentada por conexão
 MEET_WS_BURST = 40                     # rajada máxima por conexão
 MEET_WS_MAX_CONEXOES = 4               # conexões autenticadas simultâneas
+# T-15.E1: só a nossa extensão fala com a ponte. O ID sai da `key` do manifest
+# (desenvolvimento); os IDs da Chrome Web Store/Edge Add-ons entram ao publicar.
+EXTENSAO_IDS_PERMITIDOS = ("mkcfobdlgdaeplnklpfcioojjgjjoojo",)
+# T-15.E5: páginas da extensão nas lojas (preencher ao publicar; ver extension/meet/LOJA.md).
+EXTENSAO_URL_CHROME = None
+EXTENSAO_URL_EDGE = None
+# T-15.E2: porta + segredo da ponte para o host de Native Messaging (pasta do usuário).
+ARQUIVO_SEGREDO_PONTE = os.path.join(os.environ.get("LOCALAPPDATA", BASE_DIR), "Transkriptor", "ponte.segredo")
 MEET_CONVITE_SEG = 300                 # validade do convite de pareamento
 MEET_SESSAO_SEG = 90 * 24 * 3600       # validade da credencial; renovada a cada uso
 ARQUIVO_PAREAMENTO_MEET = os.path.join(DIR_MODELO_VOZ, "meet_pareamento.json")  # só hashes
 
 # ---- Spool de eventos Meet (SEC-13.D4) ----
 MEET_EVENTOS_BUFFER = 500             # eventos em RAM antes do dreno
-MEET_EVENTOS_DRENO_SEG = 1.0          # dreno contínuo no máximo a cada 1 s
+MEET_EVENTOS_DRENO_SEG = 30.0         # T-15.A3: lote de até 30 s (antes 1 s; um arquivo por evento)
 MEET_EVENTOS_SEGMENTO_BYTES = 1024 * 1024  # segmento JSONL antes do selo
 MEET_EVENTOS_SPOOL_MAX_BYTES = 256 * 1024 * 1024  # teto do spool cifrado/sessão
 MEET_EVENTOS_RAIZ = "eventos_privados"
@@ -206,8 +235,37 @@ IDENTIDADE_EPSILON_EMPATE = 0.05      # diferença mínima p/ desempatar candida
 IDENTIDADE_PRECISAO_MIN = 0.98        # precisão seletiva p/ modo automático
 IDENTIDADE_COBERTURA_MIN = 0.80       # cobertura elegível p/ modo automático
 CALIBRACAO_IDENTIDADE_VERSAO = "d6-1"
-MODO_AUTO_NOMES = False               # sem corpus não há nome automático
+MODO_AUTO_NOMES = False               # comparação de texto nunca confirma sozinha
+# T-15.C3 / DP-15-02: alinhamento com o Meet aplica o nome sozinho (provisório até T-15.F1).
+NOMES_AUTO_MEET = True
+NOME_AUTO_CONFIANCA_MIN = 0.6         # confiança do segmento (cobertura × fator do alinhamento)
+NOME_AUTO_PARTICIPACAO_MIN = 0.8      # fatia do cluster de voz para nomear o cluster inteiro
+NOME_AUTO_DURACAO_MIN_S = 5.0         # fala mínima do participante no cluster
+# T-15.C4 — transcrição do Meet (blocos por falante) e lacunas sem Whisper.
+MEET_BLOCO_INTERVALO_MS = 5000        # falas do mesmo falante até este intervalo formam um bloco
+MEET_BLOCO_FALAS_MAX = 6
+MEET_LACUNA_MIN_MS = 2000             # legenda sem segmento do Whisper vira lacuna a partir disto
 INCERTEZA_TEMPO_MAX_MS = 1500         # acima disso, tempo sozinho não nomeia
+# T-15.A2 — relógio da extensão: ping/pong ponte↔background por conexão.
+RELOGIO_PINGS_INICIAIS = 5            # rajada ao vincular a aba
+RELOGIO_INTERVALO_INICIAL_S = 0.2     # espaço entre pings da rajada
+RELOGIO_INTERVALO_S = 30.0            # depois, um ping a cada 30 s
+RELOGIO_AMOSTRAS_MAX = 20             # amostras recentes por conexão
+RELOGIO_PINGS_PENDENTES_MAX = 8       # pings sem resposta guardados
+RELOGIO_FOLGA_FUTURO_MS = 1000        # fala "no futuro" além disso: relógio ruim, não carimba
+# T-15.C2 — alinhamento legenda↔Whisper. Provisórios até a calibração (T-15.F1).
+ALINHAMENTO_FAIXA_MS = (-4000, 1000)  # δ somado à legenda; negativo = legenda atrasada
+ALINHAMENTO_PASSO_MS = 50
+ALINHAMENTO_TOLERANCIA_TEXTO_MS = 700 # palavra igual a até isto conta como concordância
+ALINHAMENTO_MIN_PARES = 8             # menos que isso: atraso padrão, confiança reduzida
+ALINHAMENTO_ATRASO_PADRAO_MS = -1000  # latência típica da legenda quando não dá para estimar
+ALINHAMENTO_JANELA_MS = 60_000        # refino por janela acompanha a deriva
+ALINHAMENTO_REFINO_MS = 500
+ALINHAMENTO_CONCORDANCIA_MIN = 0.3
+ALINHAMENTO_FATOR_SO_TEMPO = 0.6      # confiança quando só o tempo sustenta o nome
+ATRIBUICAO_TOLERANCIA_MS = 300        # folga nas bordas da fala
+ATRIBUICAO_GAP_MAX_MS = 1500          # palavra entre falas vai à mais próxima até isto
+FRAGMENTO_MIN_MS = 600                # corte menor que isto (e fraco) volta ao vizinho
 
 # ---- Worker pós-reunião (FR-13.B3) ----
 # Orçamentos injetáveis; não derivam da duração da reunião.

@@ -130,6 +130,13 @@ class Pareador:
         except ConviteInvalido:
             return False
 
+    def tem_credencial(self) -> bool:
+        """T-15.E3: há extensão pareada e ainda válida (sem expor credencial)."""
+        import time as _time
+
+        with self._lock:
+            return any(expira > _time.time() for expira in self._sessoes.values())
+
     def revogar_token(self, token: str) -> None:
         with self._lock:
             if self._sessoes.pop(self._hash(token), None) is not None:
