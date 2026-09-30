@@ -233,7 +233,7 @@ def test_chamada_do_resumo_desliga_raciocinio_e_fixa_contexto(monkeypatch):
         enviados.append((_json.loads(req.data), timeout))
         return _Resp()
 
-    monkeypatch.setattr(central_resumos.urllib.request, "urlopen", abrir)
+    monkeypatch.setattr("urllib.request.urlopen", abrir)  # T-15.D1: via provedores_ia
     monkeypatch.setattr(central_resumos, "_contexto", lambda m: 8192)
     assert central_resumos._chamar_resumo("gemma4:latest", [{"role": "user", "content": "x"}]) == "ok"
     corpo, timeout = enviados[0]

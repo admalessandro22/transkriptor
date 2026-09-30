@@ -38,6 +38,9 @@ class FakeOllama:
 
             def do_GET(self):
                 parent.requests.append({"method": "GET", "path": self.path})
+                if self.path.startswith("/api/version"):  # T-15.D1
+                    self._json(200, {"version": "0.34.4-fake"})
+                    return
                 if self.path.startswith("/api/tags"):
                     body = {
                         "models": [{"name": m} for m in parent.modelos],

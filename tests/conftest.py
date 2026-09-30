@@ -228,6 +228,7 @@ def _isolar_estado_local(monkeypatch, tmp_path):
     O guard acima continua obrigatório: ele cobre caminhos futuros que alguém
     esqueça de redirecionar aqui.
     """
+    monkeypatch.delenv("OLLAMA_HOST", raising=False)  # T-15.D1: a URL do Ollama vem só do teste
     estado = tmp_path / "estado_local"
     transcricoes = estado / "transcricoes"
     audio = transcricoes / "audio"

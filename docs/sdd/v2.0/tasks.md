@@ -207,10 +207,10 @@ Estados possíveis: `PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `REOPENED` (mes
 
 ### T-15.D1 — provedores de IA unificados (Ollama)
 
-- [ ] **Requisito:** FR-15.D1. **Depende de:** autorização. **Estado:** `PENDING`. **Tamanho:** M.
+- [x] **Requisito:** FR-15.D1. **Depende de:** autorização. **Estado:** `DONE`; evidência: `evidencias/T-15.D1.md`. **Tamanho:** M.
 - **Arquivos:**
   - criar `provedores_ia.py`, `detector_ollama.py`, `tests/test_provedores_ia.py`, `tests/test_detector_ollama.py`;
-  - modificar `assistente.py:372-385, 422-429`, `assistente_ollama.py`, `central_resumos.py:31-78`, `resumo_reuniao.py`, `config.py:109`, `instalar_helper.py:36-50`.
+  - modificar `assistente.py:372-385, 422-429`, `assistente_ollama.py`, `central_resumos.py:31-78`, `tests/fake_ollama.py` (`/api/version`), `tests/conftest.py` (isola `OLLAMA_HOST`). Emenda: `resumo_reuniao.py` não precisou mudar (a escolha do modelo é da D3); `scripts/instalar_helper.py` passa a usar o detector na E3/E4, porque roda antes do ambiente do app existir.
 - **Implementação:**
   - protocolo e `ProvedorOllama` conforme `interfaces.md` §5 e §6;
   - substituir todas as chamadas diretas;
@@ -220,7 +220,7 @@ Estados possíveis: `PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `REOPENED` (mes
   - `test_provedores_ia.py::test_ollama_lista_modelos`, `::test_stream_ndjson_normalizado`, `::test_offline_estado_offline`, `::test_url_nao_loopback_recusada`;
   - `test_detector_ollama.py::test_ordem_de_busca`, `::test_ollama_host_normalizado`, `::test_parado_quando_exe_sem_api`, `::test_registro_install_location`;
   - teste de arquitetura: `::test_nenhum_modulo_chama_api_tags_direto`.
-- **Teste final:** `python -m pytest tests/test_provedores_ia.py tests/test_detector_ollama.py tests/test_assistente_api.py tests/test_resumo_reuniao.py tests/test_central_resumos.py -v`; `npm run test:e2e -- chat-cancel.spec.js`.
+- **Teste final:** `python -m pytest tests/test_provedores_ia.py tests/test_detector_ollama.py tests/test_assistente_api.py tests/test_resumo_reuniao.py tests/test_assistente_seguranca.py tests/test_token_sessao.py -v`; `npm run test:e2e -- chat-cancel.spec.js` (emenda: `test_central_resumos.py` não existe; os resumos são cobertos por `test_resumo_reuniao.py`).
 - **Aceite:** o `grep` por `/api/tags` e `/api/chat` fora de `provedores_ia.py` retorna vazio; a Central com Ollama offline se comporta como hoje.
 
 ### T-15.D2 — provedor OpenRouter com chave protegida

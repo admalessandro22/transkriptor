@@ -2,7 +2,6 @@
 """Assistente de reunião — Flask local (Ollama) com front em templates/static."""
 
 import datetime
-import json
 import os
 import secrets
 import socket
@@ -37,8 +36,6 @@ from config import (
     MAX_CHARS_TRANSCRICAO,
     MAX_CORPO_CHAT_BYTES,
     MAX_HISTORICO_CHAT,
-    OLLAMA_TIMEOUT_CONEXAO,
-    OLLAMA_URL,
     PASTA_TRANSCRICOES,
     PORTAS_FALLBACK,
     ROTULO_USUARIO,
@@ -371,17 +368,11 @@ def index():
 
 @app.route("/api/saude")
 def api_saude():
-    ollama_ok = False
-    modelos: list[str] = []
-    try:
-        with urllib.request.urlopen(
-            OLLAMA_URL.rstrip("/") + "/api/tags", timeout=OLLAMA_TIMEOUT_CONEXAO
-        ) as r:
-            dados = json.loads(r.read().decode("utf-8"))
-        ollama_ok = True
-        modelos = [m.get("name", "") for m in dados.get("models", []) if m.get("name")]
-    except Exception:
-        pass
+    from provedores_ia import provedor_ollama  # T-15.D1: um só caminho até o Ollama
+
+    provedor = provedor_ollama()
+    modelos = [m.id for m in provedor.listar_modelos()]
+    ollama_ok = bool(modelos) or provedor.estado().estado != "offline"
     return jsonify({"ollama": ollama_ok, "modelos": modelos, "versao": VERSAO})
 
 
@@ -421,12 +412,9 @@ def api_transcricoes():
 
 @app.route("/api/modelos")
 def api_modelos():
-    try:
-        with urllib.request.urlopen(OLLAMA_URL + "/api/tags", timeout=5) as r:
-            dados = json.loads(r.read())
-        return jsonify([m["name"] for m in dados.get("models", [])])
-    except Exception:
-        return jsonify([])
+    from provedores_ia import provedor_ollama
+
+    return jsonify([m.id for m in provedor_ollama().listar_modelos()])
 
 
 @app.route("/api/chat", methods=["POST"])

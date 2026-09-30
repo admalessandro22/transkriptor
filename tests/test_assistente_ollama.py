@@ -11,7 +11,6 @@ from tests.fake_ollama import FakeOllama
 def fake_ollama(monkeypatch):
     fake = FakeOllama(modelos=["m1", "m2"], context_length=4096, chat_reply="ok")
     url = fake.start()
-    monkeypatch.setattr("assistente.OLLAMA_URL", url)
     monkeypatch.setattr("config.OLLAMA_URL", url)
     monkeypatch.setattr("assistente_ollama._cache_ctx", {})
     yield fake
@@ -19,7 +18,7 @@ def fake_ollama(monkeypatch):
 
 
 def test_fake_ollama_api_modelos(fake_ollama, monkeypatch):
-    monkeypatch.setattr("assistente.OLLAMA_URL", fake_ollama.url)
+    monkeypatch.setattr("config.OLLAMA_URL", fake_ollama.url)  # T-15.D1: fonte única
     with app.test_request_context():
         # api_modelos uses OLLAMA_URL from module
         from assistente import api_modelos as fn

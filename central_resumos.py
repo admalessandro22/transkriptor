@@ -9,9 +9,7 @@ JSON são exigidos pelo `before_request` de `assistente.py` para `/api/*`.
 """
 from __future__ import annotations
 
-import json
 import threading
-import urllib.request
 from pathlib import Path
 
 from flask import Blueprint, jsonify, request
@@ -29,13 +27,9 @@ TIMEOUT_RESUMO_SEG = 300
 
 
 def _modelos_instalados() -> list[str]:
-    import config
+    from provedores_ia import provedor_ollama  # T-15.D1
 
-    try:
-        with urllib.request.urlopen(config.OLLAMA_URL.rstrip("/") + "/api/tags", timeout=config.OLLAMA_TIMEOUT_CONEXAO) as r:
-            return [m["name"] for m in json.loads(r.read().decode("utf-8")).get("models", []) if m.get("name")]
-    except Exception:  # noqa: BLE001 — Ollama fora do ar: sem modelo
-        return []
+    return [m.id for m in provedor_ollama().listar_modelos()]
 
 
 def _app_ocupado() -> bool:
@@ -63,19 +57,14 @@ def _contexto(modelo: str) -> int:
 def _chamar_resumo(modelo: str, mensagens: list[dict]) -> str:
     """Chamada própria: sem "thinking" (modelos como gemma4 passavam de 2 min só
     raciocinando), temperatura baixa e `num_ctx` igual ao orçamento usado."""
-    import config
+    from provedores_ia import ErroProvedor, provedor_ollama
 
-    corpo = {"model": modelo, "messages": mensagens, "stream": False, "think": False,
-             "options": {"temperature": 0.2, "num_ctx": _contexto(modelo)}}
-    req = urllib.request.Request(
-        config.OLLAMA_URL.rstrip("/") + "/api/chat", data=json.dumps(corpo).encode("utf-8"),
-        headers={"Content-Type": "application/json"}, method="POST",
-    )
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT_RESUMO_SEG) as r:
-            return (json.loads(r.read().decode("utf-8")).get("message") or {}).get("content") or ""
-    except Exception as exc:  # noqa: BLE001 — vira estado "indisponível", nunca resumo
-        return f"[Erro ao contatar o Ollama: {type(exc).__name__}]"
+        return provedor_ollama().conversar(
+            mensagens, modelo=modelo, opcoes={"temperature": 0.2, "num_ctx": _contexto(modelo)},
+            pensar=False, timeout=TIMEOUT_RESUMO_SEG)
+    except ErroProvedor as exc:  # vira estado "indisponível", nunca resumo
+        return f"[{exc.mensagem_segura}]"
 
 
 def _orcamento(modelo: str) -> int:

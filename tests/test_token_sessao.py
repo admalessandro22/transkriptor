@@ -78,7 +78,7 @@ def test_chat_historico_longo_400(tmp_path, monkeypatch, headers_token):
 
 
 def test_api_saude_ollama_off(monkeypatch, headers_token):
-    monkeypatch.setattr("assistente.OLLAMA_URL", "http://127.0.0.1:1")
+    monkeypatch.setattr("config.OLLAMA_URL", "http://127.0.0.1:1")  # T-15.D1: fonte única
     client = app.test_client()
     resp = client.get("/api/saude", headers=headers_token)
     assert resp.status_code == 200
@@ -129,7 +129,7 @@ def test_api_chat_com_token_nao_403_por_token(tmp_path, monkeypatch, headers_tok
     mock_resp.__exit__ = MagicMock(return_value=False)
     mock_resp.__iter__ = MagicMock(return_value=iter(_stream()))
 
-    with patch("assistente.urllib.request.urlopen", return_value=mock_resp):
+    with patch("urllib.request.urlopen", return_value=mock_resp):
         resp = client.post(
             "/api/chat",
             json={"modelo": "m", "transcricao": "ok.txt", "pergunta": "q"},
