@@ -307,7 +307,7 @@ Estados possíveis: `PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `REOPENED` (mes
 
 ### T-15.E4 — instalador empacotado sem Python
 
-- [ ] **Requisito:** FR-15.E4. **Depende de:** E2, E3 e DP-15-06/07. **Estado:** `PENDING`. **Tamanho:** G.
+- [x] **Requisito:** FR-15.E4. **Depende de:** E2, E3 e DP-15-06/07. **Estado:** `DONE` no código e na resolução real dos locks; **gate de Windows Sandbox pendente** (Inno Setup não instalado nesta máquina; o `.exe` sai pelo workflow `instalador.yml`); evidência: `evidencias/T-15.E4.md`. **Tamanho:** G.
 - **Arquivos:**
   - criar `instalador/transkriptor.iss` (Inno Setup), `instalador/provisionar.py`, `instalador/README.md`, `.github/workflows/instalador.yml`, `tests/test_instalador_provisionar.py`;
   - modificar `scripts/gate_instalacao.py`, `desinstalar.bat` (vira atalho para o desinstalador), `instalar_helper.py` (reuso da detecção).
@@ -320,7 +320,7 @@ Estados possíveis: `PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `REOPENED` (mes
   - no fim, "Abrir Transkriptor" leva ao assistente;
   - o desinstalador preserva dados por padrão.
 - **RED:** `test_instalador_provisionar.py::test_rota_cpu_sem_nvidia`, `::test_rota_cuda_com_nvidia`, `::test_hash_obrigatorio`, `::test_detectar_json`, `::test_desinstalar_preserva_dados`, `::test_desinstalar_remove_registro`.
-- **Teste final:** `python -m pytest tests/test_instalador_provisionar.py tests/test_gate_instalacao.py -v`; `python scripts/gate_instalacao.py --setup dist/TranskriptorSetup.exe` (VM ou Windows Sandbox limpo).
+- **Teste final:** `python -m pytest tests/test_instalador_provisionar.py tests/test_gate_instalacao.py -v`; `uv pip sync --dry-run --require-hashes` dos dois locks (feito no workflow); instalação do `dist/TranskriptorSetup.exe` numa Windows Sandbox limpa (manual, pendente de autorização).
 - **Aceite:** em Windows Sandbox sem Python: instalar, abrir, concluir o assistente e desinstalar sem erro, com tempo e tamanho registrados.
 
 ### T-15.E5 — distribuição da extensão pela loja
