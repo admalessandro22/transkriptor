@@ -63,6 +63,16 @@ def abrir_central(app, pagina: str = "") -> None:
     threading.Thread(target=iniciar_assistente_ui, args=(app, pagina), daemon=True).start()
 
 
+def abrir_primeiro_uso_se_preciso(app, abrir=abrir_central) -> bool:
+    """T-15.E3: na primeira vez, a Central abre no assistente de primeiros passos."""
+    import config_user
+
+    if config_user.carregar().get("assistente_inicial_concluido"):
+        return False
+    abrir(app, "primeiro-uso")
+    return True
+
+
 def _registrar_provedores(app) -> None:
     import app_estado_ui
     import central_config

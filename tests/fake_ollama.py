@@ -76,6 +76,17 @@ class FakeOllama:
                         },
                     )
                     return
+                if self.path.startswith("/api/pull"):  # T-15.E3: download com progresso
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/x-ndjson")
+                    self.end_headers()
+                    for passo in ({"status": "pulling manifest"},
+                                  {"status": "downloading", "total": 100, "completed": 40},
+                                  {"status": "downloading", "total": 100, "completed": 100},
+                                  {"status": "success"}):
+                        self.wfile.write((json.dumps(passo) + "\n").encode("utf-8"))
+                    parent.modelos.append(dados.get("model") or dados.get("name"))
+                    return
                 if self.path.startswith("/api/chat"):
                     # NDJSON stream
                     self.send_response(200)

@@ -293,7 +293,7 @@ Estados possíveis: `PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `REOPENED` (mes
 
 ### T-15.E3 — detecção do Ollama e assistente de primeiro uso
 
-- [ ] **Requisito:** FR-15.E3. **Depende de:** D1, D3, E2. **Estado:** `PENDING`. **Tamanho:** M.
+- [x] **Requisito:** FR-15.E3. **Depende de:** D1, D3, E2. **Estado:** `DONE`; evidência: `evidencias/T-15.E3.md`. **Tamanho:** M.
 - **Arquivos:** criar `templates/primeiro_uso.html`, `static/js/primeiro_uso.js`, `tests/test_primeiro_uso.py`, `tests/e2e/primeiro-uso.spec.js`; modificar `central_ia.py`, `central_paginas.py`, `transkriptor.pyw` (abre o assistente se `assistente_inicial_concluido` é falso), `scripts/warmup_modelos.py` (progresso).
 - **Implementação:**
   - passos Hardware/Whisper → IA de resumos → Extensão → Inicialização;

@@ -198,6 +198,25 @@ class ProvedorOllama:
                 pass
 
 
+def baixar_modelo(provedor: ProvedorOllama, modelo: str) -> Iterator[dict]:
+    """T-15.E3: `/api/pull` em stream — {status, total?, completed?} a cada passo."""
+    pedido = provedor._pedido("/api/pull", {"model": modelo, "stream": True})
+    try:
+        resposta = urllib.request.urlopen(pedido, timeout=_config.OLLAMA_TIMEOUT_LEITURA)
+    except Exception as exc:  # noqa: BLE001
+        raise ErroProvedor("indisponivel", f"Erro ao contatar o Ollama: {type(exc).__name__}") from exc
+    try:
+        for linha in resposta:
+            linha = linha.decode("utf-8").strip() if isinstance(linha, bytes) else str(linha).strip()
+            if linha:
+                try:
+                    yield json.loads(linha)
+                except json.JSONDecodeError:
+                    continue
+    finally:
+        resposta.close()
+
+
 def provedor_ollama() -> ProvedorOllama:
     """Provedor local com a URL configurada no momento da chamada."""
     return ProvedorOllama()

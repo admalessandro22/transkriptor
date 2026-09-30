@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block titulo %}Primeiros passos{% endblock %}
+{% block estilos %}<link rel="stylesheet" href="{{ url_for('static', filename='css/configuracoes.css') }}">{% endblock %}
+{% block conteudo %}
+<div class="tk-page" id="pagina-primeiro-uso">
+  <div class="tk-page__inner">
+    <div class="tk-page__cabecalho">
+      <div>
+        <h2 class="tk-page__titulo">Primeiros passos</h2>
+        <p class="tk-subtle">Três passos para o Transkriptor transcrever suas reuniões com o nome de cada pessoa. Tudo pode ser mudado depois em Configurações.</p>
+      </div>
+      <span class="tk-badge" id="pu-estado" role="status" aria-live="polite">Verificando…</span>
+    </div>
+
+    <div class="config">
+      <section class="tk-card config__grupo" aria-labelledby="pu-transcricao-titulo">
+        <h3 class="config__titulo" id="pu-transcricao-titulo">1. Transcrição neste computador</h3>
+        <p class="config__desc" id="pu-transcricao"></p>
+      </section>
+
+      <section class="tk-card config__grupo" aria-labelledby="pu-ia-titulo">
+        <h3 class="config__titulo" id="pu-ia-titulo">2. Inteligência artificial para resumos</h3>
+        <p class="config__desc" id="pu-ollama" role="status" aria-live="polite"></p>
+        <ul class="config__desc" id="pu-modelos" aria-label="Modelos instalados no Ollama"></ul>
+        <div class="config__linha">
+          <button type="button" class="tk-btn tk-btn--primary tk-btn--sm" id="pu-baixar" hidden></button>
+          <button type="button" class="tk-btn tk-btn--secondary tk-btn--sm" id="pu-iniciar" hidden>Iniciar o Ollama</button>
+          <a class="tk-btn tk-btn--secondary tk-btn--sm" id="pu-instalar" href="https://ollama.com/download" target="_blank" rel="noopener noreferrer" hidden>Baixar o Ollama (site oficial)</a>
+        </div>
+        <progress id="pu-progresso" max="100" value="0" hidden aria-label="Progresso do download do modelo"></progress>
+        <p class="config__desc">Prefere não instalar nada? Use uma chave do OpenRouter em <a id="pu-link-config" href="configuracoes">Configurações → Inteligência artificial</a>. Nesse caso o texto da reunião sai do computador; áudio e voz, nunca.</p>
+      </section>
+
+      <section class="tk-card config__grupo" aria-labelledby="pu-extensao-titulo">
+        <h3 class="config__titulo" id="pu-extensao-titulo">3. Nomes do Google Meet</h3>
+        <p class="config__desc" id="pu-extensao" role="status" aria-live="polite"></p>
+      </section>
+
+      <div class="config__linha">
+        <button type="button" class="tk-btn tk-btn--primary" id="pu-concluir">Concluir</button>
+        <button type="button" class="tk-btn tk-btn--secondary" id="pu-pular">Pular por agora</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script type="module" src="{{ url_for('static', filename='js/primeiro-uso.js') }}"></script>{% endblock %}
