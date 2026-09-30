@@ -1,6 +1,6 @@
 # Pendências da v2.0 (atualizado em 2026-09-30)
 
-A branch `sdd-v2.0-nomes-ia-instalador` tem a v2.0 implementada e commitada localmente. Não houve push nem PR. O que falta está abaixo, em ordem.
+A v2.0 está implementada e em `master` como versão 2.0.0. O que falta está abaixo, em ordem.
 
 ## Com você (usuário)
 
@@ -8,7 +8,7 @@ A branch `sdd-v2.0-nomes-ia-instalador` tem a v2.0 implementada e commitada loca
    - Ative o Windows Sandbox: num PowerShell **de administrador**, rode `Enable-WindowsOptionalFeature -Online -FeatureName Containers-DisposableClientVM -All` e reinicie o computador.
    - Clique duas vezes em `instalador\teste-sandbox.wsb`: ele abre `dist\TranskriptorSetup.exe` na máquina descartável.
    - Se o Windows bloquear o instalador, use "Mais informações → Executar assim mesmo".
-2. **Publicar a extensão** seguindo `docs/GUIA-PUBLICACAO-EXTENSAO.md`, com o pacote `dist\transkriptor-meet-1.9.0.zip`.
+2. **Publicar a extensão** seguindo `docs/GUIA-PUBLICACAO-EXTENSAO.md`, com o pacote `dist\transkriptor-meet-2.0.0.zip`.
    - Em "Distribuição", marque **não listado**.
    - Depois da aprovação, passe os IDs e as URLs das lojas ao agente.
 3. **Reunião de teste com 3 pessoas**, seguindo `docs/sdd/v2.0/evidencias/ROTEIRO-REUNIAO-TESTE.md`. Peça o consentimento de todos antes de gravar.
@@ -30,10 +30,7 @@ A branch `sdd-v2.0-nomes-ia-instalador` tem a v2.0 implementada e commitada loca
    - B5, o chat.
 
    É uma tarefa nova e precisa de aprovação antes de ser escrita. Veja §5 do roteiro.
-4. **Decisões do usuário, não do agente:**
-   - push/PR/merge da branch;
-   - troca de `config.VERSAO`;
-   - release.
+4. **Release/tag `v2.0.0`:** decisão do usuário. A tag dispara o workflow `instalador` no GitHub. O push, o merge em `master` e a versão 2.0.0 já foram feitos em 2026-09-30.
 5. **Opcional:** rodar a suíte inteira de novo (~41 min).
    - Na última execução foram 1233 testes passando e 2 falhando.
    - As duas falhas já foram corrigidas (`cbdc337` e `7ac4366`), e os arquivos afetados foram re-testados.

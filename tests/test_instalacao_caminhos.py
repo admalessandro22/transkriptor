@@ -132,7 +132,7 @@ def test_versao_extensao_gerada_de_config():
     import config
     from scripts.sincronizar_versao_extensao import versao_extensao_para
 
-    assert versao_extensao_para(config.VERSAO) == "1.9.0"
+    assert versao_extensao_para(config.VERSAO) == "2.0.0"
     assert versao_extensao_para("2.3.4") == "2.3.0"
 
 

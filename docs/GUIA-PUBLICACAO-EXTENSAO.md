@@ -2,7 +2,7 @@
 
 Tempo seu: ~40 min, mais a revisão das lojas (em geral de 1 a 3 dias úteis).
 
-- **Pacote:** `dist\transkriptor-meet-1.9.0.zip`. Gere de novo com `python scripts/empacotar_extensao.py` sempre que a extensão mudar.
+- **Pacote:** `dist\transkriptor-meet-2.0.0.zip`. Gere de novo com `python scripts/empacotar_extensao.py` sempre que a extensão mudar.
 - **Textos prontos:** `extension/meet/LOJA.md`.
 - **Política de privacidade:** `docs/PRIVACIDADE-EXTENSAO.md`.
 
@@ -16,7 +16,7 @@ Tempo seu: ~40 min, mais a revisão das lojas (em geral de 1 a 3 dias úteis).
 ## 1. Chrome Web Store
 
 1. Acesse **https://chrome.google.com/webstore/devconsole** com a conta Google que vai publicar e pague a taxa única de registro de desenvolvedor.
-2. **Novo item** → envie `dist\transkriptor-meet-1.9.0.zip`.
+2. **Novo item** → envie `dist\transkriptor-meet-2.0.0.zip`.
 3. **Aba "Detalhes da página"**, copiando de `LOJA.md`:
    - nome, descrição curta e descrição completa;
    - categoria: Produtividade;

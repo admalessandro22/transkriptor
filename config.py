@@ -8,7 +8,7 @@ Isso evita magic numbers espalhados e facilita ajustes.
 import os
 
 # ---- Versão do produto (fonte única) ----
-VERSAO = "1.9.0"
+VERSAO = "2.0.0"
 
 # ---- Caminhos ----
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

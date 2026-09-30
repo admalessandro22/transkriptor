@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAq5gudj9TztomVp+SPqFyNr2+5ftHf6tSloXA/O5tDls18dBhXI2Sbe8+S3GUEf8E/Vj2zb+6IdHKoP3reNP7tZ4z+E0MzbzTdX4Zyzz9j9KA+W9An7862E4v+eUVfphurZRWd+1PK3jFRmZhyPmqRO0EFGqSM8GYWGciAKI9ZCld7cxwm9T/b2RcjpQ1pVQvgXegiUVBEUW+SeYM+8/NkXwuCB0UNey8LA7wgkUV2FtzHAAdsEm9HOMDCNs7bzFgQpYidmc4YXHKsbK/Dij3NFa5Qq/vi72jkfNs85xSeQ8awNVDyWOhddUVijLpVNFbAGw28dqE+ptKMqbk+jc4KwIDAQAB",
   "name": "Transkriptor Meet Bridge",
-  "version": "1.9.0",
+  "version": "2.0.0",
   "description": "Envia nomes dos participantes do Google Meet ao Transkriptor local.",
   "permissions": [
     "nativeMessaging",
