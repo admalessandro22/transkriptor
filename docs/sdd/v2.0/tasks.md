@@ -325,7 +325,7 @@ Estados possíveis: `PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `REOPENED` (mes
 
 ### T-15.E5 — distribuição da extensão pela loja
 
-- [ ] **Requisito:** FR-15.E5. **Depende de:** E1 e DP-15-05. **Estado:** `PENDING`. **Tamanho:** P (mais o prazo de revisão da loja).
+- [x] **Requisito:** FR-15.E5. **Depende de:** E1 e DP-15-05. **Estado:** `DONE` (pacote, textos e política prontos; a publicação é do usuário); evidência: `evidencias/T-15.E5.md`. **Tamanho:** P (mais o prazo de revisão da loja).
 - **Arquivos:** criar `scripts/empacotar_extensao.py`, `extension/meet/LOJA.md` (textos, justificativas de permissão), `docs/PRIVACIDADE-EXTENSAO.md`, `tests/test_empacotar_extensao.py`; modificar `extension/meet/README.md`, `templates/primeiro_uso.html` (links da loja), `config.py` (URLs da loja).
 - **Implementação:**
   - zip determinístico sem `key`, sem testes e sem arquivos de desenvolvimento;

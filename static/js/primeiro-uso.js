@@ -52,6 +52,17 @@ function mostrar(dados) {
   $('pu-extensao').textContent = dados.extensao.pareada
     ? 'Extensão conectada: os nomes do Meet já chegam ao Transkriptor.'
     : 'Adicione a extensão Transkriptor Meet Bridge ao Chrome ou Edge. Ela se conecta sozinha quando o Transkriptor está aberto.';
+  const lojas = $('pu-lojas');
+  lojas.replaceChildren();
+  for (const loja of dados.extensao.lojas || []) {
+    const a = document.createElement('a');
+    a.className = 'tk-btn tk-btn--primary tk-btn--sm';
+    a.href = loja.url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.textContent = `Adicionar ao ${loja.navegador}`;
+    lojas.appendChild(a);
+  }
   $('pu-estado').textContent = dados.concluido ? 'Concluído' : 'Em andamento';
 }
 

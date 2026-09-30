@@ -16,6 +16,14 @@ A transcrição automática funciona **sem** a extensão. Instale-a apenas se qu
 
 ---
 
+## Instalação simples (v2.0)
+
+1. Instale o Transkriptor pelo `TranskriptorSetup.exe`: ele registra o **pareamento automático** (host `com.transkriptor.ponte`).
+2. Adicione a extensão pela loja (**Adicionar ao Chrome/Edge**, nos primeiros passos da Central, quando a extensão estiver publicada).
+3. Pronto: com o Transkriptor aberto, a extensão se conecta sozinha. Sem código para copiar.
+
+As seções abaixo (carregar a pasta em modo desenvolvedor e parear à mão) continuam valendo **para desenvolvimento** ou se o host de pareamento não estiver registrado (`python -m instalador.registrar_host`). O ID fixo da extensão de desenvolvimento é `mkcfobdlgdaeplnklpfcioojjgjjoojo`. O pacote da loja sai de `python scripts/empacotar_extensao.py` (ver `LOJA.md`).
+
 ## Pré-requisitos
 
 - **Windows** com o Transkriptor rodando (ícone na bandeja)

@@ -101,3 +101,11 @@ def test_concluido_nao_reabre(cliente, headers_token):
 def test_pagina_existe(cliente, headers_token):
     r = cliente.get("/primeiro-uso", headers=headers_token)
     assert r.status_code == 200 and b"Primeiros passos" in r.data
+
+
+def test_link_da_loja_quando_publicada(cliente, headers_token, fake, monkeypatch):
+    """T-15.E5: sem publicação, sem link; publicada, os primeiros passos oferecem a loja."""
+    assert cliente.get("/api/primeiro-uso", headers=headers_token).get_json()["extensao"]["lojas"] == []
+    monkeypatch.setattr("config.EXTENSAO_URL_CHROME", "https://chromewebstore.google.com/detail/x/abc")
+    lojas = cliente.get("/api/primeiro-uso", headers=headers_token).get_json()["extensao"]["lojas"]
+    assert lojas == [{"navegador": "Chrome", "url": "https://chromewebstore.google.com/detail/x/abc"}]

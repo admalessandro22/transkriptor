@@ -196,6 +196,9 @@ MEET_WS_MAX_CONEXOES = 4               # conexões autenticadas simultâneas
 # T-15.E1: só a nossa extensão fala com a ponte. O ID sai da `key` do manifest
 # (desenvolvimento); os IDs da Chrome Web Store/Edge Add-ons entram ao publicar.
 EXTENSAO_IDS_PERMITIDOS = ("mkcfobdlgdaeplnklpfcioojjgjjoojo",)
+# T-15.E5: páginas da extensão nas lojas (preencher ao publicar; ver extension/meet/LOJA.md).
+EXTENSAO_URL_CHROME = None
+EXTENSAO_URL_EDGE = None
 # T-15.E2: porta + segredo da ponte para o host de Native Messaging (pasta do usuário).
 ARQUIVO_SEGREDO_PONTE = os.path.join(os.environ.get("LOCALAPPDATA", BASE_DIR), "Transkriptor", "ponte.segredo")
 MEET_CONVITE_SEG = 300                 # validade do convite de pareamento

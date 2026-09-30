@@ -75,6 +75,14 @@ def _extensao_pareada() -> bool:
     return bool(pareador is not None and pareador.tem_credencial())
 
 
+def _lojas() -> list[dict]:
+    """T-15.E5: links das lojas só depois de publicada a extensão."""
+    import config
+
+    return [{"navegador": nome, "url": url} for nome, url in
+            (("Chrome", config.EXTENSAO_URL_CHROME), ("Edge", config.EXTENSAO_URL_EDGE)) if url]
+
+
 @bp.route("/api/primeiro-uso")
 def api_primeiro_uso():
     import config_user
@@ -89,7 +97,7 @@ def api_primeiro_uso():
         "ollama": {"estado": deteccao.estado, "versao": deteccao.versao, "pagina_instalacao": PAGINA_OLLAMA,
                    "modelos": [{"id": m.id, "tamanho_bytes": m.tamanho_bytes} for m in deteccao.modelos]},
         "modelo_sugerido": modelo_sugerido(ram_gb=_ram_gb(), cuda=cuda, vram_gb=vram),
-        "extensao": {"pareada": _extensao_pareada()},
+        "extensao": {"pareada": _extensao_pareada(), "lojas": _lojas()},
         "concluido": bool(config_user.carregar().get("assistente_inicial_concluido")),
     })
 
