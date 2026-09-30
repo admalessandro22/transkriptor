@@ -26,8 +26,34 @@ TIPOS_ENVELOPE = frozenset(
         "speaker_activity",
         "capabilities",
         "self_device",  # T-15.B2
+        "health",  # T-15.B4: saúde do canal de legendas, só números
     }
 )
+PADRAO_ESQUELETO = re.compile(r"[0-9A-Z:(){} …a-z-]{0,240}")
+PADRAO_BUILD = re.compile(r"[\w.-]{1,80}")
+PADRAO_MOTIVO = re.compile(r"[a-z_]{1,32}")
+
+
+def _contagem(valor: object) -> bool:
+    return type(valor) is int and 0 <= valor < 10**9
+
+
+def _validar_saude(evento: Mapping) -> None:
+    """T-15.B4: contagens, motivos conhecidos, esqueleto sem texto e versão do Meet."""
+    for campo in ("raw", "parsed", "rejected", "recriacoes", "quedas"):
+        if campo in evento and not _contagem(evento[campo]):
+            raise EnvelopeRejeitado(f"{campo} inválido")
+    motivos = evento.get("motivos", {})
+    if not isinstance(motivos, Mapping) or not all(
+        isinstance(k, str) and PADRAO_MOTIVO.fullmatch(k) and _contagem(v) for k, v in motivos.items()
+    ):
+        raise EnvelopeRejeitado("motivos inválidos")
+    if "esqueleto" in evento and not (isinstance(evento["esqueleto"], str) and PADRAO_ESQUELETO.fullmatch(evento["esqueleto"])):
+        raise EnvelopeRejeitado("esqueleto inválido")
+    if "build_meet" in evento and not (isinstance(evento["build_meet"], str) and PADRAO_BUILD.fullmatch(evento["build_meet"])):
+        raise EnvelopeRejeitado("build_meet inválido")
+    if "tactiq" in evento and not isinstance(evento["tactiq"], bool):
+        raise EnvelopeRejeitado("tactiq inválido")
 TAMANHO_MAX_ENVELOPE = 4 * 1024
 INCERTEZA_MAX_MS = 1500.0
 VERSOES_ENVELOPE = frozenset({1, 2})
@@ -124,6 +150,8 @@ def validar_envelope(evento: Mapping, sessao: SessaoReuniao) -> dict:
         raise EnvelopeRejeitado("kind desconhecido")
     if versao == 2 and evento["kind"] == "caption":
         _validar_tempos_fala(evento)
+    if evento["kind"] == "health":
+        _validar_saude(evento)
     if evento["kind"] == "self_device" and not (
         isinstance(evento.get("participant_id"), str) and PADRAO_DISPOSITIVO.fullmatch(evento["participant_id"])
     ):

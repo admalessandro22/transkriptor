@@ -198,6 +198,10 @@
       }
       return;
     }
+    if (msg.tipo === "saude") {
+      canalEnviar(msg); // T-15.B4: só números e esqueleto; o background filtra de novo
+      return;
+    }
     if (msg.tipo === "idioma") {
       atualizarIdioma("pedido", msg.codigo);
       return;
@@ -267,6 +271,8 @@
     }
     const ativo = tileAtivo();
     if (ativo) {
+      // T-15.B4: alguém fala e o canal está mudo — o vigia do rtc.js pode recriá-lo.
+      document.dispatchEvent(new CustomEvent("transkriptor-meet-fala"));
       enviar(ativo.nome, "ativo", "", { participant_id: ativo.id });
     }
   }

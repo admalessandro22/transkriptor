@@ -54,6 +54,7 @@ def api_diagnostico():
             idiomas_meet=getattr(getattr(app, "meet_bridge", None), "idiomas_meet", None),
             idioma_transcricao=IDIOMA,
             descartes_meet=getattr(getattr(app, "meet_bridge", None), "contador_descarte_rajada", 0),
+            saude_meet=getattr(getattr(app, "meet_bridge", None), "saude_meet", None),
         )
         caminho = diagnostico.salvar_relatorio(diagnostico.formatar_texto(itens))
     except Exception as exc:  # noqa: BLE001 — a falha vira item visível, não 500 mudo

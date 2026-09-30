@@ -264,6 +264,32 @@ def checar_idioma_legenda(idiomas_meet, idioma_transcricao):
     )]
 
 
+def checar_canal_legendas(saude):
+    """T-15.B4: motivo provável quando os nomes do Meet não chegam (só números)."""
+    if not saude:
+        return []
+    nome = "Canal de legendas do Meet"
+    brutos, lidos = int(saude.get("raw") or 0), int(saude.get("parsed") or 0)
+    itens = []
+    if brutos == 0:
+        itens.append(_item(nome, AVISO, "O canal de legendas não recebeu nada nesta reunião. "
+                                        "Recarregue a aba do Meet (F5) e confira a extensão."))
+    elif lidos == 0:
+        versao = saude.get("build_meet") or "desconhecida"
+        itens.append(_item(nome, AVISO, f"Chegaram {brutos} pacote(s), mas nenhum pôde ser lido: "
+                                        f"o formato das legendas mudou (versão do Meet {versao}). "
+                                        "Os nomes ficam pendentes até a extensão ser atualizada."))
+    else:
+        recriado = int(saude.get("recriacoes") or 0)
+        extra = f"; canal recriado {recriado} vez(es) após silêncio" if recriado else ""
+        itens.append(_item(nome, OK, f"{lidos} de {brutos} pacote(s) lidos{extra}."))
+    if saude.get("tactiq") is True:
+        itens.append(_item("Outra extensão de transcrição", AVISO,
+                           "A Tactiq está ativa na mesma aba e também abre canais de legenda. "
+                           "Se os nomes falharem, desative-a nesta reunião."))
+    return itens
+
+
 def checar_descartes_meet(descartes):
     """FR-15.A3: excesso de taxa nunca some em silêncio."""
     if not descartes:
@@ -281,6 +307,7 @@ def coletar(
     idiomas_meet=None,
     idioma_transcricao=None,
     descartes_meet=0,
+    saude_meet=None,
 ):
     """Roda todas as checagens e devolve a lista de itens."""
     itens = []
@@ -304,6 +331,7 @@ def coletar(
     itens += checar_modelo_whisper(modelo_whisper)
     itens += checar_idioma_legenda(idiomas_meet, idioma_transcricao)
     itens += checar_descartes_meet(descartes_meet)
+    itens += checar_canal_legendas(saude_meet)
     return itens
 
 

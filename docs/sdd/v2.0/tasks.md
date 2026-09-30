@@ -121,7 +121,7 @@ Estados possíveis: `PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `REOPENED` (mes
 
 ### T-15.B4 — saúde do canal e recuperação de silêncio
 
-- [ ] **Requisito:** NFR-15.B4. **Depende de:** B3. **Estado:** `PENDING`. **Tamanho:** M.
+- [x] **Requisito:** NFR-15.B4. **Depende de:** B3 (emenda: feito sobre o canal `captions_v2` atual; o legado entra quando a B3 sair). **Estado:** `DONE`; evidência: `evidencias/T-15.B4.md`. **Tamanho:** M.
 - **Arquivos:**
   - modificar `extension/meet/rtc_canais.js`, `extension/meet/content.js` (detecção de fala pelo tile), `meet_bridge.py` (`kind=health`), `central_diagnostico.py`, `templates/diagnostico.html`;
   - criar `tests/js/meet-saude.test.js`, `tests/test_saude_legendas.py`.
@@ -133,7 +133,7 @@ Estados possíveis: `PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `REOPENED` (mes
 - **RED:**
   - `meet-saude.test.js::silencio com fala recria canais`, `::silencio sem fala nao recria`, `::maximo 3 tentativas`, `::esqueleto nao contem texto`;
   - `test_saude_legendas.py::test_resumo_sem_pii`, `::test_motivo_canal_nunca_abriu`.
-- **Teste final:** `python -m pytest tests/test_saude_legendas.py tests/test_central_diagnostico.py -v`; `npx vitest run tests/js/meet-saude.test.js`.
+- **Teste final:** `python -m pytest tests/test_saude_legendas.py tests/test_central_diagnostico.py tests/test_diagnostico.py -v`; `npx vitest run tests/js/meet-saude.test.js`; `npm run test:e2e -- diagnostico.spec.js csp.spec.js`.
 - **Aceite:** o esqueleto de uma fixture com texto "segredo" não contém a string nem bytes dela; o Diagnóstico renderiza o resumo sob a CSP real.
 
 ### T-15.B5 — chat do Meet (opcional)

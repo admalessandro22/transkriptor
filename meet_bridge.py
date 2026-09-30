@@ -16,6 +16,7 @@ from urllib.parse import parse_qs, urlparse
 
 from sessao_reuniao import EnvelopeRejeitado, SessaoReuniao, SessoesAtivas
 from relogio_meet import RelogiosConexao, carimbar_fala, pingar
+from saude_meet import registrar_estado_meet
 from meet_pareamento import ConviteInvalido, Pareador
 
 from config import (
@@ -143,6 +144,7 @@ class MeetBridge:
         self._sessao_lock = threading.RLock()
         self.relogios = RelogiosConexao()  # T-15.A2
         self.idiomas_meet: dict = {}  # T-15.B1: último idioma observado (só códigos)
+        self.saude_meet: dict = {}  # T-15.B4: última saúde do canal de legendas
         self.segredo_nativo = secrets.token_urlsafe(32)  # T-15.E2: host de Native Messaging
 
     def registrar_hello(self, mensagem: dict) -> None:
@@ -226,8 +228,8 @@ class MeetBridge:
             valido = self._sessoes_ativas.aceitar_evento(connection_id, canonico, confirmar=False)
             valido = carimbar_fala(valido, self.relogios.relogio_de(connection_id),
                                    agora_mono_ns=canonico["received_monotonic_ns"], agora_wall_ns=time.time_ns())
-            if valido["kind"] == "capabilities":
-                self.idiomas_meet = {k: valido[k] for k in ("caption_lang", "lang_requested") if k in valido}
+            if valido["kind"] in ("capabilities", "health"):  # T-15.B1/B4: só códigos e números
+                registrar_estado_meet(self, valido)
             if valido["kind"] == "heartbeat":
                 self.registrar_estado_reuniao(bool(valido.get("active")))
                 self._store.descarregar()  # T-15.A3: fecha o lote vencido mesmo em silêncio

@@ -312,12 +312,116 @@
     const chegada = deps.agora();
     const u = await bytesDe(dados);
     const legenda = u && decodificarLegenda(u);
+    if (deps.monitor) {
+      deps.monitor.notarPacote(legenda ? "parsed" : "rejected", chegada, legenda ? null : "decodificacao");
+      if (!legenda && u && deps.aoRejeitar) deps.aoRejeitar(esqueleto(u));
+    }
     if (!legenda) return;
     try {
       deps.enviarAck(ackLegenda(legenda.utterance, legenda.versao));
     } catch (_e) {}
     const carimbada = carimbarLegenda(deps.registro, legenda, chegada);
     deps.publicar(Object.assign({ tipo: "legenda", canal: CANAL_LEGENDAS }, carimbada));
+  }
+
+  // ---------- saúde do canal (T-15.B4) ----------
+
+  const LEGENDA_SILENCIO_MS = 60000;
+  const FALA_RECENTE_MS = 30000;
+  const RECRIACOES_MAX = 3;
+  const ESQUELETO_MAX = 240;
+
+  /** Contadores e vigia de silêncio; tudo número, nada de conteúdo. */
+  function novoMonitorSaude(agoraInicial) {
+    const contagem = { raw: 0, parsed: 0, rejected: 0 };
+    const motivos = {};
+    let ultimoPacote = agoraInicial;
+    let ultimaFala = -Infinity;
+    let recriacoes = 0;
+    let quedas = 0;
+    return {
+      notarPacote(tipo, agora, motivo) {
+        contagem.raw += 1;
+        if (tipo === "parsed") contagem.parsed += 1;
+        else {
+          contagem.rejected += 1;
+          if (motivo) motivos[motivo] = (motivos[motivo] || 0) + 1;
+        }
+        ultimoPacote = agora;
+      },
+      notarFala(agora) {
+        ultimaFala = agora;
+      },
+      notarRecriacao(agora) {
+        recriacoes += 1;
+        if (typeof agora === "number") ultimoPacote = agora; // o canal novo ganha outra janela
+      },
+      notarQueda() {
+        quedas += 1;
+      },
+      deveRecriar(agora) {
+        return recriacoes < RECRIACOES_MAX && agora - ultimoPacote >= LEGENDA_SILENCIO_MS &&
+          agora - ultimaFala <= FALA_RECENTE_MS;
+      },
+      resumo() {
+        return { contadores: { captions_v2: Object.assign({}, contagem) }, motivos: Object.assign({}, motivos), recriacoes, quedas };
+      },
+    };
+  }
+
+  /** Estrutura de um pacote que não decodificou: números de campo, tipos e tamanhos. Nunca bytes. */
+  function esqueleto(u, profundidade) {
+    const nivel = profundidade || 0;
+    const partes = [];
+    let i = 0;
+    function varint() {
+      let x = 0;
+      let escala = 1;
+      let b;
+      do {
+        if (i >= u.length) throw new Error("truncado");
+        b = u[i++];
+        x += (b & 127) * escala;
+        escala *= 128;
+      } while (b & 128);
+      return x;
+    }
+    try {
+      while (i < u.length) {
+        const chave = varint();
+        const numero = Math.floor(chave / 8);
+        const tipo = chave & 7;
+        if (numero === 0) throw new Error("campo 0");
+        if (tipo === 0) {
+          varint();
+          partes.push(numero + ":VARINT");
+        } else if (tipo === 2) {
+          const n = varint();
+          if (i + n > u.length) throw new Error("truncado");
+          const filho = nivel < 3 && n > 0 ? esqueleto(u.subarray(i, i + n), nivel + 1) : "";
+          i += n;
+          partes.push(numero + ":LEN(" + n + ")" + (filho && filho.indexOf("nao-protobuf") !== 0 ? "{" + filho + "}" : ""));
+        } else if (tipo === 1 || tipo === 5) {
+          i += tipo === 1 ? 8 : 4;
+          partes.push(numero + (tipo === 1 ? ":I64" : ":I32"));
+        } else throw new Error("tipo " + tipo);
+      }
+    } catch (_e) {
+      return "nao-protobuf(" + u.length + ")";
+    }
+    const texto = partes.join(" ");
+    return texto.length > ESQUELETO_MAX ? texto.slice(0, ESQUELETO_MAX - 1) + "…" : texto;
+  }
+
+  /** Versão do front do Meet (ajuda a saber quando o formato mudou). */
+  function buildMeet() {
+    try {
+      const valores = Object.values(window.WIZ_global_data || {});
+      const achado = valores.find((v) => typeof v === "string" && v.indexOf("boq_meetingsuiserver_") === 0);
+      return achado ? achado.slice("boq_meetingsuiserver_".length).slice(0, 80) : null;
+    } catch (_e) {
+      return null;
+    }
   }
 
   // ---------- ponte com o content script ----------
@@ -335,6 +439,9 @@
   // ---------- captura ----------
 
   const temposFalas = novoRegistroTempos();
+  const saude = novoMonitorSaude(0);
+  let ultimoEsqueleto = null;
+  let conexaoPrincipal = null;
   const nossos = new WeakSet();
   const conexoesComLegenda = new WeakSet();
   let proximoId = 61000;
@@ -353,11 +460,14 @@
       tratarPacoteLegenda(ev.data, {
         registro: temposFalas,
         agora: agoraPagina,
+        monitor: saude,
+        aoRejeitar: (esq) => { ultimoEsqueleto = ultimoEsqueleto || esq; },
         enviarAck: (bytes) => canal.send(bytes),
         publicar,
       }).catch(() => {});
     });
     canal.addEventListener("close", function () {
+      saude.notarQueda();
       if (tentativa >= MAX_REABERTURAS) return;
       if (pc.connectionState === "closed" || pc.connectionState === "failed") return;
       setTimeout(function () {
@@ -388,6 +498,7 @@
         // que o servidor aceita o canal de legendas.
         if (!conexoesComLegenda.has(pc)) {
           conexoesComLegenda.add(pc);
+          conexaoPrincipal = pc;
           abrirCanalLegendas(pc, 0);
         }
       });
@@ -442,6 +553,8 @@
     idDispositivo,
     descompactar,
     agoraPagina,
+    novoMonitorSaude,
+    esqueleto,
     novoRegistroTempos,
     carimbarLegenda,
     tratarPacoteLegenda,
@@ -453,6 +566,27 @@
     module.exports = API;
     return;
   }
+  /** T-15.B4: vigia de silêncio e relatório de saúde (só números) ao content script. */
+  function instalarVigia() {
+    document.addEventListener("transkriptor-meet-fala", function () {
+      saude.notarFala(agoraPagina());
+    });
+    setInterval(function () {
+      const agora = agoraPagina();
+      if (conexaoPrincipal && saude.deveRecriar(agora)) {
+        saude.notarRecriacao(agora);
+        abrirCanalLegendas(conexaoPrincipal, 0);
+      }
+    }, 10000);
+    const relatar = function () {
+      publicar(Object.assign({ tipo: "saude", esqueleto: ultimoEsqueleto, build_meet: buildMeet(),
+        tactiq: !!document.querySelector("meta#tactiq-rtc") }, saude.resumo()));
+    };
+    setInterval(relatar, 60000);
+    window.addEventListener("pagehide", relatar);
+  }
+
   instalarRtc();
   instalarFetch();
+  instalarVigia();
 })();

@@ -19,6 +19,23 @@ const FILA_IDADE_MS = 120000;
 const CANAIS_ORIGEM = new Set(["captions_v2", "captions", "meet", "dom"]);
 const PADRAO_IDIOMA = /^[a-z]{2,3}-[A-Z]{2}$/;
 
+const inteiro = (v) => Number.isInteger(v) && v >= 0 && v < 1e9;
+
+/** T-15.B4: saúde do canal — só contagens, motivos conhecidos, esqueleto e versão do Meet. */
+function copiarSaude(evento, envelope) {
+  const c = (evento.contadores && evento.contadores.captions_v2) || {};
+  for (const campo of ["raw", "parsed", "rejected"]) if (inteiro(c[campo])) envelope[campo] = c[campo];
+  for (const campo of ["recriacoes", "quedas"]) if (inteiro(evento[campo])) envelope[campo] = evento[campo];
+  envelope.motivos = {};
+  for (const [motivo, n] of Object.entries(evento.motivos || {})) {
+    if (/^[a-z_]{1,32}$/.test(motivo) && inteiro(n)) envelope.motivos[motivo] = n;
+  }
+  if (typeof evento.esqueleto === "string" && evento.esqueleto.length <= 240 &&
+      /^[0-9A-Z:(){} …a-z-]*$/.test(evento.esqueleto)) envelope.esqueleto = evento.esqueleto;
+  if (typeof evento.build_meet === "string" && /^[\w.-]{1,80}$/.test(evento.build_meet)) envelope.build_meet = evento.build_meet;
+  envelope.tactiq = evento.tactiq === true;
+}
+
 /** Copia só códigos BCP-47 válidos (FR-15.B1). */
 function copiarIdiomas(evento, envelope, campos) {
   for (const campo of campos) {
@@ -150,7 +167,7 @@ function montarEnvelope(evento, remetente, agora = {}) {
   if (!estado.session) return null;
   const kind = {
     reuniao: "heartbeat", legenda: "caption", ativo: "speaker_activity",
-    atividade: "speaker_activity", capabilities: "capabilities", proprio: "self_device",
+    atividade: "speaker_activity", capabilities: "capabilities", proprio: "self_device", saude: "health",
   }[evento.tipo];
   if (!kind) return null;
   if (kind === "self_device" && !/^dev-[A-Za-z0-9_-]+$/.test(evento.participant_id || "")) return null;
@@ -169,6 +186,7 @@ function montarEnvelope(evento, remetente, agora = {}) {
   if (kind === "heartbeat") envelope.active = evento.ativa === true;
   if (kind === "capabilities") copiarIdiomas(evento, envelope, ["caption_lang", "lang_requested"]);
   if (kind === "self_device") envelope.participant_id = evento.participant_id;
+  if (kind === "health") copiarSaude(evento, envelope);
   if (kind === "caption" || kind === "speaker_activity") {
     if (typeof evento.participant_id === "string") envelope.participant_id = evento.participant_id;
     if (typeof evento.nome === "string") envelope.display_name = evento.nome;
