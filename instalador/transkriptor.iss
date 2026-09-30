@@ -33,7 +33,7 @@ Name: "atalho"; Description: "Criar atalho na área de trabalho"
 Name: "iniciar"; Description: "Abrir o Transkriptor junto com o Windows"
 
 [Files]
-Source: "..\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion; Excludes: "transcricoes,config_user.json,tests,.venv,node_modules,*.log,_modelo_voz,.git,.worktrees,test-results,dist,__pycache__,docs,*.lock,debug.log,diagnostico_*.txt,design"
+Source: "..\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion; Excludes: "transcricoes,config_user.json,tests,.venv,node_modules,*.log,_modelo_voz,.git,.worktrees,test-results,dist,__pycache__,docs,*.lock,debug.log,diagnostico_*.txt,design,.github,.grok,.claude,.pytest_cache,.ci-venv,.gitignore,package.json,package-lock.json,playwright.config.js,requirements-dev.txt"
 Source: "..\requirements\*.lock"; DestDir: "{app}\requirements"; Flags: ignoreversion
 Source: "bin\uv.exe"; DestDir: "{app}\instalador\bin"; Flags: ignoreversion
 

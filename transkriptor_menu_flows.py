@@ -69,7 +69,11 @@ def abrir_primeiro_uso_se_preciso(app, abrir=abrir_central) -> bool:
 
     if config_user.carregar().get("assistente_inicial_concluido"):
         return False
-    abrir(app, "primeiro-uso")
+    try:
+        abrir(app, "primeiro-uso")
+    except Exception:  # noqa: BLE001 — conveniência: nunca pode derrubar a bandeja
+        logger.warning("Primeiros passos não abriram; siga pelo menu da bandeja.", exc_info=True)
+        return False
     return True
 
 

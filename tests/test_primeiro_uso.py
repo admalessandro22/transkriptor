@@ -109,3 +109,17 @@ def test_link_da_loja_quando_publicada(cliente, headers_token, fake, monkeypatch
     monkeypatch.setattr("config.EXTENSAO_URL_CHROME", "https://chromewebstore.google.com/detail/x/abc")
     lojas = cliente.get("/api/primeiro-uso", headers=headers_token).get_json()["extensao"]["lojas"]
     assert lojas == [{"navegador": "Chrome", "url": "https://chromewebstore.google.com/detail/x/abc"}]
+
+
+def test_falha_ao_abrir_nao_derruba_a_bandeja(caplog):
+    """Regressão 30/09: exceção ao abrir a Central subia até _ao_bandeja_pronta e encerrava a bandeja."""
+    import logging
+
+    from transkriptor_menu_flows import abrir_primeiro_uso_se_preciso
+
+    def quebra(app, pagina):
+        raise RuntimeError("navegador indisponível")
+
+    with caplog.at_level(logging.WARNING):
+        assert abrir_primeiro_uso_se_preciso(object(), abrir=quebra) is False
+    assert any("Primeiros passos" in r.getMessage() for r in caplog.records)

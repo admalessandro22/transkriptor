@@ -88,7 +88,8 @@ def test_desinstalar_remove_registro_e_dados_so_se_pedido(tmp_path):
 def test_iss_por_usuario_sem_admin_e_sem_dados_pessoais():
     assert re.search(r"(?m)^PrivilegesRequired=lowest$", ISS)
     assert r"DefaultDirName={localappdata}\Programs\Transkriptor" in ISS
-    for fora in ("transcricoes", "config_user.json", "tests", ".venv", "node_modules", "*.log", "_modelo_voz"):
+    for fora in ("transcricoes", "config_user.json", "tests", ".venv", "node_modules", "*.log", "_modelo_voz",
+                 ".github", ".grok", ".pytest_cache", ".gitignore", "package.json", "playwright.config.js"):
         assert fora in ISS.split("Excludes:", 1)[1].split("\n", 1)[0]
     assert "provisionar.py" in ISS and "--desinstalar" in ISS
     assert "uv.exe" in ISS
