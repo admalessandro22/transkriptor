@@ -363,8 +363,15 @@ def _retranscrever_resultado(
     estruturados, avisos = criar_segmentos(fundidos, diarizados, atribuicoes)
     if diarizar and segmentos and not diarizados:
         avisos = (*avisos, "diarizacao_falhou")
+    blocos, lacunas = (), ()
+    if alinhado.alinhamento:  # T-15.C4: só com a legenda no tempo do áudio
+        from transcricao_meet import blocos_meet, lacunas_meet
+
+        atraso, proprio = alinhado.alinhamento["atraso_global_ms"], dispositivo_proprio(eventos_meet or ())
+        blocos = tuple(blocos_meet(eventos_meet, atraso_ms=atraso, proprio=proprio))
+        lacunas = tuple(lacunas_meet(eventos_meet, fundidos, atraso_ms=atraso, proprio=proprio))
     return ResultadoProcessamento(caminho_final, estruturados, avisos, gerar_copia_tkpt,
-                                  alinhado.alinhamento)
+                                  alinhado.alinhamento, blocos, lacunas)
 
 
 def retranscrever_resultado(caminho_audio: str, **kwargs):

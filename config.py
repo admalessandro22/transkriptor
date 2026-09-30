@@ -212,6 +212,10 @@ NOMES_AUTO_MEET = True
 NOME_AUTO_CONFIANCA_MIN = 0.6         # confiança do segmento (cobertura × fator do alinhamento)
 NOME_AUTO_PARTICIPACAO_MIN = 0.8      # fatia do cluster de voz para nomear o cluster inteiro
 NOME_AUTO_DURACAO_MIN_S = 5.0         # fala mínima do participante no cluster
+# T-15.C4 — transcrição do Meet (blocos por falante) e lacunas sem Whisper.
+MEET_BLOCO_INTERVALO_MS = 5000        # falas do mesmo falante até este intervalo formam um bloco
+MEET_BLOCO_FALAS_MAX = 6
+MEET_LACUNA_MIN_MS = 2000             # legenda sem segmento do Whisper vira lacuna a partir disto
 INCERTEZA_TEMPO_MAX_MS = 1500         # acima disso, tempo sozinho não nomeia
 # T-15.A2 — relógio da extensão: ping/pong ponte↔background por conexão.
 RELOGIO_PINGS_INICIAIS = 5            # rajada ao vincular a aba

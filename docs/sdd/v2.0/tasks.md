@@ -192,8 +192,8 @@ Estados possíveis: `PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `REOPENED` (mes
 
 ### T-15.C4 — transcrição do Meet como saída e reserva
 
-- [ ] **Requisito:** FR-15.C4. **Depende de:** C2. **Estado:** `PENDING`. **Tamanho:** M.
-- **Arquivos:** criar `transcricao_meet.py`, `tests/test_transcricao_meet.py`, `tests/e2e/transcricao-meet.spec.js`; modificar `resultado_reuniao.py`, `central_reunioes.py`, `templates/reunioes.html`, `static/js/reunioes.js`.
+- [x] **Requisito:** FR-15.C4. **Depende de:** C2. **Estado:** `DONE`; evidência: `evidencias/T-15.C4.md`. **Tamanho:** M.
+- **Arquivos:** criar `transcricao_meet.py`, `static/js/transcricao-meet.js`, `tests/test_transcricao_meet.py`, `tests/e2e/transcricao-meet.spec.js`; modificar `resultado_edicao.py` (payload, validação, `exportar_txt_resultado`), `retranscritor.py`, `resultado_pipeline.py`, `processador_reuniao.py`, `templates/_participantes_corpo.html`, `static/js/participantes.js`, e os pontos de exportação (`assistente.py`, `resultado_reuniao.py`, `resultado_storage.py`, `scripts/reparar_diarizacao_reuniao.py`). Emenda: a aba mora no painel da reunião (onde o resultado já é carregado), sem rota nova.
 - **Implementação:**
   - agrupamento por falante contíguo (intervalo ≤ 5 s e ≤ 6 frases por bloco);
   - artefato cifrado como os demais;

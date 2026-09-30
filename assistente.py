@@ -234,13 +234,13 @@ def api_participantes_reuniao(meeting_id: str):
 @app.route("/api/reunioes/<meeting_id>/exportar-txt", methods=["POST"])
 def api_exportar_txt_reuniao(meeting_id: str):
     """Entrega TXT somente após ação explícita, sem gravar plaintext no servidor."""
-    from resultado_reuniao import exportar_txt
+    from resultado_reuniao import exportar_txt_resultado
 
     dados, codigo = _carregar_resultado_reuniao(meeting_id)
     if dados is None:
         return jsonify({"erro": "Reunião não encontrada" if codigo == 404 else "Resultado inválido"}), codigo
     try:
-        conteudo = exportar_txt(dados["segmentos"], dados["mapeamento"])
+        conteudo = exportar_txt_resultado(dados)
     except (OSError, ValueError, KeyError, TypeError):
         return jsonify({"erro": "Resultado inválido"}), 422
     resposta = make_response(conteudo)

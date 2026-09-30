@@ -17,6 +17,8 @@ class ResultadoProcessamento:
     warnings: tuple[str, ...] = ()
     gerar_copia_tkpt: bool = False
     alinhamento: dict | None = None  # T-15.C2: só números (atraso, concordância, cortes)
+    transcricao_meet: tuple = ()     # T-15.C4: blocos por falante (legenda do Meet)
+    lacunas_meet: tuple = ()         # T-15.C4: legenda sem Whisper, marcada no TXT
 
 
 def criar_segmentos(

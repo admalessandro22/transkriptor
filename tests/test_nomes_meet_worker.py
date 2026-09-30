@@ -266,6 +266,61 @@ def test_aviso_sem_nomes_le_event_store(chave_teste, tmp_path):
     assert ciclo._sem_nomes_do_meet([]) is False
 
 
+def _job_c2(tmp_path, extras=()):
+    """Job do cenário C2: Ana e depois Bruno num segmento só; `extras` são legendas a mais."""
+    import dataclasses
+    from types import SimpleNamespace
+
+    from eventos_meet_store import EventStore
+    from sessao_reuniao import criar_sessao
+
+    (tmp_path / "tr").mkdir()
+    audio = _escrever_wav(tmp_path / "tr" / "audio.wav", segundos=4.0)
+    sessao = criar_sessao("reuniao-c2", CONSENTIDA, "padrao")
+    store = EventStore(tmp_path / "tr" / "eventos_privados", sessao, ancora_refs=tmp_path / "tr")
+    zero = 111_000_000_000
+    falas = [("Ana", "dev-1", "bafo cedi lame nipo", 0.9, 2.45), ("Bruno", "dev-2", "ruza tevi zoba gula", 2.9, 4.45),
+             *extras]
+    for seq, (nome, pid, texto, ini, fim) in enumerate(falas):
+        ev = _evento(sessao.session_id, "reuniao-c2", seq, nome, texto)
+        ev.update({"participant_id": pid, "caption_id": f"rtc-{seq}/{pid}", "caption_revision": 1,
+                   "speech_started_monotonic_ns": zero + int(ini * 1e9),
+                   "speech_last_monotonic_ns": zero + int(fim * 1e9), "clock_uncertainty_ms": 6.0})
+        store.append(ev)
+    refs = store.seal()
+    fila = FilaProcessamento(str(tmp_path / "tr"))
+    job_id = fila.enfileirar(
+        str(audio), None, "reuniao-c2", {"origem": "gate", "diarizar": True, "idioma": "pt"},
+        sessao=_sessao_snapshot(sessao.session_id, "reuniao-c2"),
+        eventos_refs=[dataclasses.asdict(r) for r in refs],
+        preferencias={"rotulo_usuario": "VOCÊ", "usar_vozes_conhecidas": False},
+    )
+    toks = "bafo cedi lame nipo ruza tevi zoba gula".split()
+    inicios = [0.0, 0.4, 0.8, 1.2, 2.0, 2.4, 2.8, 3.2]
+    palavras = [SimpleNamespace(word=" " + w, start=i, end=i + 0.35, probability=0.9) for w, i in zip(toks, inicios)]
+    modelo = MagicMock()
+    modelo.transcribe.return_value = (
+        [SimpleNamespace(text=" " + " ".join(toks), start=0.0, end=3.55, words=palavras)], MagicMock())
+    return fila, job_id, modelo
+
+
+def test_worker_gera_transcricao_do_meet_e_preenche_lacuna(chave_teste, tmp_path):
+    """T-15.C4: legenda de Carla depois do áudio transcrito vira lacuna marcada no TXT."""
+    from processador_reuniao import processar_job
+    from resultado_reuniao import carregar_manifesto, carregar_segmentos
+
+    fila, job_id, modelo = _job_c2(tmp_path, extras=[("Carla", "dev-3", "fala sem audio", 9.0, 12.0)])
+    _, fake = _espiao_diarizar()
+    with patch("diarizador.diarizar", side_effect=fake):
+        processar_job(job_id, modelo_whisper=modelo, fila=fila)
+    manifesto = carregar_manifesto(Path(fila.obter(job_id).manifesto_resultado))
+    dados = carregar_segmentos(fila.pasta_transcricoes / manifesto.segments_ref.relative_path)
+    assert [b["nome"] for b in dados["transcricao_meet"]] == ["Ana", "Bruno", "Carla"]
+    assert [b["nome"] for b in dados["lacunas_meet"]] == ["Carla"]
+    txt = (fila.pasta_transcricoes / "reuniao-c2.txt").read_text(encoding="utf-8").splitlines()
+    assert txt[-1].endswith("[legenda do Meet] Carla: fala sem audio")
+
+
 def test_worker_corta_e_nomeia_pelo_alinhamento(chave_teste, tmp_path, caplog):
     """T-15.C2: um segmento com Ana e depois Bruno sai em dois, cada um com o nome."""
     import dataclasses

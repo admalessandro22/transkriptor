@@ -200,7 +200,7 @@ class ResultadoStorage:
                         speaker_cluster_id: str, display_name: str) -> str:
         from artefatos import criar_referencia
         from crypto_storage import salvar_transcricao
-        from resultado_edicao import corrigir_payload, desfazer_payload, exportar_txt
+        from resultado_edicao import corrigir_payload, desfazer_payload, exportar_txt_resultado
         from resultado_reuniao import salvar_manifesto
 
         caminho_manifesto, manifesto = self._manifesto_sem_lock(meeting_id)
@@ -220,7 +220,7 @@ class ResultadoStorage:
             raise ValueError("exportação inválida")
         caminho_txt = self.raiz / refs_txt[0].relative_path
         caminho_json = self.raiz / manifesto.segments_ref.relative_path
-        texto = exportar_txt(dados["segmentos"], dados.get("mapeamento", {}))
+        texto = exportar_txt_resultado(dados)
         self._criar_journal(meeting_id, caminho_manifesto, caminho_json, caminho_txt)
         try:
             novo_json = self.save(meeting_id, dados)

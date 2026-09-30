@@ -239,7 +239,7 @@ Endpoints novos, todos sob o header secreto nas mutações:
 ## 10. Resultado
 
 - **Segmento:** ganha `words: [{w, ini_ms, fim_ms, prob, participant_id?}]` e `assignment` conforme `spec.md`.
-- **ResultManifest:** ganha `meet_transcript_ref` (transcrição do Meet cifrada como os demais artefatos), `alinhamento: {atraso_global_ms, concordancia, relogio_incerteza_ms, idioma_legenda}` e `ia: {resumo: {provedor, modelo}}`.
+- **Resultado estruturado** (emenda de 29/09, T-15.C4): ganha `transcricao_meet` (blocos `{inicio_ms, fim_ms, participant_id, nome, texto}`) e `lacunas_meet` (mesmo formato), somente quando existem e cifrados junto com os segmentos no modo protegido. As lacunas ficam **fora** de `segmentos`, porque não têm áudio. A saída não usa `meet_transcript_ref` no manifesto. O diagnóstico do alinhamento continua no log e em `ResultadoProcessamento`, e `ia` no manifesto fica para a T-15.D2.
 - **Exportação TXT:**
 
 ```

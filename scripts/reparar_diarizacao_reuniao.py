@@ -60,7 +60,7 @@ def reparar(raiz: Path, meeting_id: str, *, aplicar: bool = False,
     from fila_processamento import FilaProcessamento
     from indice_transcricoes import atualizar_indice
     from politica_privacidade import ProtectionMode
-    from resultado_edicao import exportar_txt
+    from resultado_edicao import exportar_txt_resultado
     from resultado_pipeline import criar_segmentos
     from resultado_reuniao import (
         StageState, salvar_manifesto, validar_manifesto, validar_manifesto_para_job,
@@ -136,7 +136,7 @@ def reparar(raiz: Path, meeting_id: str, *, aplicar: bool = False,
         Path(job.manifesto_resultado).read_bytes()
     ).hexdigest()[:12]
     novo_payload["revision"] = revisao
-    texto = exportar_txt(novo_payload["segmentos"], novo_payload["mapeamento"])
+    texto = exportar_txt_resultado(novo_payload)
 
     with storage._lock(meeting_id):
         caminho_manifesto, atual = storage._manifesto_sem_lock(meeting_id)

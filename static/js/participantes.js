@@ -3,6 +3,7 @@
 // resultado, correção (409 por revisão), desfazer, exportação explícita.
 import { escapeHtml } from './markdown.js';
 import { abrirPainel, fecharPainel, icone, confirmar, toast } from './ui.js';
+import { renderTranscricaoMeet } from './transcricao-meet.js';
 
 const $ = (id) => document.getElementById(id);
 const painel = $('participantes-drawer');
@@ -187,6 +188,7 @@ export async function carregarResultado() {
   if (filtroAtivo && !clusters.includes(filtroAtivo)) filtroAtivo = '';
   carregando(false);
   render();
+  renderTranscricaoMeet(dados, selReuniao.value); // T-15.C4
 }
 
 // ---- render -----------------------------------------------------------------

@@ -207,7 +207,7 @@ def processar_job(
         if fila.obter(job_id).cancel_solicitado:
             raise JobCancelado("cancelado")
         from resultado_reuniao import (
-            carregar_segmentos, criar_manifesto_estruturado, exportar_txt,
+            carregar_segmentos, criar_manifesto_estruturado, exportar_txt_resultado,
             salvar_manifesto, salvar_segmentos, validar_manifesto,
         )
         from politica_privacidade import ProtectionMode, modo_efetivo
@@ -226,14 +226,16 @@ def processar_job(
         from politica_nomes import aplicar_politica
 
         segmentos_finais, mapeamento_auto = aplicar_politica(processamento.segmentos)  # T-15.C3
+        extras_meet = {"transcricao_meet": getattr(processamento, "transcricao_meet", ()),
+                       "lacunas_meet": getattr(processamento, "lacunas_meet", ())}  # T-15.C4
         if modo == ProtectionMode.PROTECTED:
-            dados_segmentos = montar_payload(segmentos_finais, mapeamento_auto)
+            dados_segmentos = montar_payload(segmentos_finais, mapeamento_auto, **extras_meet)
             ref_segmentos = storage.save(job.id, dados_segmentos)
         else:
-            salvar_segmentos(caminho_segmentos, segmentos_finais, mapeamento_auto)
+            salvar_segmentos(caminho_segmentos, segmentos_finais, mapeamento_auto, **extras_meet)
             dados_segmentos = carregar_segmentos(caminho_segmentos)
             ref_segmentos = None
-        texto_txt = exportar_txt(dados_segmentos["segmentos"], dados_segmentos["mapeamento"])
+        texto_txt = exportar_txt_resultado(dados_segmentos)
         if modo == ProtectionMode.PROTECTED:
             from crypto_storage import salvar_transcricao
 

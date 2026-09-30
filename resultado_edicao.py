@@ -82,9 +82,10 @@ def salvar_segmentos(
     path: Path,
     segmentos: Sequence[SegmentoResultado | Mapping],
     mapeamento: Mapping | None = None,
+    **extras,
 ) -> str:
     """Persiste segmentos + mapeamento cluster→participante. Devolve `rev-1`."""
-    dados = montar_payload(segmentos, mapeamento)
+    dados = montar_payload(segmentos, mapeamento, **extras)
     _escrever_json_atomico(Path(path), dados)
     return "rev-1"
 
@@ -92,6 +93,9 @@ def salvar_segmentos(
 def montar_payload(
     segmentos: Sequence[SegmentoResultado | Mapping],
     mapeamento: Mapping | None = None,
+    *,
+    transcricao_meet: Sequence[Mapping] | None = None,
+    lacunas_meet: Sequence[Mapping] | None = None,
 ) -> dict:
     """Monta o canônico em memória para persistência aberta ou cifrada."""
     serializados = []
@@ -132,6 +136,11 @@ def montar_payload(
         "mapeamento": dict(mapeamento or {}),
         "historico": [],
     }
+    # T-15.C4: só entram quando existem; resultados antigos seguem idênticos.
+    if transcricao_meet:
+        dados["transcricao_meet"] = [dict(b) for b in transcricao_meet]
+    if lacunas_meet:
+        dados["lacunas_meet"] = [dict(b) for b in lacunas_meet]
     return dados
 
 
@@ -162,6 +171,17 @@ def sem_palavras(dados: dict) -> dict:
     """Cópia para leitura na Central: palavras só servem ao alinhamento no worker."""
     return {**dados, "segmentos": [{k: v for k, v in seg.items() if k != "words"}
                                    for seg in dados.get("segmentos") or []]}
+
+
+def _blocos_meet_validos(blocos: object) -> bool:
+    if not isinstance(blocos, list):
+        return False
+    return all(
+        isinstance(b, dict) and type(b.get("inicio_ms")) is int and type(b.get("fim_ms")) is int
+        and 0 <= b["inicio_ms"] <= b["fim_ms"] and isinstance(b.get("nome"), str)
+        and isinstance(b.get("texto"), str)
+        for b in blocos
+    )
 
 
 def carregar_segmentos(path: Path) -> dict:
@@ -195,6 +215,9 @@ def validar_dados_segmentos(dados: object) -> dict:
             or ("words" in seg and not _palavras_validas(seg["words"]))
         ):
             raise ValueError("segmento estruturado inválido")
+    for chave in ("transcricao_meet", "lacunas_meet"):
+        if chave in dados and not _blocos_meet_validos(dados[chave]):
+            raise ValueError("transcrição do Meet inválida")
     dados.setdefault("mapeamento", {})
     dados.setdefault("historico", [])
     return dados
@@ -222,13 +245,27 @@ def _nome_do_segmento(seg: Mapping, mapeamento: Mapping) -> str | None:
     return _nome_para_cluster(mapeamento, str(seg.get("speaker_cluster_id", ""))) if automatico else None
 
 
-def exportar_txt(segmentos: Sequence[Mapping], mapeamento: Mapping) -> str:
-    """TXT derivado do canônico: mesma ordem, texto, tempo e nome."""
+def exportar_txt(segmentos: Sequence[Mapping], mapeamento: Mapping,
+                 lacunas: Sequence[Mapping] | None = None) -> str:
+    """TXT derivado do canônico: mesma ordem, texto, tempo e nome.
+
+    T-15.C4: lacunas (legenda sem Whisper) entram na ordem do tempo, marcadas.
+    """
     linhas = [
         format_segment_txt(int(seg["start_ms"]), _nome_do_segmento(seg, mapeamento), str(seg.get("text", "")))
         for seg in segmentos
     ]
+    if lacunas:
+        itens = [(int(seg["start_ms"]), 0, linha) for seg, linha in zip(segmentos, linhas)]
+        itens += [(int(b["inicio_ms"]), 1, format_segment_txt(
+            int(b["inicio_ms"]), f"[legenda do Meet] {b['nome']}", str(b["texto"]))) for b in lacunas]
+        linhas = [linha for _, _, linha in sorted(itens, key=lambda i: (i[0], i[1]))]
     return "\n".join(linhas) + ("\n" if linhas else "")
+
+
+def exportar_txt_resultado(dados: Mapping) -> str:
+    """TXT do resultado inteiro, com as lacunas da transcrição do Meet."""
+    return exportar_txt(dados["segmentos"], dados.get("mapeamento", {}), dados.get("lacunas_meet"))
 
 
 def aplicar_correcao(
