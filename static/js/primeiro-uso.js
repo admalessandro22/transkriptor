@@ -42,6 +42,7 @@ function mostrarOllama(dados) {
   $('pu-baixar').textContent = `Baixar ${sugerido.id} (~${sugerido.tamanho_gb} GB, indicado para este computador)`;
   $('pu-baixar').dataset.modelo = sugerido.id;
   $('pu-iniciar').hidden = o.estado !== 'parado';
+  $('pu-instalar').href = o.pagina_instalacao;
   $('pu-instalar').hidden = o.estado !== 'nao_instalado';
 }
 
